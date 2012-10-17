@@ -1,0 +1,28 @@
+stages:
+  - precheck
+  - test
+  - build
+
+Check-For-Black:
+  stage: precheck
+  image: black
+  script:
+    - cd $CI_PROJECT_DIR
+    - black --check src/
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      changes:
+        - src/
+
+Check-HLA-Modified-Dates:
+  stage: precheck
+  image: python:3.7-slim
+  script:
+    - cd $CI_PROJECT_DIR
+    - pip install typer
+    - python src/easyhla/check_date_modified.py check-dates
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      changes:
+        - src/*.csv
+        - src/*.mtime
