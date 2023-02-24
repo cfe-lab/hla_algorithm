@@ -2,6 +2,19 @@
 This script checks whether our HLA standards have been modified.
 
 This is intended to be used as part of our CI pipeline.
+
+For available commands use `python check_date_modified.py --help`
+
+---
+
+For CI purposes we just need `python check_date_modified.py check-dates`
+
+---
+
+If you need to update the HLA references, perform
+`python check_date_modified.py update-last-recorded-mtime`, this will prompt you
+to confirm whether you want to replace the contents of the `hla_nuc.fasta.mtime`
+file.
 """
 
 
@@ -85,7 +98,10 @@ def _update_last_recorded_mtime(confirm: bool) -> None:
 
 @app.command()
 def update_last_recorded_mtime():
-    confirm = typer.confirm('Are you sure you want to update the last recorded date modified?', abort=True)
+    confirm = typer.confirm(
+        'Are you sure you want to update the last recorded'
+        'date modified? This will replace the contents of hla_nuc.fasta.mtime',
+        abort=True)
     return _update_last_recorded_mtime(confirm)
 
 def _check_dates() -> bool:
@@ -94,7 +110,8 @@ def _check_dates() -> bool:
     """
     latest_file_date = int(_get_latest_mtime().strftime('%Y%m%d'))
     last_recorded_date = int(_get_last_recorded_mtime().strftime('%Y%m%d'))
-    # print(latest_file_date, last_recorded_date)
+    print("Last Modified Date:", latest_file_date)
+    print("Last Recorded Date:", last_recorded_date)
     if latest_file_date == last_recorded_date:
         return True
     return False
