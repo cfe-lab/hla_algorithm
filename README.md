@@ -1,5 +1,9 @@
 # pyEasyHLA
 
+[![pipeline status](https://git-int.cfenet.ubc.ca/drickett/pyeasyhla/badges/main/pipeline.svg)](https://git-int.cfenet.ubc.ca/drickett/pyeasyhla/-/commits/main)
+[![coverage report](https://git-int.cfenet.ubc.ca/drickett/pyeasyhla/badges/main/coverage.svg)](https://git-int.cfenet.ubc.ca/drickett/pyeasyhla/-/commits/main)
+[![Latest Release](https://git-int.cfenet.ubc.ca/drickett/pyeasyhla/-/badges/release.svg)](https://git-int.cfenet.ubc.ca/drickett/pyeasyhla/-/releases)
+
 [[_TOC_]]
 
 ## Objective
