@@ -1,0 +1,67 @@
+[tool.black]
+line-length = 88
+target-version = ['py37', 'py38']
+include = '\.pyi?$'
+
+[build-system]
+requires = ["hatchling>=1.8.0", "hatch-vcs", "hatch-fancy-pypi-readme"]
+build-backend = "hatchling.build"
+
+[project]
+name = "easyhla"
+description = "Python implementation of Easy HLA Classifiers"
+requires-python = ">=3.7"
+authors = [
+  { name = "Rosemary ?", email = "retired" },
+  { name = "David Rickett", email = "drickett@bccfe.ca" },
+]
+keywords = [
+  "automation",
+  "autopep8",
+  "formatter",
+  "gofmt",
+  "pyfmt",
+  "rustfmt",
+  "yapf",
+]
+dependencies = [
+  "biopython>=1.81",
+  "typer>=0.7.0"
+]
+dynamic = ["readme", "version"]
+
+[project.urls]
+Changelog = "https://git-int.cfenet.ubc.ca/drickett/pyeasyhla/blob/main/CHANGES.md"
+Homepage = "https://git-int.cfenet.ubc.ca/drickett/pyeasyhla"
+
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+fragments = [
+  { path = "README.md" },
+  { path = "CHANGES.md" },
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build]
+version-file = "src/_easyhla_version.py"
+template = '''
+version = "{version}"
+'''
+include = [
+  "src/easyhla/*.py",
+  "src/easyhla/*.csv",
+  "src/easyhla/hla_nuc.fasta.mtime",
+  "tests",
+]
+exclude = [
+    "tests/input_data/*",
+    "tests/output_data/*",
+    "src/easyhla/check_date_modified.py"
+]
+
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers"
+xfail_strict = true
