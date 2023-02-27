@@ -4,6 +4,7 @@ import typer
 import logging
 from datetime import datetime
 from typing import List, Optional, Dict, Literal, Tuple, Any, Union
+from operator import itemgetter, attrgetter
 
 import Bio.SeqIO
 
@@ -442,7 +443,9 @@ class EasyHLA:
                     freq = 0
                 a.append(freq)
 
-            max_allele = sorted(collection_ambig, key=lambda allele: allele[2])
+            # TODO: Implement like the following commented ruby
+            # Easier if we made things a model.
+            max_allele = sorted(collection_ambig, key=itemgetter(2))
 
             # Try to find the allele occuring the maximum number of times. If it's a tie,
             # just pick the alphabetically first one.

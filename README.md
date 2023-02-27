@@ -13,3 +13,7 @@ This is a python implementation of [BBLab's hla-easy.rb](https://github.com/cfe-
 ## Testing
 
 The current validation method is to go to the [BBLab HLA Class tool page](https://hivresearchtools.bccfe.ca/django/tools/hla_class/), upload [test.fasta](https://github.com/cfe-lab/bblab-server/blob/main/tests/test.fasta) in `HLA Type C`, and assert that its output matches [the output kept in version control](https://github.com/cfe-lab/bblab-server/blob/main/tests/hla_class/HLA-C%20batch%20mode%20test%20data%20OUTPUT.csv).
+
+## TODO
+
+<https://waylonwalker.com/hatch-version/>

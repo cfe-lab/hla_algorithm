@@ -26,6 +26,7 @@ classifiers = [
 ]
 dependencies = [
   "biopython",
+  "pydantic",
   "typer"
 ]
 
@@ -54,6 +55,7 @@ directory = "output"
 [tool.hatch.envs.default]
 dependencies = [
   "biopython",
+  "pydantic",
   "typer"
 ]
 
