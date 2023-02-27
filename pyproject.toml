@@ -84,8 +84,8 @@ python = ["37", "38", "39", "310", "311"]
 branch = true
 parallel = true
 omit = [
-  "src/easyhla/__about__.py",
-  "src/easyhla/check_date_modified.py"
+  "easyhla/__about__.py",
+  "easyhla/check_date_modified.py"
 ]
 
 [tool.coverage.report]
