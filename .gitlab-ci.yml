@@ -42,5 +42,5 @@ Check-HLA-Modified-Dates:
     - if: $CI_JOB_MANUAL
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       changes:
-        - src/*.csv
-        - src/*.mtime
+        - src/**/*.csv
+        - src/**/*.mtime

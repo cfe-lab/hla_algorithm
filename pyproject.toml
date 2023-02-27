@@ -86,7 +86,6 @@ parallel = true
 omit = [
   "src/easyhla/__about__.py",
   "src/easyhla/check_date_modified.py",
-  "**/__init__.py
 ]
 
 [tool.coverage.report]

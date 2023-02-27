@@ -65,7 +65,8 @@ class EasyHLA:
     #     "N",  # => 0b1111
     # ]
     NUC2BIN: Dict[str, int] = {
-        k: sum([PURENUC2BIN[nuc] for nuc in v]) for k, v in AMBIG.items()
+        k: sum([{nuc: 2**i for i, nuc in enumerate("ACGT")}[nuc] for nuc in v])
+        for k, v in AMBIG.items()
     }
     BIN2NUC: Dict[int, str] = {v: k for k, v in NUC2BIN.items()}
 
@@ -233,23 +234,36 @@ class EasyHLA:
 
         return result.sort()
 
-    def load_hla_frequencies(
-        self, letter: Literal["A", "B", "C"]
-    ) -> Dict[List[List[str]], int]:
-        hla_freqs: Dict[List[List[str]], int] = {}
-        with open("hla_frequencies.csv", "r", encoding="utf-8") as f:
+    def load_hla_frequencies(self, letter: Literal["A", "B", "C"]) -> Dict[str, int]:
+        hla_freqs: Dict[str, int] = {}
+        filepath = os.path.join(
+            os.path.dirname(__file__), f"hla_{letter.lower()}_std_reduced.csv"
+        )
+
+        with open(filepath, "r", encoding="utf-8") as f:
             for line in f.readlines():
                 column_id = EasyHLA.COLUMN_IDS[letter]
                 l = line.strip().split(",")[column_id : column_id + 2]
-                _l = [[a[:2], a[-2:]] for a in l]
-                if hla_freqs[_l] is None:
+                _l = ",".join([f"{a[:2]}|{a[-2:]}" for a in l])
+                if hla_freqs.get(_l, None) is None:
                     hla_freqs[_l] = 0
                 hla_freqs[_l] += 1
         return hla_freqs
 
+    # TODO: Convert this to a dictionary instead of a object that looks like:
+    # [ [allele_name, [1,2,3,4,5]], [allele_name2, [2,5,2,5,4]] ]
     def load_hla_stds(self, letter: Literal["A", "B", "C"]) -> List[List[Any]]:
         hla_stds = []
-        with open(f"hla_{letter.lower()}_std_reduced.csv", "r", encoding="utf-8") as f:
+
+        filepath = os.path.join(
+            os.path.dirname(__file__), f"hla_{letter.lower()}_std_reduced.csv"
+        )
+
+        with open(
+            filepath,
+            "r",
+            encoding="utf-8",
+        ) as f:
             for line in f.readlines():
                 l = line.strip().split(",")
                 allele = l[0]
