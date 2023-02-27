@@ -1,67 +1,96 @@
-[tool.black]
-line-length = 88
-target-version = ['py37', 'py38']
-include = '\.pyi?$'
-
 [build-system]
-requires = ["hatchling>=1.8.0", "hatch-vcs", "hatch-fancy-pypi-readme"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
 name = "easyhla"
-description = "Python implementation of Easy HLA Classifiers"
+description = ''
+readme = "README.md"
 requires-python = ">=3.7"
+license = "MIT"
+keywords = []
 authors = [
-  { name = "Rosemary ?", email = "retired" },
+  { name = "Rosemary ?", email = "retired@bccfe.ca" },
   { name = "David Rickett", email = "drickett@bccfe.ca" },
 ]
-keywords = [
-  "automation",
-  "autopep8",
-  "formatter",
-  "gofmt",
-  "pyfmt",
-  "rustfmt",
-  "yapf",
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-  "biopython>=1.81",
-  "typer>=0.7.0"
+  "biopython",
+  "typer"
 ]
-dynamic = ["readme", "version"]
+
+dynamic = ["version"]
 
 [project.urls]
-Changelog = "https://git-int.cfenet.ubc.ca/drickett/pyeasyhla/blob/main/CHANGES.md"
-Homepage = "https://git-int.cfenet.ubc.ca/drickett/pyeasyhla"
-
-[tool.hatch.metadata.hooks.fancy-pypi-readme]
-content-type = "text/markdown"
-fragments = [
-  { path = "README.md" },
-  { path = "CHANGES.md" },
-]
+Documentation = "https://github.com/unknown/easyhla#readme"
+Issues = "https://github.com/unknown/easyhla/issues"
+Source = "https://github.com/unknown/easyhla"
 
 [tool.hatch.version]
-source = "vcs"
+path = "easyhla/__about__.py"
 
 [tool.hatch.build]
-version-file = "src/_easyhla_version.py"
-template = '''
-version = "{version}"
-'''
 include = [
-  "src/easyhla/*.py",
-  "src/easyhla/*.csv",
-  "src/easyhla/hla_nuc.fasta.mtime",
-  "tests",
+  "easyhla/*.py",
+  "easyhla/*.csv",
+  "easyhla/hla_nuc.fasta.mtime",
 ]
 exclude = [
-    "tests/input_data/*",
-    "tests/output_data/*",
-    "src/easyhla/check_date_modified.py"
+  "easyhla/check_date_modified.py",
+]
+skip-excluded-dirs = true
+directory = "output"
+
+[tool.hatch.envs.default]
+dependencies = [
+  "biopython",
+  "typer"
 ]
 
+[tool.hatch.envs.test]
+template = "default"
+extra-dependencies = [
+  "pytest",
+  "pytest-cov",
+  "pytest-html",
+  "pytest-mock",
+]
 
-[tool.pytest.ini_options]
-addopts = "--strict-config --strict-markers"
-xfail_strict = true
+[tool.hatch.envs.dev]
+template = "test"
+extra-dependencies = [
+  "black",
+  "mypy-extensions"
+]
+
+[tool.hatch.envs.test.scripts]
+cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=easyhla --cov=tests {args}"
+no-cov = "cov --no-cov {args}"
+
+[[tool.hatch.envs.test.matrix]]
+python = ["37", "38", "39", "310", "311"]
+
+[tool.coverage.run]
+branch = true
+parallel = true
+omit = [
+  "src/easyhla/__about__.py",
+  "src/easyhla/check_date_modified.py"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
