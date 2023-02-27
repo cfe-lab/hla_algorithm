@@ -367,7 +367,7 @@ class EasyHLA:
                     if not cons[0][i] in mishash[i]:
                         mishash[i].append(cons[0][i])
 
-        mislist: List[List[int]] = []
+        mislist: List[str] = []
 
         for m in mishash:
             if letter == "A" and m[0] > 270:
@@ -386,7 +386,8 @@ class EasyHLA:
 
         # mislist = mislist.sort_by{|b| b.split(":")[0].to_i}
         # mismatches = mislist.join(";")
-        mislist = mislist.sort()
+        mislist.sort()
+        [int(b.split(":")[0]) for b in mislist]
         mismatches = ";".join(mislist)
 
         # Clean the alleles
@@ -471,10 +472,12 @@ class EasyHLA:
             for a in alleles:
                 alleles_all.append(f"{a} - {a}")
 
-        alleles_all = ";".join(alleles_all)
+        alleles_all_str = ";".join(alleles_all)
 
-        if len(alleles_all) > 3900:
-            alleles_all = re.replace(r";[^;]+$", ";...TRUNCATED", alleles_all[:3920])
+        if len(alleles_all_str) > 3900:
+            alleles_all_str = re.sub(
+                r";[^;]+$", ";...TRUNCATED", alleles_all_str[:3920]
+            )
 
         nseqs = 1
         if is_exon:
@@ -483,7 +486,7 @@ class EasyHLA:
         row = [
             samp,
             clean_allele,
-            alleles_all,
+            alleles_all_str,
             ambig,
             homozygous,
             mismatch_count,
@@ -501,14 +504,15 @@ class EasyHLA:
         threshold: Optional[float] = None,
     ):
         rows = []
-        unmatched = []
         npats = 0
         nseqs = 0
         with open(filename, "r", encoding="utf-8") as f:
             fasta = Bio.SeqIO.parse(f, "fasta")
             for entry in fasta:
                 result = self.parse(
-                    letter, entry, threshold=threshold, unmatched=unmatched
+                    letter,
+                    entry,
+                    threshold=threshold,
                 )
                 if not result:
                     continue
