@@ -1,3 +1,14 @@
+variables:
+  PYTHON_VERSION:
+    value: "3.7"
+    options:
+      - "3.7"
+      - "3.8"
+      - "3.9"
+      - "3.10"
+      - "3.11"
+    description: Python version to use
+
 stages:
   - precheck
   - test
@@ -17,10 +28,13 @@ Check-For-Black:
 
 Check-HLA-Modified-Dates:
   stage: precheck
-  image: python:3.7-slim
+  image: python:${PYTHON_VERSION}-slim
+  before_script:
+    - apt update
+    - apt install git-restore-mtime -y --no-install-recommends
+    - pip install typer
   script:
     - cd $CI_PROJECT_DIR
-    - pip install typer
     - python src/easyhla/check_date_modified.py check-dates
   allow_failure: false
   rules:
