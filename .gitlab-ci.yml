@@ -22,9 +22,10 @@ Check-For-Black:
     - black --check src/
   allow_failure: false
   rules:
+    - if: $CI_JOB_MANUAL
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       changes:
-        - src/
+        - src/**/*.py
 
 Check-HLA-Modified-Dates:
   stage: precheck
@@ -38,6 +39,7 @@ Check-HLA-Modified-Dates:
     - python src/easyhla/check_date_modified.py check-dates
   allow_failure: false
   rules:
+    - if: $CI_JOB_MANUAL
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       changes:
         - src/*.csv

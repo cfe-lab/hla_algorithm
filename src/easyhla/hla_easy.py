@@ -3,7 +3,7 @@ import re
 import typer
 import logging
 from datetime import datetime
-from typing import List, Optional, Dict, Literal, Tuple, Any
+from typing import List, Optional, Dict, Literal, Tuple, Any, Union
 
 import Bio.SeqIO
 
@@ -30,8 +30,12 @@ class EasyHLA:
         "M": ["A", "C"],
         "S": ["C", "G"],
         "W": ["A", "T"],
+        "V": ["C", "G", "T"],
+        "H": ["A", "G", "T"],
+        "D": ["A", "C", "T"],
+        "B": ["A", "C", "G"],
+        "N": ["A", "C", "G", "T"],
     }
-    REVERSE_AMBIG: Dict[List[str], str] = {v: k for k, v in AMBIG.items()}
 
     # Thanks to binary logic, we encode nucleotide positions as a 4 bit number
     # the first position 000a represents 'A',
@@ -40,25 +44,29 @@ class EasyHLA:
     # the fourth position a000 represents 'T'
     # We can then perform binary ORs, XORs, and ANDs, to check whether or not
     # a mixture contains a specific nucleotide.
-    LISTOFNUCS: List[str] = [
-        "A",  # => 0b0001,
-        "C",  # => 0b0010,
-        "G",  # => 0b0100,
-        "T",  # => 0b1000,
-        "M",  # => 0b0011,
-        "R",  # => 0b0101,
-        "W",  # => 0b1001,
-        "S",  # => 0b0110,
-        "Y",  # => 0b1010,
-        "K",  # => 0b1100,
-        "V",  # => 0b1110,
-        "H",  # => 0b1101,
-        "D",  # => 0b1011,
-        "B",  # => 0b0111,
-        "N",  # => 0b1111
-    ]
+    PURENUC2BIN: Dict[str, int] = {nuc: 2**i for i, nuc in enumerate("ACGT")}
+
     # Nucleotides converted to their binary representation
-    NUC2BIN: Dict[str, int] = {nuc: i + 1 for i, nuc in enumerate(LISTOFNUCS)}
+    # LISTOFNUCS: List[str] = [
+    #     "A",  # => 0b0001,
+    #     "C",  # => 0b0010,
+    #     "G",  # => 0b0100,
+    #     "T",  # => 0b1000,
+    #     "M",  # => 0b0011,
+    #     "R",  # => 0b0101,
+    #     "W",  # => 0b1001,
+    #     "S",  # => 0b0110,
+    #     "Y",  # => 0b1010,
+    #     "K",  # => 0b1100,
+    #     "V",  # => 0b1110,
+    #     "H",  # => 0b1101,
+    #     "D",  # => 0b1011,
+    #     "B",  # => 0b0111,
+    #     "N",  # => 0b1111
+    # ]
+    NUC2BIN: Dict[str, int] = {
+        k: sum([PURENUC2BIN[nuc] for nuc in v]) for k, v in AMBIG.items()
+    }
     BIN2NUC: Dict[int, str] = {v: k for k, v in NUC2BIN.items()}
 
     COLUMN_IDS: Dict[str, int] = {"A": 0, "B": 2, "C": 4}
@@ -159,8 +167,8 @@ class EasyHLA:
 
     def get_matching_stds(
         self, seq: List[int], hla_stds: List[List[Any]]
-    ) -> List[List[str]]:
-        matching_stds: List[List[str]] = []
+    ) -> List[List[Union[str, int]]]:
+        matching_stds: List[List[Union[str, int]]] = []
         for std in hla_stds:
             allele, std_seq = std
             mismatches = self.std_match(std_seq, seq)
@@ -170,7 +178,7 @@ class EasyHLA:
         return matching_stds
 
     def combine_stds(
-        self, matching_stds: List[List[Any]], seq: List[int], threshold: Optional[float]
+        self, matching_stds: List[List[Any]], seq: List[int], threshold: Optional[int]
     ) -> Any:
         alleles_hash = {}
         length = len(matching_stds[0][1])
@@ -181,7 +189,7 @@ class EasyHLA:
         else:
             tmp_threshold = threshold
 
-        combos = {}
+        combos: Dict[Any, Any] = {}
 
         for std_ai, std_a in enumerate(matching_stds):
             if std_a[2] > max(min, tmp_threshold):
@@ -252,11 +260,11 @@ class EasyHLA:
     def load_allele_definitions_last_modified_time(self) -> datetime:
         return datetime.fromtimestamp(os.path.getmtime("hla_nuc.fasta.mtime"))
 
-    def parse(
+    def interpret(
         self,
         letter: Literal["A", "B", "C"],
         entry: Bio.SeqIO.SeqRecord,
-        threshold: Optional[float] = None,
+        threshold: Optional[int] = None,
     ) -> Optional[Tuple[str, int, int]]:
         samp = entry.description
 
@@ -369,7 +377,7 @@ class EasyHLA:
 
         mislist: List[str] = []
 
-        for m in mishash:
+        for m in mishash.values():
             if letter == "A" and m[0] > 270:
                 dex = m[0] + 241
             else:
@@ -419,6 +427,8 @@ class EasyHLA:
                 if not freq:
                     freq = 0
                 a.append(freq)
+
+            max_allele = sorted(collection_ambig, key=lambda allele: allele[2])
 
             # Try to find the allele occuring the maximum number of times. If it's a tie,
             # just pick the alphabetically first one.
@@ -501,7 +511,7 @@ class EasyHLA:
         self,
         letter: Literal["A", "B", "C"],
         filename: str,
-        threshold: Optional[float] = None,
+        threshold: Optional[int] = None,
     ):
         rows = []
         npats = 0
@@ -509,7 +519,7 @@ class EasyHLA:
         with open(filename, "r", encoding="utf-8") as f:
             fasta = Bio.SeqIO.parse(f, "fasta")
             for entry in fasta:
-                result = self.parse(
+                result = self.interpret(
                     letter,
                     entry,
                     threshold=threshold,
