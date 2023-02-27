@@ -37,16 +37,16 @@ Issues = "https://github.com/unknown/easyhla/issues"
 Source = "https://github.com/unknown/easyhla"
 
 [tool.hatch.version]
-path = "easyhla/__about__.py"
+path = "src/easyhla/__about__.py"
 
 [tool.hatch.build]
 include = [
-  "easyhla/*.py",
-  "easyhla/*.csv",
-  "easyhla/hla_nuc.fasta.mtime",
+  "src/easyhla/*.py",
+  "src/easyhla/*.csv",
+  "src/easyhla/hla_nuc.fasta.mtime",
 ]
 exclude = [
-  "easyhla/check_date_modified.py",
+  "src/easyhla/check_date_modified.py",
 ]
 skip-excluded-dirs = true
 directory = "output"
@@ -74,7 +74,7 @@ extra-dependencies = [
 ]
 
 [tool.hatch.envs.test.scripts]
-cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=easyhla --cov=tests {args}"
+cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=src/easyhla --cov=tests {args}"
 no-cov = "cov --no-cov {args}"
 
 [[tool.hatch.envs.test.matrix]]
@@ -84,8 +84,9 @@ python = ["37", "38", "39", "310", "311"]
 branch = true
 parallel = true
 omit = [
-  "easyhla/__about__.py",
-  "easyhla/check_date_modified.py"
+  "src/easyhla/__about__.py",
+  "src/easyhla/check_date_modified.py",
+  "**/__init__.py
 ]
 
 [tool.coverage.report]
