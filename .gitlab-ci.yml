@@ -44,3 +44,24 @@ Check-HLA-Modified-Dates:
       changes:
         - src/**/*.csv
         - src/**/*.mtime
+
+Unit-Tests:
+  image: python:${PYTHON_VERSION}-slim
+  before_script:
+    - pip install hatch
+  script:
+    - hatch env run --env test cov
+  parallel:
+    matrix:
+      - PYTHON_VERSION:
+          - 3.7
+          - 3.8
+          - 3.9
+          - 3.10
+          - 3.11
+  artifacts:
+    reports:
+      junit: unit_test.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml

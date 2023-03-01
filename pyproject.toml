@@ -71,16 +71,29 @@ extra-dependencies = [
 [tool.hatch.envs.dev]
 template = "test"
 extra-dependencies = [
+  "pytest",
+  "pytest-cov",
+  "pytest-html",
+  "pytest-mock",
   "black",
   "mypy-extensions"
 ]
 
 [tool.hatch.envs.test.scripts]
 cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=src/easyhla --cov=tests {args}"
+cov-report = "pytest --cov-report xml --cov-config=pyproject.toml --cov=src/easyhla --cov=tests {args}"
+full-report = "pytest --junitxml=unit_test.xml --cov-report xml:coverage.xml --cov-config=pyproject.toml --cov=src/easyhla --cov=tests {args}"
 no-cov = "cov --no-cov {args}"
 
 [[tool.hatch.envs.test.matrix]]
 python = ["37", "38", "39", "310", "311"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra --cov --cov-report xml"
+testpaths = [
+    "tests",
+]
 
 [tool.coverage.run]
 branch = true
