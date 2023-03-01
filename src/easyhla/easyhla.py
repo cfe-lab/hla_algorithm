@@ -8,6 +8,8 @@ from operator import itemgetter, attrgetter
 
 import Bio.SeqIO
 
+DATE_FORMAT = "%a %b %d %H:%M:%S %Z %Y"
+
 
 class EasyHLA:
     HLA_A_LENGTH: int = 787
@@ -74,6 +76,7 @@ class EasyHLA:
     COLUMN_IDS: Dict[str, int] = {"A": 0, "B": 2, "C": 4}
 
     def __init__(self, letter: Literal["A", "B", "C"]):
+        self.letter: Literal["A", "B", "C"] = letter
         self.hla_stds = self.load_hla_stds(letter=letter)
         self.hla_freqs = self.load_hla_frequencies(letter=letter)
 
@@ -106,7 +109,7 @@ class EasyHLA:
         return True
 
     def check_bases(self, seq: str, name: str) -> bool:
-        if re.match(r"(?i)^[atgcrykmswnbdhv]+$", seq):
+        if not re.match(r"(?i)^[atgcrykmswnbdhv]+$", seq):
             raise ValueError(f"Sequence {name} has invalid characters")
         return True
 
@@ -121,7 +124,7 @@ class EasyHLA:
         pad = len(std) - len(seq)
         left_pad = 0
         for i in range(pad):
-            pseq = self.nuc2bin("n" * i) + seq + self.nuc2bin("n" * (pad - i))
+            pseq = self.nuc2bin("N" * i) + seq + self.nuc2bin("N" * (pad - i))
             mismatches = self.std_match(std, pseq)
             if mismatches < best:
                 best = mismatches
@@ -136,6 +139,7 @@ class EasyHLA:
         name: str,
         hla_stds: List[Any],
     ) -> List[int]:
+        # hla_stds expects [ ["label0", [1,2,3,4]], ["label1", [2,3,4,5]] ]
         std = None
         has_intron = False
         if "exon2" in name.lower():
@@ -157,7 +161,7 @@ class EasyHLA:
         else:
             left_pad, right_pad = self.calc_padding(std, seq)
 
-        return self.nuc2bin("n" * left_pad) + seq + self.nuc2bin("n" * right_pad)
+        return self.nuc2bin("N" * left_pad) + seq + self.nuc2bin("N" * right_pad)
 
     def std_match(self, std: List[int], seq: List[int]) -> int:
         mismatches = 0
@@ -273,7 +277,10 @@ class EasyHLA:
         return hla_stds
 
     def load_allele_definitions_last_modified_time(self) -> datetime:
-        return datetime.fromtimestamp(os.path.getmtime("hla_nuc.fasta.mtime"))
+        filename = os.path.join(os.path.dirname(__file__), "hla_nuc.fasta.mtime")
+        with open(filename, "r", encoding="utf-8") as f:
+            last_mod_date = "".join(f.readlines()).strip()
+        return datetime.strptime(last_mod_date, DATE_FORMAT)
 
     def interpret(
         self,
