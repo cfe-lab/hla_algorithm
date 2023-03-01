@@ -83,7 +83,7 @@ extra-dependencies = [
 cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=src/easyhla --cov=tests {args}"
 cov-report = "pytest --cov-report xml --cov-config=pyproject.toml --cov=src/easyhla --cov=tests {args}"
 ci-report = "pytest --junitxml=unit_test.xml --cov-report xml:coverage.xml --cov-config=pyproject.toml --cov=src/easyhla --cov=tests {args}"
-full-report = "pytest --junitxml=unit_test.xml --cov-report xml:coverage.xml --cov-report html --html-report report.html --cov-config=pyproject.toml --cov=src/easyhla --cov=tests {args}"
+full-report = "pytest --junitxml=unit_test.xml --html=easyhla_test_report.html --self-contained-html --cov-report xml:coverage.xml --cov-report html --cov-config=pyproject.toml --cov=src/easyhla --cov=tests {args}"
 no-cov = "cov --no-cov {args}"
 
 [[tool.hatch.envs.test.matrix]]

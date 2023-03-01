@@ -8,6 +8,8 @@ from operator import itemgetter, attrgetter
 
 import Bio.SeqIO
 
+from .models import HLAStandard, HLAStandardMatch
+
 DATE_FORMAT = "%a %b %d %H:%M:%S %Z %Y"
 
 
@@ -137,18 +139,18 @@ class EasyHLA:
         letter: Literal["A", "B", "C"],
         seq: List[int],
         name: str,
-        hla_stds: List[Any],
+        hla_std: HLAStandard,
     ) -> List[int]:
         # hla_stds expects [ ["label0", [1,2,3,4]], ["label1", [2,3,4,5]] ]
         std = None
         has_intron = False
         if "exon2" in name.lower():
-            std = hla_stds[0][1][: EasyHLA.EXON2_LENGTH]
+            std = hla_std.sequence[: EasyHLA.EXON2_LENGTH]
         elif "exon3" in name.lower():
-            std = hla_stds[0][1][EasyHLA.EXON2_LENGTH : EasyHLA.EXON3_LENGTH]
+            std = hla_std.sequence[EasyHLA.EXON2_LENGTH : EasyHLA.EXON3_LENGTH]
         else:
             has_intron = True
-            std = hla_stds[0][1]
+            std = hla_std.sequence
 
         if has_intron:
             left_pad, _ = self.calc_padding(
@@ -172,22 +174,29 @@ class EasyHLA:
         return mismatches
 
     def get_matching_stds(
-        self, seq: List[int], hla_stds: List[List[Any]]
-    ) -> List[List[Union[str, int]]]:
-        matching_stds: List[List[Union[str, int]]] = []
+        self, seq: List[int], hla_stds: List[HLAStandard]
+    ) -> List[HLAStandardMatch]:
+        # Returns [ ["std_name", [1,2,3,4], num_mismatches], ["std_name2", [2,3,4,5], num_mismatches2]]
+        matching_stds: List[HLAStandardMatch] = []
         for std in hla_stds:
-            allele, std_seq = std
-            mismatches = self.std_match(std_seq, seq)
+            mismatches = self.std_match(std.sequence, seq)
             if mismatches < 5:
-                matching_stds.append([allele, std_seq, mismatches])
+                matching_stds.append(
+                    HLAStandardMatch(
+                        allele=std.allele, sequence=std.sequence, mismatch=mismatches
+                    )
+                )
 
         return matching_stds
 
     def combine_stds(
-        self, matching_stds: List[List[Any]], seq: List[int], threshold: Optional[int]
+        self,
+        matching_stds: List[HLAStandardMatch],
+        seq: List[int],
+        threshold: Optional[int],
     ) -> Any:
         alleles_hash = {}
-        length = len(matching_stds[0][1])
+        length = len(matching_stds[0].sequence)
 
         min = 9999
         if threshold is None:
@@ -198,22 +207,24 @@ class EasyHLA:
         combos: Dict[Any, Any] = {}
 
         for std_ai, std_a in enumerate(matching_stds):
-            if std_a[2] > max(min, tmp_threshold):
+            # matching_stds = [ [name, sequence[], threshold] ]
+            if std_a.mismatch > max(min, tmp_threshold):
                 continue
             for std_bi, std_b in enumerate(matching_stds):
                 if std_ai < std_bi:
                     break
-                if std_b[2] > max(min, tmp_threshold):
+                if std_b.mismatch > max(min, tmp_threshold):
                     continue
 
                 std = []
+                # Ruby allows lists as keys in hashes, python doesn't
 
                 mismatches = 0
                 for i in range(length):
-                    if std_b[1][i] == std_a[1][i]:
-                        std.append(std_b[1][i])
+                    if std_b.sequence[i] == std_a.sequence[i]:
+                        std.append(std_b.sequence[i])
                     else:
-                        std.append(std_b[1][i] | std_a[1][i])
+                        std.append(std_b.sequence[i] | std_a.sequence[i])
 
                     if std[i] ^ seq[i] & 15 != 0:
                         mismatches += 1
@@ -221,19 +232,21 @@ class EasyHLA:
                         break
 
                 if mismatches <= max(min, tmp_threshold):
+                    std_name = ",".join(str(std))
                     if mismatches < min:
                         min = mismatches
-                    if combos.get(mismatches, None) is None:
+                    if not mismatches in combos:
                         combos[mismatches] = {}
-                    if combos[mismatches].get(std, None) is None:
-                        combos[mismatches][std] = []
-                    stds = [std_a[0], std_b[0]].sort()
-                    combos[mismatches][std].append(stds)
-
+                    if not std_name in combos[mismatches]:
+                        combos[mismatches][std_name] = []
+                    stds = [std_a.allele, std_b.allele].sort()
+                    combos[mismatches][std_name].append(stds)
+        print(combos)
         result = []
-        for c in combos:
+        for mismatch, standard in combos.items():
+            print(mismatch, standard)
             cur_combo = []
-            for std, allele_list in c[1]:
+            for std, allele_list in standard.items():
                 cur_combo.append([std, allele_list])
             result.append(cur_combo)
 
@@ -257,8 +270,8 @@ class EasyHLA:
 
     # TODO: Convert this to a dictionary instead of a object that looks like:
     # [ [allele_name, [1,2,3,4,5]], [allele_name2, [2,5,2,5,4]] ]
-    def load_hla_stds(self, letter: Literal["A", "B", "C"]) -> List[List[Any]]:
-        hla_stds = []
+    def load_hla_stds(self, letter: Literal["A", "B", "C"]) -> List[HLAStandard]:
+        hla_stds: List[HLAStandard] = []
 
         filepath = os.path.join(
             os.path.dirname(__file__), f"hla_{letter.lower()}_std_reduced.csv"
@@ -273,7 +286,7 @@ class EasyHLA:
                 l = line.strip().split(",")
                 allele = l[0]
                 seq = self.nuc2bin((l[1] + l[2]))
-                hla_stds.append([l[0], seq])
+                hla_stds.append(HLAStandard(allele=l[0], sequence=seq))
         return hla_stds
 
     def load_allele_definitions_last_modified_time(self) -> datetime:
