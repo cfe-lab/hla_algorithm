@@ -50,7 +50,7 @@ Unit-Tests:
   before_script:
     - pip install hatch
   script:
-    - hatch env run --env test cov
+    - hatch env run --env test ci-report
   parallel:
     matrix:
       - PYTHON_VERSION:
