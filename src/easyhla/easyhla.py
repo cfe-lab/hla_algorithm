@@ -3,7 +3,7 @@ import re
 import typer
 import logging
 from datetime import datetime
-from typing import List, Optional, Dict, Literal, Tuple, Any, Union
+from typing import List, Optional, Dict, Tuple, Any
 from operator import itemgetter, attrgetter
 
 import Bio.SeqIO
@@ -77,12 +77,12 @@ class EasyHLA:
 
     COLUMN_IDS: Dict[str, int] = {"A": 0, "B": 2, "C": 4}
 
-    def __init__(self, letter: Literal["A", "B", "C"]):
-        self.letter: Literal["A", "B", "C"] = letter
+    def __init__(self, letter: str):
+        self.letter: str = letter
         self.hla_stds = self.load_hla_stds(letter=letter)
         self.hla_freqs = self.load_hla_frequencies(letter=letter)
 
-    def check_length(self, letter: Literal["A", "B", "C"], seq: str, name: str) -> bool:
+    def check_length(self, letter: str, seq: str, name: str) -> bool:
         error_condition: bool = False
         if name.lower().endswith("short"):
             if letter.upper() == "A":
@@ -136,7 +136,7 @@ class EasyHLA:
 
     def pad_short(
         self,
-        letter: Literal["A", "B", "C"],
+        letter: str,
         seq: List[int],
         name: str,
         hla_std: HLAStandard,
@@ -259,7 +259,7 @@ class EasyHLA:
         result.sort()
         return result
 
-    def load_hla_frequencies(self, letter: Literal["A", "B", "C"]) -> Dict[str, int]:
+    def load_hla_frequencies(self, letter: str) -> Dict[str, int]:
         hla_freqs: Dict[str, int] = {}
         filepath = os.path.join(
             os.path.dirname(__file__), f"hla_{letter.lower()}_std_reduced.csv"
@@ -277,7 +277,7 @@ class EasyHLA:
 
     # TODO: Convert this to a dictionary instead of a object that looks like:
     # [ [allele_name, [1,2,3,4,5]], [allele_name2, [2,5,2,5,4]] ]
-    def load_hla_stds(self, letter: Literal["A", "B", "C"]) -> List[HLAStandard]:
+    def load_hla_stds(self, letter: str) -> List[HLAStandard]:
         hla_stds: List[HLAStandard] = []
 
         filepath = os.path.join(
@@ -304,7 +304,7 @@ class EasyHLA:
 
     def interpret(
         self,
-        letter: Literal["A", "B", "C"],
+        letter: str,
         entry: Bio.SeqIO.SeqRecord,
         threshold: Optional[int] = None,
     ) -> Optional[Tuple[str, int, int]]:
@@ -553,7 +553,7 @@ class EasyHLA:
 
     def run(
         self,
-        letter: Literal["A", "B", "C"],
+        letter: str,
         filename: str,
         threshold: Optional[int] = None,
     ):

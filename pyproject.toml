@@ -100,8 +100,10 @@ testpaths = [
 branch = true
 parallel = true
 omit = [
+  "src/easyhla/__init__.py",
   "src/easyhla/__about__.py",
   "src/easyhla/check_date_modified.py",
+  "tests/__init__.py",
 ]
 
 [tool.coverage.report]
