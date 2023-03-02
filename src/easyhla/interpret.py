@@ -7,7 +7,7 @@ import re
 import typer
 import logging
 from datetime import datetime
-from typing import List, Optional, Dict, Literal, Tuple, Any, Union
+from typing import List, Optional, Dict, Tuple, Any, Union
 from operator import itemgetter, attrgetter
 
 from .easyhla import EasyHLA
@@ -15,11 +15,9 @@ from .models import Exon, HLASequence
 
 import Bio.SeqIO
 
-TYPE_HLA_TYPES = Literal["A", "B", "C"]
-
 
 class EasyHLAInterpreter(EasyHLA):
-    def __init__(self, letter: TYPE_HLA_TYPES):
+    def __init__(self, letter: str):
         self.letter = letter
         self.unmatched_sequences: List[List[Bio.SeqIO.SeqRecord]] = [[], []]
         self.nseqs: int = 0
@@ -33,7 +31,6 @@ class EasyHLAInterpreter(EasyHLA):
     def match_exons(
         self, samp: str, entry: Bio.SeqIO.SeqRecord
     ) -> Optional[Tuple[str, str]]:
-
         is_exon: bool = False
         matched: bool = False
         exon2: str = ""
@@ -124,14 +121,13 @@ class EasyHLAInterpreter(EasyHLA):
     def assemble_mishash(
         self, seq: HLASequence, best_matches: List[List[int]]
     ) -> Dict[int, List[int]]:
-
         mishash: Dict[int, List[Any]] = {}
         for cons in best_matches:
             for i in range(len(cons)):
-                base = EasyHLA.BIN2NUC[seq[i]]
+                base = EasyHLA.BIN2NUC[seq.sequence[i]]
                 if cons[0][i] ^ seq[i] != 0:
                     correct_base = EasyHLA.BIN2NUC[cons[0][i]]
-                    if self.letter == "A" and n > 270:
+                    if self.letter == "A" and i > 270:
                         dex = i + 242
                     else:
                         dex = i + 1

@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from src.easyhla.easyhla import EasyHLA
 from src.easyhla.models import HLAStandard, HLAStandardMatch
-from typing import List, Optional, Dict, Literal, Tuple, Any, Union
+from typing import List, Optional, Dict, Tuple, Any
 
 
 @pytest.fixture(scope="module")
