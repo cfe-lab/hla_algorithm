@@ -59,6 +59,7 @@ Unit-Tests:
           - "3.9"
           - "3.10"
           - "3.11"
+  coverage: '/^TOTAL.+?(\d+\%)$/'
   artifacts:
     reports:
       junit: unit_test.xml

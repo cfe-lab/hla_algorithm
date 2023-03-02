@@ -78,9 +78,11 @@ class EasyHLA:
     COLUMN_IDS: Dict[str, int] = {"A": 0, "B": 2, "C": 4}
 
     def __init__(self, letter: str):
-        self.letter: str = letter
-        self.hla_stds = self.load_hla_stds(letter=letter)
-        self.hla_freqs = self.load_hla_frequencies(letter=letter)
+        if letter.upper() not in ["A", "B", "C"]:
+            raise ValueError("Invalid HLA Type!")
+        self.letter: str = letter.upper()
+        self.hla_stds = self.load_hla_stds(letter=self.letter)
+        self.hla_freqs = self.load_hla_frequencies(letter=self.letter)
 
     def check_length(self, letter: str, seq: str, name: str) -> bool:
         error_condition: bool = False

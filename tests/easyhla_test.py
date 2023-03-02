@@ -1,6 +1,7 @@
 import pytest
 import json
 import os
+from contextlib import nullcontext as does_not_raise
 from pathlib import Path
 from src.easyhla.easyhla import EasyHLA
 from src.easyhla.models import HLAStandard, HLAStandardMatch
@@ -33,6 +34,22 @@ def hla_frequency_file(tmp_path: Path):
     p.write_text("ABCD,1234,ABCD,1234,ABCD,1234")
 
     return str(p)
+
+
+def test_unknown_hla_type():
+    """
+    Assert we raise a value error if we put in an unknown HLA type.
+    """
+    with pytest.raises(ValueError):
+        easyhla = EasyHLA("D")
+
+
+def test_known_hla_type_lowercase():
+    """
+    Assert no error is raised if we put in an HLA type with wrong case.
+    """
+    with does_not_raise():
+        easyhla = EasyHLA("a")
 
 
 @pytest.mark.parametrize("easyhla", ["A"], indirect=True)
