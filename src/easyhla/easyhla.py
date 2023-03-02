@@ -8,7 +8,7 @@ from operator import itemgetter, attrgetter
 
 import Bio.SeqIO
 
-from .models import HLAStandard, HLAStandardMatch
+from .models import HLAStandard, HLAStandardMatch, HLAStandardResult
 
 DATE_FORMAT = "%a %b %d %H:%M:%S %Z %Y"
 
@@ -194,8 +194,7 @@ class EasyHLA:
         matching_stds: List[HLAStandardMatch],
         seq: List[int],
         threshold: Optional[int],
-    ) -> Any:
-        alleles_hash = {}
+    ) -> List[List[HLAStandardResult]]:
         length = len(matching_stds[0].sequence)
 
         min = 9999
@@ -211,6 +210,7 @@ class EasyHLA:
             if std_a.mismatch > max(min, tmp_threshold):
                 continue
             for std_bi, std_b in enumerate(matching_stds):
+                print("comparing", std_a.allele, "vs", std_b.allele)
                 if std_ai < std_bi:
                     break
                 if std_b.mismatch > max(min, tmp_threshold):
@@ -226,31 +226,38 @@ class EasyHLA:
                     else:
                         std.append(std_b.sequence[i] | std_a.sequence[i])
 
-                    if std[i] ^ seq[i] & 15 != 0:
+                    if (std[i] ^ seq[i]) & 15 != 0:
                         mismatches += 1
                     if mismatches > max(min, tmp_threshold):
                         break
 
                 if mismatches <= max(min, tmp_threshold):
-                    std_name = ",".join(str(std))
+                    print(std)
+                    std_name = "-".join([str(s) for s in std])
                     if mismatches < min:
                         min = mismatches
                     if not mismatches in combos:
                         combos[mismatches] = {}
                     if not std_name in combos[mismatches]:
                         combos[mismatches][std_name] = []
-                    stds = [std_a.allele, std_b.allele].sort()
+                    stds = [std_a.allele, std_b.allele]
+                    stds.sort()
+                    print(stds)
                     combos[mismatches][std_name].append(stds)
         print(combos)
-        result = []
+        result: List[List[HLAStandardResult]] = []
         for mismatch, standard in combos.items():
             print(mismatch, standard)
-            cur_combo = []
+            cur_combo: List[HLAStandardResult] = []
             for std, allele_list in standard.items():
-                cur_combo.append([std, allele_list])
+                print(std, allele_list)
+                cur_combo.append(
+                    HLAStandardResult(standard=std, allele_names=allele_list)
+                )
             result.append(cur_combo)
 
-        return result.sort()
+        result.sort()
+        return result
 
     def load_hla_frequencies(self, letter: Literal["A", "B", "C"]) -> Dict[str, int]:
         hla_freqs: Dict[str, int] = {}

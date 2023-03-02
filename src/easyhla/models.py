@@ -34,9 +34,29 @@ class HLAStandard(BaseModel):
     sequence: List[int]
 
     def __eq__(self, other):
-        if type(other) != type(self):
+        if type(self) != type(other):
             raise TypeError(f"Cannot compare against {type(other)}")
         return all([self.allele == other.allele, self.sequence == other.sequence])
+
+    def __lt__(self, other):
+        if type(self) != type(other):
+            raise TypeError(f"Cannot compare against {type(other)}")
+        return self.allele < other.allele
+
+    def __le__(self, other):
+        if type(self) != type(other):
+            raise TypeError(f"Cannot compare against {type(other)}")
+        return self.allele <= other.allele
+
+    def __gt__(self, other):
+        if type(self) != type(other):
+            raise TypeError(f"Cannot compare against {type(other)}")
+        return self.allele > other.allele
+
+    def __ge__(self, other):
+        if type(self) != type(other):
+            raise TypeError(f"Cannot compare against {type(other)}")
+        return self.allele >= other.allele
 
 
 class HLAStandardMatch(HLAStandard):
@@ -52,3 +72,28 @@ class HLAStandardMatch(HLAStandard):
                 self.mismatch == other.mismatch,
             ]
         )
+
+
+class HLAStandardResult(BaseModel):
+    standard: str
+    allele_names: List[List[str]]
+
+    def __lt__(self, other):
+        if type(self) != type(other):
+            raise TypeError(f"Cannot compare against {type(other)}")
+        return self.standard < other.standard
+
+    def __le__(self, other):
+        if type(self) != type(other):
+            raise TypeError(f"Cannot compare against {type(other)}")
+        return self.standard <= other.standard
+
+    def __gt__(self, other):
+        if type(self) != type(other):
+            raise TypeError(f"Cannot compare against {type(other)}")
+        return self.standard > other.standard
+
+    def __ge__(self, other):
+        if type(self) != type(other):
+            raise TypeError(f"Cannot compare against {type(other)}")
+        return self.standard >= other.standard

@@ -1,6 +1,7 @@
 import pytest
 import json
 import os
+from pathlib import Path
 from src.easyhla.easyhla import EasyHLA
 from src.easyhla.models import HLAStandard, HLAStandardMatch
 from typing import List, Optional, Dict, Literal, Tuple, Any, Union
@@ -10,6 +11,28 @@ from typing import List, Optional, Dict, Literal, Tuple, Any, Union
 def easyhla(request: pytest.FixtureRequest):
     easyhla = EasyHLA(letter=request.param)
     return easyhla
+
+
+@pytest.fixture
+def hla_standard_file(tmp_path: Path):
+    hla_standard = ["HELLO-WORLD", "AAAAC", "ARTY"]
+
+    d = tmp_path / "hla_std"
+    d.mkdir()
+    p = d / "hla_std.csv"
+    p.write_text(",".join(hla_standard))
+
+    return str(p)
+
+
+@pytest.fixture
+def hla_frequency_file(tmp_path: Path):
+    d = tmp_path / "hla_std"
+    d.mkdir()
+    p = d / "hla_freq.csv"
+    p.write_text("ABCD,1234,ABCD,1234,ABCD,1234")
+
+    return str(p)
 
 
 @pytest.mark.parametrize("easyhla", ["A"], indirect=True)
@@ -378,4 +401,20 @@ class TestEasyHLA:
     ):
         result = easyhla.get_matching_stds(seq=sequence, hla_stds=hla_stds)
         print(result)
+        assert result == exp_result
+
+    def test_load_hla_stds(self, easyhla, hla_standard_file, mocker):
+        mocker.patch.object(os.path, "join", return_value=hla_standard_file)
+        exp_result = [
+            HLAStandard(allele="HELLO-WORLD", sequence=[1, 1, 1, 1, 2, 1, 5, 8, 10])
+        ]
+
+        result = easyhla.load_hla_stds(easyhla.letter)
+        assert result == exp_result
+
+    def test_load_hla_freqs(self, easyhla, hla_frequency_file, mocker):
+        mocker.patch.object(os.path, "join", return_value=hla_frequency_file)
+        exp_result = {"AB|CD,12|34": 1}
+
+        result = easyhla.load_hla_frequencies(easyhla.letter)
         assert result == exp_result
