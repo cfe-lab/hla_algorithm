@@ -74,9 +74,9 @@ class HLAStandardMatch(HLAStandard):
         )
 
 
-class HLAStandardResult(BaseModel):
+class HLACombinedStandardResult(BaseModel):
     standard: str
-    allele_names: List[List[str]]
+    discrete_allele_names: List[List[str]]
 
     def __lt__(self, other):
         if type(self) != type(other):

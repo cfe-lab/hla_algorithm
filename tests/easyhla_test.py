@@ -1,11 +1,15 @@
 import pytest
 import json
 import os
+import pytz
+from datetime import datetime
 from contextlib import nullcontext as does_not_raise
 from pathlib import Path
-from src.easyhla.easyhla import EasyHLA
-from src.easyhla.models import HLAStandard, HLAStandardMatch
+from src.easyhla.easyhla import EasyHLA, DATE_FORMAT
+from src.easyhla.models import HLAStandard, HLAStandardMatch, HLACombinedStandardResult
 from typing import List, Optional, Dict, Tuple, Any
+
+from .conftest import make_comparison
 
 
 @pytest.fixture(scope="module")
@@ -36,20 +40,60 @@ def hla_frequency_file(tmp_path: Path):
     return str(p)
 
 
-def test_unknown_hla_type():
-    """
-    Assert we raise a value error if we put in an unknown HLA type.
-    """
-    with pytest.raises(ValueError):
-        easyhla = EasyHLA("D")
+@pytest.fixture(scope="session")
+def timestamp() -> datetime:
+    _dt = datetime.today()
+    dt = _dt.replace(tzinfo=pytz.UTC)
+    return dt
 
 
-def test_known_hla_type_lowercase():
-    """
-    Assert no error is raised if we put in an HLA type with wrong case.
-    """
-    with does_not_raise():
-        easyhla = EasyHLA("a")
+@pytest.fixture
+def hla_last_modified_file(tmp_path: Path, timestamp: datetime) -> str:
+    d = tmp_path / "hla_std"
+    d.mkdir()
+    p = d / "hla_timestamp.txt"
+    p.write_text(timestamp.strftime(DATE_FORMAT))
+
+    return str(p)
+
+
+class TestEasyHLAMisc:
+    def test_unknown_hla_type(self):
+        """
+        Assert we raise a value error if we put in an unknown HLA type.
+        """
+        with pytest.raises(ValueError):
+            easyhla = EasyHLA("D")
+
+    def test_known_hla_type_lowercase(self):
+        """
+        Assert no error is raised if we put in an HLA type with wrong case.
+        """
+        with does_not_raise():
+            easyhla = EasyHLA("a")
+
+    @pytest.mark.parametrize("easyhla", ["A"], indirect=True)
+    def test_load_allele_definitions_last_modified_time(
+        self, easyhla, hla_last_modified_file, timestamp, mocker
+    ):
+        """
+        Assert we can load our mtime and that it is represented correctly.
+        """
+        mocker.patch.object(os.path, "join", return_value=hla_last_modified_file)
+
+        # Annoyingly, while `strptime(%Z)` outputs a time in the correct timezone,
+        # it doesn't keep that time in the object.
+        expected_time = datetime(
+            timestamp.year,
+            timestamp.month,
+            timestamp.day,
+            timestamp.hour,
+            timestamp.minute,
+            timestamp.second,
+        )
+
+        result = easyhla.load_allele_definitions_last_modified_time()
+        assert result == expected_time
 
 
 @pytest.mark.parametrize("easyhla", ["A"], indirect=True)
@@ -237,6 +281,70 @@ class TestEasyHLADiscreteHLATypeC:
                 result = easyhla.check_length(
                     letter=easyhla.letter, seq=sequence, name=name
                 )
+
+    @pytest.mark.integration
+    def test_run(self, easyhla: EasyHLA):
+        """
+        Integration test, assert that pyEasyHLA produces an identical output to
+        the original Ruby output.
+        """
+        input_file = os.path.dirname(__file__) + "/input/test.fasta"
+        ref_output_file = os.path.dirname(__file__) + "/output/hla-c-output.csv"
+        output_file = os.path.dirname(__file__) + "/output/test.csv"
+
+        easyhla.run(
+            easyhla.letter,
+            input_file,
+            output_file,
+            0,
+        )
+
+        with open(ref_output_file, "r", encoding="utf-8") as f_reference:
+            reference_file = f_reference.readlines()[1:]  # ignore the first line
+        with open(output_file, "r", encoding="utf-8") as f_test_output:
+            test_output_file = f_test_output.readlines()[1:]  # ignore the first line
+
+        column_names = reference_file[0].split(",")
+
+        assert len(reference_file) == len(
+            test_output_file
+        ), "Size of test output does not match reference file!"
+
+        for row_num, (ref, test) in enumerate(zip(reference_file, test_output_file)):
+            print(ref, test)
+            for col_num, (_ref, _test) in enumerate(
+                zip(ref.split(","), test.split(","))
+            ):
+                if row_num > 0 and column_names[col_num] in [
+                    "EXON2",
+                    "INTRON",
+                    "EXON3",
+                ]:
+                    comparison = make_comparison(easyhla, _ref, _test)
+                    if "_" in comparison:
+                        print(
+                            ">>>",
+                            column_names[col_num],
+                            comparison,
+                            len(_ref),
+                            len(_test),
+                        )
+
+                assert len(_ref.strip()) == len(
+                    _test.strip()
+                ), f"Length mismatch detected at row {row_num}, column {col_num} ('{column_names[col_num]}')"
+                assert (
+                    _ref.strip() == _test.strip()
+                ), f"Content mismatch detected at row {row_num}, column {col_num} ('{column_names[col_num]}')"
+
+                if row_num > 0 and column_names[col_num] in [
+                    "ALLELES_CLEAN",
+                    "ALLELES",
+                ]:
+                    assert (
+                        set(_ref.strip().split(";")) ^ set(_test.strip().split(";"))
+                        == set()
+                    ), f"Order mismatch detected at row {row_num}, column {col_num} ('{column_names[col_num]}')"
 
 
 @pytest.mark.parametrize("easyhla", ["A", "B", "C"], indirect=True)
@@ -435,3 +543,338 @@ class TestEasyHLA:
 
         result = easyhla.load_hla_frequencies(easyhla.letter)
         assert result == exp_result
+
+    @pytest.mark.parametrize(
+        "sequence, name, hla_std, exp_result",
+        [
+            #
+            (
+                "ACGT",
+                "ACGT",
+                HLAStandard(allele="std", sequence=[1, 2, 4, 8]),
+                [1, 2, 4, 8],
+            ),
+            (
+                "ACGT",
+                "ACGT-exon2",
+                HLAStandard(allele="std", sequence=[1, 2, 4, 8]),
+                [1, 2, 4, 8],
+            ),
+            (
+                "ACGT",
+                "ACGT-exon3",
+                HLAStandard(allele="std", sequence=[1, 2, 4, 8]),
+                [1, 2, 4, 8],
+            ),
+            # This is going to be an absolute nightmare to test
+            # Full test with intron
+            (
+                "A" * EasyHLA.EXON2_LENGTH + "ACGT" + "A" * EasyHLA.EXON3_LENGTH,
+                "ACGT",
+                HLAStandard(
+                    allele="std",
+                    sequence=[1, 2, 4, 8],
+                ),
+                [
+                    *([1] * EasyHLA.EXON2_LENGTH),
+                    1,
+                    2,
+                    4,
+                    8,
+                    *([1] * EasyHLA.EXON3_LENGTH),
+                ],
+            ),
+            # Full test with exon2
+            (
+                "A" * (EasyHLA.EXON2_LENGTH - 4) + "ACGT",
+                "ACGT-full-exon2",
+                HLAStandard(
+                    allele="std",
+                    sequence=[
+                        *([1] * EasyHLA.EXON2_LENGTH),
+                        *([1] * EasyHLA.EXON3_LENGTH),
+                    ],
+                ),
+                [
+                    *([1] * int(EasyHLA.EXON2_LENGTH - 4)),
+                    1,
+                    2,
+                    4,
+                    8,
+                ],
+            ),
+            # Full test with exon3
+            (
+                "ACGT" + "A" * (EasyHLA.EXON3_LENGTH - 4),
+                "ACGT-full-exon3",
+                HLAStandard(
+                    allele="std",
+                    sequence=[
+                        *([1] * EasyHLA.EXON2_LENGTH),
+                        *([1] * EasyHLA.EXON3_LENGTH),
+                    ],
+                ),
+                [
+                    1,
+                    2,
+                    4,
+                    8,
+                    *([1] * int(EasyHLA.EXON3_LENGTH - 4)),
+                ],
+            ),
+            # Full test two possible choices, should select the best match which
+            # is the second string of 5s
+            (
+                "A" * (EasyHLA.EXON2_LENGTH)
+                + "RRRRRR"
+                + "A" * (EasyHLA.EXON3_LENGTH - 6),
+                "RRRRRR-two-options-choose-last",
+                HLAStandard(
+                    allele="std",
+                    sequence=[
+                        *([4] * (int(EasyHLA.EXON2_LENGTH / 2) - 2)),
+                        5,
+                        4,
+                        5,
+                        5,
+                        *([4] * (int(EasyHLA.EXON2_LENGTH / 2) - 2)),
+                        5,
+                        5,
+                        5,
+                        5,
+                        5,
+                        *([4] * (EasyHLA.EXON3_LENGTH - 5)),
+                    ],
+                ),
+                [
+                    *([15] * 2),
+                    *([1] * int(EasyHLA.EXON2_LENGTH)),
+                    5,
+                    5,
+                    5,
+                    5,
+                    5,
+                    5,
+                    1,
+                    *([1] * int(EasyHLA.EXON3_LENGTH - 7)),
+                ],
+            ),
+        ],
+    )
+    def test_pad_short(
+        self,
+        easyhla: EasyHLA,
+        sequence: str,
+        name: str,
+        hla_std: HLAStandard,
+        exp_result: List[int],
+    ):
+        bin_list = easyhla.nuc2bin(sequence)
+        result = easyhla.pad_short(seq=bin_list, name=name, hla_std=hla_std)
+        # Debug code for future users
+        # print(
+        #     result,
+        #     sum([1 for a in result if a == 1]),
+        #     sum([1 for a in result if a == 15]),
+        #     len(result),
+        # )
+        # print(
+        #     exp_result,
+        #     sum([1 for a in exp_result if a == 1]),
+        #     sum([1 for a in exp_result if a == 15]),
+        #     len(exp_result),
+        # )
+        assert result == exp_result
+
+    @pytest.mark.parametrize(
+        "sequence, threshold, matching_standards, exp_result",
+        [
+            # Simple case
+            (
+                [1, 2, 4, 8],
+                1,
+                [
+                    HLAStandardMatch(
+                        allele="std_allmatch", sequence=[1, 2, 4, 8], mismatch=0
+                    ),
+                ],
+                {
+                    0: [
+                        HLACombinedStandardResult(
+                            standard="1-2-4-8",
+                            discrete_allele_names=[["std_allmatch", "std_allmatch"]],
+                        )
+                    ]
+                },
+            ),
+            # No threshold defined
+            (
+                [1, 2, 4, 8],
+                None,
+                [
+                    HLAStandardMatch(
+                        allele="std_allmatch", sequence=[1, 2, 4, 8], mismatch=0
+                    ),
+                ],
+                {
+                    0: [
+                        HLACombinedStandardResult(
+                            standard="1-2-4-8",
+                            discrete_allele_names=[["std_allmatch", "std_allmatch"]],
+                        )
+                    ]
+                },
+            ),
+            # Same case but HLAStandardMatch.mismatch is above threshold
+            (
+                [1, 2, 4, 8],
+                1,
+                [
+                    HLAStandardMatch(
+                        allele="std_allmatch", sequence=[1, 4, 2, 8], mismatch=2
+                    ),
+                ],
+                {
+                    2: [
+                        HLACombinedStandardResult(
+                            standard="1-4-2-8",
+                            discrete_allele_names=[["std_allmatch", "std_allmatch"]],
+                        )
+                    ]
+                },
+            ),
+            #
+            (
+                [1, 2, 4, 8],
+                1,
+                [
+                    HLAStandardMatch(
+                        allele="std_allmatch", sequence=[1, 2, 4, 8], mismatch=0
+                    ),
+                    HLAStandardMatch(
+                        allele="std_allmatch2", sequence=[1, 4, 4, 8], mismatch=1
+                    ),
+                ],
+                {
+                    0: [
+                        HLACombinedStandardResult(
+                            standard="1-2-4-8",
+                            discrete_allele_names=[["std_allmatch", "std_allmatch"]],
+                        )
+                    ],
+                    1: [
+                        HLACombinedStandardResult(
+                            standard="1-6-4-8",
+                            discrete_allele_names=[["std_allmatch", "std_allmatch2"]],
+                        ),
+                        HLACombinedStandardResult(
+                            standard="1-4-4-8",
+                            discrete_allele_names=[["std_allmatch2", "std_allmatch2"]],
+                        ),
+                    ],
+                },
+            ),
+            #
+            (
+                [9, 6, 4, 6],
+                1,
+                [
+                    HLAStandardMatch(
+                        allele="std_allmatch", sequence=[1, 2, 4, 4], mismatch=0
+                    ),
+                    HLAStandardMatch(
+                        allele="std_1mismatch2", sequence=[8, 4, 4, 8], mismatch=1
+                    ),
+                ],
+                {
+                    1: [
+                        HLACombinedStandardResult(
+                            standard="9-6-4-12",
+                            discrete_allele_names=[["std_1mismatch2", "std_allmatch"]],
+                        )
+                    ],
+                    3: [
+                        HLACombinedStandardResult(
+                            standard="1-2-4-4",
+                            discrete_allele_names=[["std_allmatch", "std_allmatch"]],
+                        )
+                    ],
+                },
+            ),
+            #
+            (
+                [1, 2, 4, 8],
+                0,
+                [
+                    HLAStandardMatch(
+                        allele="std_1mismatch", sequence=[1, 2, 4, 4], mismatch=1
+                    )
+                ],
+                {
+                    1: [
+                        HLACombinedStandardResult(
+                            standard="1-2-4-4",
+                            discrete_allele_names=[["std_1mismatch", "std_1mismatch"]],
+                        )
+                    ]
+                },
+            ),
+            (
+                [1, 2, 4, 8],
+                0,
+                [
+                    HLAStandardMatch(
+                        allele="std_allmismatch", sequence=[8, 4, 2, 1], mismatch=4
+                    )
+                ],
+                {
+                    4: [
+                        HLACombinedStandardResult(
+                            standard="8-4-2-1",
+                            discrete_allele_names=[
+                                ["std_allmismatch", "std_allmismatch"]
+                            ],
+                        )
+                    ]
+                },
+            ),
+            #
+            (
+                [1, 2, 4, 8],
+                0,
+                [
+                    HLAStandardMatch(
+                        allele="std_allmatch", sequence=[1, 2, 4, 8], mismatch=0
+                    ),
+                    HLAStandardMatch(
+                        allele="std_1mismatch", sequence=[1, 2, 4, 4], mismatch=1
+                    ),
+                    HLAStandardMatch(
+                        allele="std_allmismatch", sequence=[8, 4, 2, 1], mismatch=4
+                    ),
+                ],
+                {
+                    0: [
+                        HLACombinedStandardResult(
+                            standard="1-2-4-8",
+                            discrete_allele_names=[["std_allmatch", "std_allmatch"]],
+                        )
+                    ]
+                },
+            ),
+        ],
+    )
+    def test_combine_stds(
+        self,
+        easyhla: EasyHLA,
+        sequence: List[int],
+        threshold: int,
+        matching_standards: List[HLAStandardMatch],
+        exp_result: List[int],
+    ):
+        result = easyhla.combine_stds(
+            matching_stds=matching_standards,
+            seq=sequence,
+            max_mismatch_threshold=threshold,
+        )
+        assert sorted(result.items()) == [(k, v) for k, v in exp_result.items()]

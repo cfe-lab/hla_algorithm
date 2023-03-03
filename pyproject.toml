@@ -27,7 +27,8 @@ classifiers = [
 dependencies = [
   "biopython",
   "pydantic",
-  "typer"
+  "typer",
+  "pytz"
 ]
 
 dynamic = ["version"]
@@ -56,7 +57,8 @@ directory = "output"
 dependencies = [
   "biopython",
   "pydantic",
-  "typer"
+  "typer",
+  "pytz"
 ]
 
 [tool.hatch.envs.test]
@@ -94,6 +96,9 @@ minversion = "6.0"
 addopts = "-ra --cov --cov-report xml"
 testpaths = [
     "tests",
+]
+markers = [
+  "integration: Run integration tests"
 ]
 
 [tool.coverage.run]
