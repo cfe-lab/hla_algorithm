@@ -1012,3 +1012,49 @@ class TestEasyHLA:
 
         assert result_homozygous == exp_homozygous
         assert result_alleles == exp_alleles
+
+    @pytest.mark.parametrize(
+        "alleles, exp_result",
+        [
+            (
+                [
+                    ["A*02:01:01G", "A*03:01:01G"],
+                    ["A*02:01:52", "A*03:01:03"],
+                    ["A*02:01:02", "A*03:01:12"],
+                    ["A*02:01:36", "A*03:01:38"],
+                    ["A*02:237", "A*03:05:01"],
+                    ["A*02:26", "A*03:07"],
+                    ["A*02:34", "A*03:08"],
+                    ["A*02:90", "A*03:09"],
+                    ["A*02:24:01", "A*03:17:01"],
+                    ["A*02:195", "A*03:23:01"],
+                    ["A*02:338", "A*03:95"],
+                    ["A*02:35:01", "A*03:108"],
+                    ["A*02:86", "A*03:123"],
+                    ["A*02:20:01", "A*03:157"],
+                ],
+                "A*02 - A*03",
+            ),
+            (
+                [
+                    ["A*11:01:01G", "A*26:01:01G"],
+                    ["A*11:01:07", "A*26:01:17"],
+                    ["A*11:19", "A*26:13"],
+                ],
+                "A*11 - A*26",
+            ),
+            (
+                [
+                    ["A*11:01:07", "A*26:01:17"],
+                    ["A*11:40", "A*26:01G"],
+                ],
+                "A*11 - A*26",
+            ),
+        ],
+    )
+    def test_alleles_clean(
+        self, easyhla: EasyHLA, alleles: List[str], exp_result: List[str]
+    ):
+        result = easyhla.get_clean_alleles(all_alleles=alleles)
+
+        assert result == exp_result
