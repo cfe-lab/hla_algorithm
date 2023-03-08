@@ -3,28 +3,34 @@ import re
 import typer
 import logging
 from datetime import datetime
-from typing import List, Optional, Dict, Tuple, Any
+from typing import List, Optional, Dict, Tuple, Any, Final
 from operator import itemgetter, attrgetter
 
 import Bio.SeqIO
 
-from .models import HLAStandard, HLAStandardMatch, HLACombinedStandardResult
+from .models import (
+    HLAStandard,
+    HLAStandardMatch,
+    HLACombinedStandardResult,
+    HLAResult,
+    HLAResultRow,
+)
 
 DATE_FORMAT = "%a %b %d %H:%M:%S %Z %Y"
 
 
 class EasyHLA:
-    HLA_A_LENGTH: int = 787
-    MIN_HLA_BC_LENGTH: int = 787
-    MAX_HLA_BC_LENGTH: int = 796
-    EXON2_LENGTH: int = 270
-    EXON3_LENGTH: int = 276
+    HLA_A_LENGTH: Final[int] = 787
+    MIN_HLA_BC_LENGTH: Final[int] = 787
+    MAX_HLA_BC_LENGTH: Final[int] = 796
+    EXON2_LENGTH: Final[int] = 270
+    EXON3_LENGTH: Final[int] = 276
 
-    ALLOWED_HLA_TYPES: List[str] = ["A", "B", "C"]
+    ALLOWED_HLA_TYPES: Final[List[str]] = ["A", "B", "C"]
 
     # A lookup table of translations from ambiguous nucleotides to unambiguous
     # nucleotides.
-    AMBIG: Dict[str, List[str]] = {
+    AMBIG: Final[Dict[str, List[str]]] = {
         "A": ["A"],
         "C": ["C"],
         "G": ["G"],
@@ -49,7 +55,7 @@ class EasyHLA:
     # the fourth position a000 represents 'T'
     # We can then perform binary ORs, XORs, and ANDs, to check whether or not
     # a mixture contains a specific nucleotide.
-    PURENUC2BIN: Dict[str, int] = {nuc: 2**i for i, nuc in enumerate("ACGT")}
+    PURENUC2BIN: Final[Dict[str, int]] = {nuc: 2**i for i, nuc in enumerate("ACGT")}
 
     # Nucleotides converted to their binary representation
     # LISTOFNUCS: List[str] = [
@@ -69,20 +75,20 @@ class EasyHLA:
     #     "B",  # => 0b0111,
     #     "N",  # => 0b1111
     # ]
-    NUC2BIN: Dict[str, int] = {
+    NUC2BIN: Final[Dict[str, int]] = {
         k: sum([{nuc: 2**i for i, nuc in enumerate("ACGT")}[nuc] for nuc in v])
         for k, v in AMBIG.items()
     }
-    BIN2NUC: Dict[int, str] = {v: k for k, v in NUC2BIN.items()}
+    BIN2NUC: Final[Dict[int, str]] = {v: k for k, v in NUC2BIN.items()}
 
-    COLUMN_IDS: Dict[str, int] = {"A": 0, "B": 2, "C": 4}
+    COLUMN_IDS: Final[Dict[str, int]] = {"A": 0, "B": 2, "C": 4}
 
     def __init__(self, letter: str):
         if letter.upper() not in ["A", "B", "C"]:
             raise ValueError("Invalid HLA Type!")
         self.letter: str = letter.upper()
-        self.hla_stds = self.load_hla_stds(letter=self.letter)
-        self.hla_freqs = self.load_hla_frequencies(letter=self.letter)
+        self.hla_stds: List[HLAStandard] = self.load_hla_stds(letter=self.letter)
+        self.hla_freqs: Dict[str, int] = self.load_hla_frequencies(letter=self.letter)
 
     def check_length(self, letter: str, seq: str, name: str) -> bool:
         error_condition: bool = False
@@ -264,9 +270,7 @@ class EasyHLA:
 
     def load_hla_frequencies(self, letter: str) -> Dict[str, int]:
         hla_freqs: Dict[str, int] = {}
-        filepath = os.path.join(
-            os.path.dirname(__file__), f"hla_{letter.lower()}_std_reduced.csv"
-        )
+        filepath = os.path.join(os.path.dirname(__file__), "hla_frequencies.csv")
 
         with open(filepath, "r", encoding="utf-8") as f:
             for line in f.readlines():
@@ -311,7 +315,7 @@ class EasyHLA:
         entry: Bio.SeqIO.SeqRecord,
         unmatched: List[List[Bio.SeqIO.SeqRecord]],
         threshold: Optional[int] = None,
-    ) -> Optional[Tuple[str, int, int]]:
+    ) -> Optional[HLAResult]:
         samp = entry.description
 
         if not self.check_length(letter, str(entry.seq), samp):
@@ -456,116 +460,29 @@ class EasyHLA:
 
         fcnt = EasyHLA.COLUMN_IDS[letter]
 
-        alleles: List[List[str]] = []
-        ambig = "0"
-        for match in best_matches:
-            for list_a_name in match.discrete_allele_names:
-                alleles.append(list_a_name)
+        ambig, alleles = self.get_alleles(letter=letter, best_matches=best_matches)
 
-        # Strip leading "A:" , "B:", or "C:" from each allele.
-        collection: List[List[str]] = []
-        for a in alleles:
-            arr = [
-                re.sub(r"[^\d:]", "", a[0]).split(":"),
-                re.sub(r"[^\d:]", "", a[1]).split(":"),
-            ]
-            collection.append(arr)
+        clean_allele_str = self.get_clean_alleles(all_alleles=alleles)
 
-        uniq_collection = set([f"{e[0][0]}, {e[1][0]}" for e in collection])
-        # ambig_collection = {[e[0][0:1], e[1][0:1]] for e in collection}
-
-        if len(uniq_collection) != 1:
-            ambig = "1"
-            collection_ambig = {
-                f"{'|'.join(e[0][0:1])},{'|'.join(e[1][0:1])}": 0 for e in collection
-            }
-
-            for k in collection_ambig:
-                collection_ambig[k] = self.hla_freqs.get(k, 0)
-                # if not freq:
-                #     freq = 0
-                # a.append(freq)
-
-            # TODO: Implement like the following commented ruby
-            # Easier if we made things a model.
-            max_allele = sorted(collection_ambig.items(), key=lambda item: item[1])
-
-            # Try to find the allele occuring the maximum number of times. If it's a tie,
-            # just pick the alphabetically first one.
-            # max_allele = collection_ambig.max do |a,b|
-            #     if(a[2] != b[2]) #Go by frequency
-            #         a[2] <=> b[2]
-            #     elsif(b[0][0].to_i != a[0][0].to_i) #Then lowest first allele
-            #         b[0][0].to_i <=> a[0][0].to_i
-            #     elsif(b[0][1].to_i != a[0][1].to_i)
-            #         b[0][1].to_i <=> a[0][1].to_i
-            #     elsif(b[1][0].to_i != a[1][0].to_i) #Then lowest second allele
-            #         b[1][0].to_i <=> a[1][0].to_i
-            #     else
-            #         b[1][1].to_i <=> a[1][1].to_i
-            #     end
-            # end
-
-            a1 = max_allele[0][0]
-            a2 = max_allele[1][0]
-            for i, a in enumerate(alleles):
-                if not re.match(f"^#{letter}\\*#{a1}:([^\\s])+", a[0]):
-                    alleles.pop(i)
-                if not re.match(f"^#{letter}\\*#{a2}:([^\\s])+", a[1]):
-                    alleles.pop(i)
-
-        # non ambiguous now, do the easy way
-
-        collection = [
-            [a[0].strip().split(":"), a[1].strip().split(":")] for a in alleles
-        ]
-
-        clean_allele: List[str] = []
-        for n in [0, 1]:
-            for i in [4, 3, 2, 1]:
-                if len(set([":".join(a[n][0:i]) for a in collection])) == 1:
-                    clean_allele.append(
-                        re.sub(r"[A-Z]$", "", ":".join(collection[0][n][0:i]))
-                    )
-                    break
-
-        clean_allele_str: str = " - ".join(clean_allele)
-
-        # OK, now we must find homozygousity.	IE: Cw*0722 - Cw*0722
-        homozygous = "0"
-        alleles_all = []
-        # Lets say if we detect two of the same mixtures, its heterozygous
-        for a in best_matches:
-            for _allele in a.discrete_allele_names:
-                alleles_all.append(f"{_allele[0]} - {_allele[1]}")
-                if _allele[0] == _allele[1]:
-                    homozygous = "1"
-
-        alleles_all.sort()
-        alleles_all_str = ";".join(alleles_all)
-
-        if len(alleles_all_str) > 3900:
-            alleles_all_str = re.sub(
-                r";[^;]+$", ";...TRUNCATED", alleles_all_str[:3920]
-            )
+        homozygous, alleles_all_str = self.get_all_alleles(best_matches=best_matches)
 
         # if this is an exon, then nseqs = 2
         nseqs = 1 + int(is_exon)
 
-        row = [
-            samp,
-            clean_allele_str,
-            alleles_all_str,
-            ambig,
-            homozygous,
-            f"{mismatch_count}",
-            f"{mismatches}",
-            exon2.upper(),
-            intron.upper(),
-            exon3.upper(),
-        ]
+        row = HLAResultRow(
+            samp=samp,
+            clean_allele_str=clean_allele_str,
+            alleles_all_str=alleles_all_str,
+            ambig=ambig,
+            homozygous=homozygous,
+            mismatch_count=f"{mismatch_count}",
+            mismatches=f"{mismatches}",
+            exon2=exon2.upper(),
+            intron=intron.upper(),
+            exon3=exon3.upper(),
+        )
         # print(row)
-        return ",".join(row), 1, nseqs
+        return HLAResult(result=row, num_pats=1, num_seqs=nseqs)
 
     def run(
         self,
@@ -591,9 +508,9 @@ class EasyHLA:
                 if not result:
                     continue
                 else:
-                    rows.append(result[0])
-                    npats += result[1]
-                    nseqs += result[2]
+                    rows.append(result.result.get_result_as_str())
+                    npats += result.num_pats
+                    nseqs += result.num_seqs
 
         with open(output_filename, "w", encoding="utf-8") as f:
             f.write(
@@ -604,3 +521,144 @@ class EasyHLA:
             )
             for _r in rows:
                 f.write(_r + "\n")
+
+    def get_all_alleles(
+        self, best_matches: List[HLACombinedStandardResult]
+    ) -> Tuple[bool, str]:
+        # OK, now we must find homozygousity.	IE: Cw*0722 - Cw*0722
+        homozygous = False
+        alleles_all = []
+        # Lets say if we detect two of the same mixtures, its heterozygous
+        for a in best_matches:
+            for _allele in a.discrete_allele_names:
+                alleles_all.append(f"{_allele[0]} - {_allele[1]}")
+                if _allele[0] == _allele[1]:
+                    homozygous = True
+
+        alleles_all.sort()
+        alleles_all_str = ";".join(alleles_all)
+
+        if len(alleles_all_str) > 3900:
+            alleles_all_str = re.sub(
+                r";[^;]+$", ";...TRUNCATED", alleles_all_str[:3920]
+            )
+
+        return homozygous, alleles_all_str
+
+    def get_clean_alleles(self, all_alleles: List[List[str]]) -> str:
+        # non ambiguous now, do the easy way
+
+        collection = [
+            [a[0].strip().split(":"), a[1].strip().split(":")] for a in all_alleles
+        ]
+
+        print(all_alleles)
+
+        clean_allele: List[str] = []
+        for n in [0, 1]:
+            for i in [4, 3, 2, 1]:
+                if len(set([":".join(a[n][0:i]) for a in collection])) == 1:
+                    clean_allele.append(
+                        re.sub(r"[A-Z]$", "", ":".join(collection[0][n][0:i]))
+                    )
+                    break
+
+        clean_allele_str: str = " - ".join(clean_allele)
+        print(clean_allele_str)
+        return clean_allele_str
+
+    def get_alleles(
+        self, letter: str, best_matches: List[HLACombinedStandardResult]
+    ) -> Tuple[bool, List[List[str]]]:
+        alleles: List[List[str]] = []
+        ambig = False
+        for match in best_matches:
+            for list_a_name in match.discrete_allele_names:
+                alleles.append(list_a_name)
+
+        # Strip leading "A:" , "B:", or "C:" from each allele.
+        collection: List[List[List[str]]] = []
+        for a in alleles:
+            arr = [
+                re.sub(r"[^\d:]", "", a[0]).split(":"),
+                re.sub(r"[^\d:]", "", a[1]).split(":"),
+            ]
+            collection.append(arr)
+
+        uniq_collection = set([f"{e[0][0]}, {e[1][0]}" for e in collection])
+        # ambig_collection = {[e[0][0:1], e[1][0:1]] for e in collection}
+
+        if len(uniq_collection) != 1:
+            ambig = True
+            collection_ambig = {
+                f"{'|'.join(e[0][0:2])},{'|'.join(e[1][0:2])}": 0 for e in collection
+            }
+
+            for k in collection_ambig:
+                for freq in self.hla_freqs:
+                    if freq.startswith(k):
+                        collection_ambig[k] = self.hla_freqs.get(freq, 0)
+                # if not freq:
+                #     freq = 0
+                # a.append(freq)
+
+            # TODO: Implement like the following commented ruby
+            # Easier if we made things a model.
+            def sort_allele(item: Tuple[str, int]):
+                """
+                Produces a tuple that the sort function will use to determine
+                the maximum allele
+                """
+                allele_pair0 = item[0].split(",")[0]
+                allele_pair1 = item[0].split(",")[1]
+                return (
+                    item[1],
+                    int(allele_pair0.split("|")[0]),
+                    int(allele_pair0.split("|")[1]),
+                    int(allele_pair1.split("|")[0]),
+                    int(allele_pair1.split("|")[1]),
+                )
+
+            max_allele = sorted(collection_ambig.items(), key=sort_allele, reverse=True)
+
+            # Try to find the allele occuring the maximum number of times. If it's a tie,
+            # just pick the alphabetically first one.
+            # max_allele = collection_ambig.max do |a,b|
+            #     if(a[2] != b[2]) #Go by frequency
+            #         a[2] <=> b[2]
+            #     elsif(b[0][0].to_i != a[0][0].to_i) #Then lowest first allele
+            #         b[0][0].to_i <=> a[0][0].to_i
+            #     elsif(b[0][1].to_i != a[0][1].to_i)
+            #         b[0][1].to_i <=> a[0][1].to_i
+            #     elsif(b[1][0].to_i != a[1][0].to_i) #Then lowest second allele
+            #         b[1][0].to_i <=> a[1][0].to_i
+            #     else
+            #         b[1][1].to_i <=> a[1][1].to_i
+            #     end
+            # end
+
+            a1 = max_allele[0][0].split(",")[0]
+            a2 = max_allele[0][0].split(",")[1]
+            for i, a in enumerate(alleles.copy()):
+                regex_str_a1 = f"^{letter}\\*({a1}):([^\\s])+"
+                if not re.match(regex_str_a1, a[0]) and a in alleles:
+                    alleles.remove(a)
+                regex_str_a2 = f"^{letter}\\*({a2}):([^\\s])+"
+                if not re.match(regex_str_a2, a[1]) and a in alleles:
+                    alleles.remove(a)
+
+        return ambig, alleles
+
+
+if __name__ == "__main__":
+    input_file = "tests/input/test.fasta"
+    output_file = "tests/output/test.csv"
+
+    easyhla = EasyHLA("A")
+
+    easyhla.run(
+        easyhla.letter,
+        input_file,
+        output_file,
+        0,
+    )

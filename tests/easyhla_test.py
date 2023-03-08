@@ -9,7 +9,7 @@ from src.easyhla.easyhla import EasyHLA, DATE_FORMAT
 from src.easyhla.models import HLAStandard, HLAStandardMatch, HLACombinedStandardResult
 from typing import List, Optional, Dict, Tuple, Any
 
-from .conftest import make_comparison
+from .conftest import make_comparison, compare_ref_vs_test
 
 
 @pytest.fixture(scope="module")
@@ -156,6 +156,108 @@ class TestEasyHLADiscreteHLATypeA:
                     letter=easyhla.letter, seq=sequence, name=name
                 )
 
+    @pytest.mark.integration
+    @pytest.mark.slow
+    def test_run(self, easyhla: EasyHLA):
+        """
+        Integration test, assert that pyEasyHLA produces an identical output to
+        the original Ruby output.
+        """
+        input_file = os.path.dirname(__file__) + "/input/hla-a-seqs.fasta"
+        ref_output_file = os.path.dirname(__file__) + "/output/hla-a-output.csv"
+        output_file = os.path.dirname(__file__) + "/output/hla-a-test.csv"
+
+        easyhla.run(
+            easyhla.letter,
+            input_file,
+            output_file,
+            0,
+        )
+
+        compare_ref_vs_test(
+            easyhla=easyhla,
+            reference_output_file=ref_output_file,
+            output_file=output_file,
+        )
+
+    @pytest.mark.parametrize(
+        "best_matches, exp_ambig, exp_alleles",
+        [
+            (
+                [
+                    HLACombinedStandardResult(
+                        standard="",
+                        discrete_allele_names=[
+                            ["A*02:01:01G", "A*03:01:01G"],
+                            ["A*02:01:52", "A*03:01:03"],
+                            ["A*02:01:02", "A*03:01:12"],
+                            ["A*02:01:36", "A*03:01:38"],
+                            ["A*02:237", "A*03:05:01"],
+                            ["A*02:26", "A*03:07"],
+                            ["A*02:34", "A*03:08"],
+                            ["A*02:90", "A*03:09"],
+                            ["A*02:24:01", "A*03:17:01"],
+                            ["A*02:195", "A*03:23:01"],
+                            ["A*02:338", "A*03:95"],
+                            ["A*02:35:01", "A*03:108"],
+                            ["A*02:86", "A*03:123"],
+                            ["A*02:20:01", "A*03:157"],
+                        ],
+                    )
+                ],
+                False,
+                [
+                    ["A*02:01:01G", "A*03:01:01G"],
+                    ["A*02:01:52", "A*03:01:03"],
+                    ["A*02:01:02", "A*03:01:12"],
+                    ["A*02:01:36", "A*03:01:38"],
+                    ["A*02:237", "A*03:05:01"],
+                    ["A*02:26", "A*03:07"],
+                    ["A*02:34", "A*03:08"],
+                    ["A*02:90", "A*03:09"],
+                    ["A*02:24:01", "A*03:17:01"],
+                    ["A*02:195", "A*03:23:01"],
+                    ["A*02:338", "A*03:95"],
+                    ["A*02:35:01", "A*03:108"],
+                    ["A*02:86", "A*03:123"],
+                    ["A*02:20:01", "A*03:157"],
+                ],
+            ),
+            (
+                [
+                    HLACombinedStandardResult(
+                        standard="",
+                        discrete_allele_names=[
+                            ["A*11:01:01G", "A*26:01:01G"],
+                            ["A*11:01:07", "A*26:01:17"],
+                            ["A*11:19", "A*26:13"],
+                            ["A*11:40", "A*66:01G"],
+                        ],
+                    )
+                ],
+                True,
+                [
+                    ["A*11:01:01G", "A*26:01:01G"],
+                    ["A*11:01:07", "A*26:01:17"],
+                    ["A*11:19", "A*26:13"],
+                ],
+            ),
+        ],
+    )
+    def test_get_alleles(
+        self,
+        easyhla: EasyHLA,
+        best_matches: List[HLACombinedStandardResult],
+        exp_ambig: bool,
+        exp_alleles: List[List[str]],
+    ):
+        result_ambig, result_alleles = easyhla.get_alleles(
+            easyhla.letter, best_matches=best_matches
+        )
+
+        assert result_ambig == exp_ambig
+        assert result_alleles == exp_alleles
+
 
 @pytest.mark.parametrize("easyhla", ["B"], indirect=True)
 class TestEasyHLADiscreteHLATypeB:
@@ -299,52 +401,11 @@ class TestEasyHLADiscreteHLATypeC:
             0,
         )
 
-        with open(ref_output_file, "r", encoding="utf-8") as f_reference:
-            reference_file = f_reference.readlines()[1:]  # ignore the first line
-        with open(output_file, "r", encoding="utf-8") as f_test_output:
-            test_output_file = f_test_output.readlines()[1:]  # ignore the first line
-
-        column_names = reference_file[0].split(",")
-
-        assert len(reference_file) == len(
-            test_output_file
-        ), "Size of test output does not match reference file!"
-
-        for row_num, (ref, test) in enumerate(zip(reference_file, test_output_file)):
-            print(ref, test)
-            for col_num, (_ref, _test) in enumerate(
-                zip(ref.split(","), test.split(","))
-            ):
-                if row_num > 0 and column_names[col_num] in [
-                    "EXON2",
-                    "INTRON",
-                    "EXON3",
-                ]:
-                    comparison = make_comparison(easyhla, _ref, _test)
-                    if "_" in comparison:
-                        print(
-                            ">>>",
-                            column_names[col_num],
-                            comparison,
-                            len(_ref),
-                            len(_test),
-                        )
-
-                assert len(_ref.strip()) == len(
-                    _test.strip()
-                ), f"Length mismatch detected at row {row_num}, column {col_num} ('{column_names[col_num]}')"
-                assert (
-                    _ref.strip() == _test.strip()
-                ), f"Content mismatch detected at row {row_num}, column {col_num} ('{column_names[col_num]}')"
-
-                if row_num > 0 and column_names[col_num] in [
-                    "ALLELES_CLEAN",
-                    "ALLELES",
-                ]:
-                    assert (
-                        set(_ref.strip().split(";")) ^ set(_test.strip().split(";"))
-                        == set()
-                    ), f"Order mismatch detected at row {row_num}, column {col_num} ('{column_names[col_num]}')"
+        compare_ref_vs_test(
+            easyhla=easyhla,
+            reference_output_file=ref_output_file,
+            output_file=output_file,
+        )
 
 
 @pytest.mark.parametrize("easyhla", ["A", "B", "C"], indirect=True)
@@ -878,3 +939,76 @@ class TestEasyHLA:
             max_mismatch_threshold=threshold,
         )
         assert sorted(result.items()) == [(k, v) for k, v in exp_result.items()]
+
+    @pytest.mark.parametrize(
+        "best_matches, exp_homozygous, exp_alleles",
+        [
+            (
+                [
+                    HLACombinedStandardResult(
+                        standard="",
+                        discrete_allele_names=[
+                            ["A*02:01:01G", "A*03:01:01G"],
+                            ["A*02:01:52", "A*03:01:03"],
+                            ["A*02:01:02", "A*03:01:12"],
+                            ["A*02:01:36", "A*03:01:38"],
+                            ["A*02:237", "A*03:05:01"],
+                            ["A*02:26", "A*03:07"],
+                            ["A*02:34", "A*03:08"],
+                            ["A*02:90", "A*03:09"],
+                            ["A*02:24:01", "A*03:17:01"],
+                            ["A*02:195", "A*03:23:01"],
+                            ["A*02:338", "A*03:95"],
+                            ["A*02:35:01", "A*03:108"],
+                            ["A*02:86", "A*03:123"],
+                            ["A*02:20:01", "A*03:157"],
+                        ],
+                    )
+                ],
+                False,
+                # NOTE: This is one string concatenated together
+                (
+                    "A*02:01:01G - A*03:01:01G;A*02:01:02 - A*03:01:12;"
+                    "A*02:01:36 - A*03:01:38;A*02:01:52 - A*03:01:03;"
+                    "A*02:195 - A*03:23:01;A*02:20:01 - A*03:157;"
+                    "A*02:237 - A*03:05:01;A*02:24:01 - A*03:17:01;"
+                    "A*02:26 - A*03:07;A*02:338 - A*03:95;"
+                    "A*02:34 - A*03:08;A*02:35:01 - A*03:108;"
+                    "A*02:86 - A*03:123;A*02:90 - A*03:09"
+                ),
+            ),
+            (
+                [
+                    HLACombinedStandardResult(
+                        standard="",
+                        discrete_allele_names=[
+                            ["A*11:01:01G", "A*26:01:01G"],
+                            ["A*11:01:07", "A*26:01:17"],
+                            ["A*11:19", "A*26:13"],
+                            ["A*11:40", "A*66:01G"],
+                        ],
+                    )
+                ],
+                False,
+                (
+                    "A*11:01:01G - A*26:01:01G;"
+                    "A*11:01:07 - A*26:01:17;"
+                    "A*11:19 - A*26:13;"
+                    "A*11:40 - A*66:01G"
+                ),
+            ),
+        ],
+    )
+    def test_get_all_alleles(
+        self,
+        easyhla: EasyHLA,
+        best_matches: List[HLACombinedStandardResult],
+        exp_homozygous: bool,
+        exp_alleles: List[List[str]],
+    ):
+        result_homozygous, result_alleles = easyhla.get_all_alleles(
+            best_matches=best_matches
+        )
+
+        assert result_homozygous == exp_homozygous
+        assert result_alleles == exp_alleles

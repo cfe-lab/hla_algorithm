@@ -93,12 +93,13 @@ python = ["37", "38", "39", "310", "311"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra --cov --cov-report xml"
+addopts = "-ra --cov --cov-report xml --strict-markers -m 'not slow'"
 testpaths = [
     "tests",
 ]
 markers = [
-  "integration: Run integration tests"
+  "integration: Run integration tests",
+  "slow: Run integration tests that take a really long time",
 ]
 
 [tool.coverage.run]
