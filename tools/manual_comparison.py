@@ -6,27 +6,27 @@ For help use `python tests/manual_comparison.py --help`.
 
 import os
 from src.easyhla.easyhla import EasyHLA
-from conftest import compare_ref_vs_test, make_comparison
+from tests.conftest import compare_ref_vs_test, make_comparison
 import typer
 
 
 def main(
     reference_file: str = typer.Option(
-        "/output/hla-a-output.csv",
+        "../tests/output/hla-a-output.csv",
         "--ref",
         "--reference",
         "-r",
         help="Reference file relative to this file",
     ),
     test_file: str = typer.Option(
-        "/output/output.csv",
+        "../tests/output/output.csv",
         "--file",
         "-f",
         help="Test output file relative to this file",
     ),
     skip_preamble: bool = typer.Option(
         False,
-        "--no-skip-preamble",
+        "--skip-preamble",
         "-s",
         is_flag=True,
         flag_value=True,
@@ -34,21 +34,21 @@ def main(
     ),
     skip_preamble_ref: bool = typer.Option(
         False,
-        "--no-skip-preamble-ref",
+        "--skip-preamble-ref",
         is_flag=True,
         flag_value=True,
         help="If reference file begins with a timestamp, skip that line",
     ),
     skip_preamble_out: bool = typer.Option(
         False,
-        "--no-skip-preamble-output",
+        "--skip-preamble-output",
         is_flag=True,
         flag_value=True,
         help="If output file begins with a timestamp, skip that line",
     ),
 ) -> None:
-    ref_output_file = os.path.dirname(__file__) + reference_file
-    output_file = os.path.dirname(__file__) + test_file
+    ref_output_file = reference_file
+    output_file = test_file
 
     easyhla = EasyHLA("A")
 
@@ -63,6 +63,8 @@ def main(
         test_output_file = f_test_output.readlines()[int(_skip_preamble[1]) :]
 
     column_names = reference_file[0].strip().split(",")
+    if len(column_names) <= 1:
+        raise RuntimeError("No column names detected, you may need to specify -s!")
 
     assert len(reference_file) == len(
         test_output_file
@@ -120,6 +122,7 @@ def main(
                     print(
                         f"Order mismatch detected at row {_row_num}, column {col_num} ('{column_names[col_num]}')"
                     )
+    print(f"{len(reference_file)} lines compared.")
 
 
 if __name__ == "__main__":

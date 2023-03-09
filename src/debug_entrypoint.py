@@ -1,9 +1,16 @@
+import os
 from easyhla.easyhla import EasyHLA
 
-input_file = "tests/input/hla-a-seqs.fasta"
-output_file = "tests/output/output.csv"
+letter = "C"
 
-easyhla = EasyHLA("A")
+input_file = os.path.join(
+    os.path.dirname(__file__), f"../tests/input/hla-{letter.lower()}-seqs.fasta"
+)
+output_file = os.path.join(
+    os.path.dirname(__file__), f"../tests/output/hla-{letter.lower()}-output-test.csv"
+)
+
+easyhla = EasyHLA(letter.upper())
 
 easyhla.run(
     easyhla.letter,
