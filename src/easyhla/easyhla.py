@@ -4,7 +4,7 @@ import typer
 import logging
 import numpy as np
 from datetime import datetime
-from typing import List, Optional, Dict, Tuple, Any, Final
+from typing import List, Optional, Dict, Tuple, Any, Final, Literal
 from operator import itemgetter, attrgetter
 
 import Bio.SeqIO
@@ -18,6 +18,8 @@ from .models import (
 )
 
 DATE_FORMAT = "%a %b %d %H:%M:%S %Z %Y"
+
+HLA_TYPES = Final[Literal["A", "B", "C"]]
 
 
 class EasyHLA:
@@ -84,14 +86,14 @@ class EasyHLA:
 
     COLUMN_IDS: Final[Dict[str, int]] = {"A": 0, "B": 2, "C": 4}
 
-    def __init__(self, letter: str):
+    def __init__(self, letter: HLA_TYPES):
         if letter.upper() not in ["A", "B", "C"]:
             raise ValueError("Invalid HLA Type!")
         self.letter: str = letter.upper()
         self.hla_stds: List[HLAStandard] = self.load_hla_stds(letter=self.letter)
         self.hla_freqs: Dict[str, int] = self.load_hla_frequencies(letter=self.letter)
 
-    def check_length(self, letter: str, seq: str, name: str) -> bool:
+    def check_length(self, letter: HLA_TYPES, seq: str, name: str) -> bool:
         error_condition: bool = False
         if name.lower().endswith("short"):
             if letter.upper() == "A":
@@ -267,7 +269,7 @@ class EasyHLA:
 
         return result
 
-    def load_hla_frequencies(self, letter: str) -> Dict[str, int]:
+    def load_hla_frequencies(self, letter: HLA_TYPES) -> Dict[str, int]:
         hla_freqs: Dict[str, int] = {}
         filepath = os.path.join(os.path.dirname(__file__), "hla_frequencies.csv")
 
@@ -283,7 +285,7 @@ class EasyHLA:
 
     # TODO: Convert this to a dictionary instead of a object that looks like:
     # [ [allele_name, [1,2,3,4,5]], [allele_name2, [2,5,2,5,4]] ]
-    def load_hla_stds(self, letter: str) -> List[HLAStandard]:
+    def load_hla_stds(self, letter: HLA_TYPES) -> List[HLAStandard]:
         hla_stds: List[HLAStandard] = []
 
         filepath = os.path.join(
@@ -310,7 +312,7 @@ class EasyHLA:
 
     def interpret(
         self,
-        letter: str,
+        letter: HLA_TYPES,
         entry: Bio.SeqIO.SeqRecord,
         unmatched: List[List[Bio.SeqIO.SeqRecord]],
         threshold: Optional[int] = None,
@@ -487,7 +489,7 @@ class EasyHLA:
 
     def run(
         self,
-        letter: str,
+        letter: HLA_TYPES,
         filename: str,
         output_filename: str,
         threshold: Optional[int] = None,
@@ -569,7 +571,7 @@ class EasyHLA:
         return clean_allele_str
 
     def get_alleles(
-        self, letter: str, best_matches: List[HLACombinedStandardResult]
+        self, letter: HLA_TYPES, best_matches: List[HLACombinedStandardResult]
     ) -> Tuple[bool, List[List[str]]]:
         alleles: List[List[str]] = []
         ambig = False
