@@ -1,8 +1,8 @@
+---
 variables:
   PYTHON_VERSION:
-    value: "3.7"
+    value: "3.8"
     options:
-      - "3.7"
       - "3.8"
       - "3.9"
       - "3.10"
@@ -10,12 +10,24 @@ variables:
     description: Python version to use
 
 stages:
-  - precheck
+  - validate
   - test
   - build
 
+validate-yaml:
+  stage: validate
+  image: alpine
+  script:
+    - apk add yamllint
+    - cd $CI_PROJECT_DIR
+    - yamllint .
+  rules:
+    - changes:
+        - "*.yml"
+        - "*.yaml"
+
 Check-For-Black:
-  stage: precheck
+  stage: validate
   image: black
   script:
     - cd $CI_PROJECT_DIR
@@ -28,7 +40,7 @@ Check-For-Black:
         - src/**/*.py
 
 Check-HLA-Modified-Dates:
-  stage: precheck
+  stage: validate
   image: python:${PYTHON_VERSION}-slim
   before_script:
     - apt update
@@ -54,7 +66,6 @@ Unit-Tests:
   parallel:
     matrix:
       - PYTHON_VERSION:
-          - "3.7"
           - "3.8"
           - "3.9"
           - "3.10"
