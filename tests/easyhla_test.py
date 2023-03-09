@@ -2,6 +2,7 @@ import pytest
 import json
 import os
 import pytz
+import numpy as np
 from datetime import datetime
 from contextlib import nullcontext as does_not_raise
 from pathlib import Path
@@ -450,15 +451,15 @@ class TestEasyHLA:
     @pytest.mark.parametrize(
         "sequence_str, sequence_list",
         [
-            ("ACGT", [1, 2, 4, 8]),
-            ("YANK", [10, 1, 15, 12]),
-            ("TARDY", [8, 1, 5, 11, 10]),
-            ("MRMAN", [3, 5, 3, 1, 15]),
-            ("MYSWARD", [3, 10, 6, 9, 1, 5, 11]),
+            ("ACGT", np.array([1, 2, 4, 8])),
+            ("YANK", np.array([10, 1, 15, 12])),
+            ("TARDY", np.array([8, 1, 5, 11, 10])),
+            ("MRMAN", np.array([3, 5, 3, 1, 15])),
+            ("MYSWARD", np.array([3, 10, 6, 9, 1, 5, 11])),
             # This is where I pull out scrabblewordfinder.org
-            ("GANTRY", [4, 1, 15, 8, 5, 10]),
-            ("SKYWATCH", [6, 12, 10, 9, 1, 8, 2, 13]),
-            ("THWACK", [8, 13, 9, 1, 2, 12]),
+            ("GANTRY", np.array([4, 1, 15, 8, 5, 10])),
+            ("SKYWATCH", np.array([6, 12, 10, 9, 1, 8, 2, 13])),
+            ("THWACK", np.array([8, 13, 9, 1, 2, 12])),
         ],
     )
     def test_nuc2bin_bin2nuc(
@@ -471,7 +472,7 @@ class TestEasyHLA:
         result_str = easyhla.bin2nuc(sequence_list)
         assert result_str == sequence_str
         result_list = easyhla.nuc2bin(sequence_str)
-        assert result_list == sequence_list
+        assert np.array_equal(result_list, sequence_list)
 
     @pytest.mark.parametrize(
         "HLAStandard, sequence, exp_left_pad, exp_right_pad",
@@ -515,7 +516,7 @@ class TestEasyHLA:
         standard: List[int],
         exp_result: int,
     ):
-        result = easyhla.std_match(std=standard, seq=sequence)
+        result = easyhla.std_match(std=np.array(standard), seq=np.array(sequence))
         print(result)
         assert result == exp_result
 
@@ -524,49 +525,77 @@ class TestEasyHLA:
         [
             #
             (
-                [1, 2, 4, 8],
-                [HLAStandard(allele="std_allmismatch", sequence=[1, 2, 4, 8])],
+                np.array([1, 2, 4, 8]),
+                [
+                    HLAStandard(
+                        allele="std_allmismatch", sequence=np.array([1, 2, 4, 8])
+                    )
+                ],
                 [
                     HLAStandardMatch(
-                        allele="std_allmismatch", sequence=[1, 2, 4, 8], mismatch=0
+                        allele="std_allmismatch",
+                        sequence=np.array([1, 2, 4, 8]),
+                        mismatch=0,
                     )
                 ],
             ),
             (
-                [1, 2, 4, 8],
-                [HLAStandard(allele="std_allmismatch", sequence=[1, 2, 4, 4])],
+                np.array([1, 2, 4, 8]),
+                [
+                    HLAStandard(
+                        allele="std_allmismatch", sequence=np.array([1, 2, 4, 4])
+                    )
+                ],
                 [
                     HLAStandardMatch(
-                        allele="std_allmismatch", sequence=[1, 2, 4, 4], mismatch=1
+                        allele="std_allmismatch",
+                        sequence=np.array([1, 2, 4, 4]),
+                        mismatch=1,
                     )
                 ],
             ),
             (
-                [1, 2, 4, 8],
-                [HLAStandard(allele="std_allmismatch", sequence=[8, 4, 2, 1])],
+                np.array([1, 2, 4, 8]),
+                [
+                    HLAStandard(
+                        allele="std_allmismatch", sequence=np.array([8, 4, 2, 1])
+                    )
+                ],
                 [
                     HLAStandardMatch(
-                        allele="std_allmismatch", sequence=[8, 4, 2, 1], mismatch=4
+                        allele="std_allmismatch",
+                        sequence=np.array([8, 4, 2, 1]),
+                        mismatch=4,
                     )
                 ],
             ),
             #
             (
-                [1, 2, 4, 8],
+                np.array([1, 2, 4, 8]),
                 [
-                    HLAStandard(allele="std_allmatch", sequence=[1, 2, 4, 8]),
-                    HLAStandard(allele="std_1mismatch", sequence=[1, 2, 4, 4]),
-                    HLAStandard(allele="std_allmismatch", sequence=[8, 4, 2, 1]),
+                    HLAStandard(allele="std_allmatch", sequence=np.array([1, 2, 4, 8])),
+                    HLAStandard(
+                        allele="std_1mismatch", sequence=np.array([1, 2, 4, 4])
+                    ),
+                    HLAStandard(
+                        allele="std_allmismatch", sequence=np.array([8, 4, 2, 1])
+                    ),
                 ],
                 [
                     HLAStandardMatch(
-                        allele="std_allmatch", sequence=[1, 2, 4, 8], mismatch=0
+                        allele="std_allmatch",
+                        sequence=np.array([1, 2, 4, 8]),
+                        mismatch=0,
                     ),
                     HLAStandardMatch(
-                        allele="std_1mismatch", sequence=[1, 2, 4, 4], mismatch=1
+                        allele="std_1mismatch",
+                        sequence=np.array([1, 2, 4, 4]),
+                        mismatch=1,
                     ),
                     HLAStandardMatch(
-                        allele="std_allmismatch", sequence=[8, 4, 2, 1], mismatch=4
+                        allele="std_allmismatch",
+                        sequence=np.array([8, 4, 2, 1]),
+                        mismatch=4,
                     ),
                 ],
             ),
@@ -592,7 +621,9 @@ class TestEasyHLA:
     def test_load_hla_stds(self, easyhla, hla_standard_file, mocker):
         mocker.patch.object(os.path, "join", return_value=hla_standard_file)
         exp_result = [
-            HLAStandard(allele="HELLO-WORLD", sequence=[1, 1, 1, 1, 2, 1, 5, 8, 10])
+            HLAStandard(
+                allele="HELLO-WORLD", sequence=np.array([1, 1, 1, 1, 2, 1, 5, 8, 10])
+            )
         ]
 
         result = easyhla.load_hla_stds(easyhla.letter)
@@ -612,20 +643,20 @@ class TestEasyHLA:
             (
                 "ACGT",
                 "ACGT",
-                HLAStandard(allele="std", sequence=[1, 2, 4, 8]),
-                [1, 2, 4, 8],
+                HLAStandard(allele="std", sequence=np.array([1, 2, 4, 8])),
+                np.array([1, 2, 4, 8]),
             ),
             (
                 "ACGT",
                 "ACGT-exon2",
-                HLAStandard(allele="std", sequence=[1, 2, 4, 8]),
-                [1, 2, 4, 8],
+                HLAStandard(allele="std", sequence=np.array([1, 2, 4, 8])),
+                np.array([1, 2, 4, 8]),
             ),
             (
                 "ACGT",
                 "ACGT-exon3",
-                HLAStandard(allele="std", sequence=[1, 2, 4, 8]),
-                [1, 2, 4, 8],
+                HLAStandard(allele="std", sequence=np.array([1, 2, 4, 8])),
+                np.array([1, 2, 4, 8]),
             ),
             # This is going to be an absolute nightmare to test
             # Full test with intron
@@ -634,16 +665,18 @@ class TestEasyHLA:
                 "ACGT",
                 HLAStandard(
                     allele="std",
-                    sequence=[1, 2, 4, 8],
+                    sequence=np.array([1, 2, 4, 8]),
                 ),
-                [
-                    *([1] * EasyHLA.EXON2_LENGTH),
-                    1,
-                    2,
-                    4,
-                    8,
-                    *([1] * EasyHLA.EXON3_LENGTH),
-                ],
+                np.array(
+                    [
+                        *([1] * EasyHLA.EXON2_LENGTH),
+                        1,
+                        2,
+                        4,
+                        8,
+                        *([1] * EasyHLA.EXON3_LENGTH),
+                    ]
+                ),
             ),
             # Full test with exon2
             (
@@ -651,18 +684,22 @@ class TestEasyHLA:
                 "ACGT-full-exon2",
                 HLAStandard(
                     allele="std",
-                    sequence=[
-                        *([1] * EasyHLA.EXON2_LENGTH),
-                        *([1] * EasyHLA.EXON3_LENGTH),
-                    ],
+                    sequence=np.array(
+                        [
+                            *([1] * EasyHLA.EXON2_LENGTH),
+                            *([1] * EasyHLA.EXON3_LENGTH),
+                        ]
+                    ),
                 ),
-                [
-                    *([1] * int(EasyHLA.EXON2_LENGTH - 4)),
-                    1,
-                    2,
-                    4,
-                    8,
-                ],
+                np.array(
+                    [
+                        *([1] * int(EasyHLA.EXON2_LENGTH - 4)),
+                        1,
+                        2,
+                        4,
+                        8,
+                    ]
+                ),
             ),
             # Full test with exon3
             (
@@ -670,18 +707,22 @@ class TestEasyHLA:
                 "ACGT-full-exon3",
                 HLAStandard(
                     allele="std",
-                    sequence=[
-                        *([1] * EasyHLA.EXON2_LENGTH),
-                        *([1] * EasyHLA.EXON3_LENGTH),
-                    ],
+                    sequence=np.array(
+                        [
+                            *([1] * EasyHLA.EXON2_LENGTH),
+                            *([1] * EasyHLA.EXON3_LENGTH),
+                        ]
+                    ),
                 ),
-                [
-                    1,
-                    2,
-                    4,
-                    8,
-                    *([1] * int(EasyHLA.EXON3_LENGTH - 4)),
-                ],
+                np.array(
+                    [
+                        1,
+                        2,
+                        4,
+                        8,
+                        *([1] * int(EasyHLA.EXON3_LENGTH - 4)),
+                    ]
+                ),
             ),
             # Full test two possible choices, should select the best match which
             # is the second string of 5s
@@ -692,33 +733,37 @@ class TestEasyHLA:
                 "RRRRRR-two-options-choose-last",
                 HLAStandard(
                     allele="std",
-                    sequence=[
-                        *([4] * (int(EasyHLA.EXON2_LENGTH / 2) - 2)),
-                        5,
-                        4,
-                        5,
-                        5,
-                        *([4] * (int(EasyHLA.EXON2_LENGTH / 2) - 2)),
-                        5,
-                        5,
-                        5,
-                        5,
-                        5,
-                        *([4] * (EasyHLA.EXON3_LENGTH - 5)),
-                    ],
+                    sequence=np.array(
+                        [
+                            *([4] * (int(EasyHLA.EXON2_LENGTH / 2) - 2)),
+                            5,
+                            4,
+                            5,
+                            5,
+                            *([4] * (int(EasyHLA.EXON2_LENGTH / 2) - 2)),
+                            5,
+                            5,
+                            5,
+                            5,
+                            5,
+                            *([4] * (EasyHLA.EXON3_LENGTH - 5)),
+                        ]
+                    ),
                 ),
-                [
-                    *([15] * 2),
-                    *([1] * int(EasyHLA.EXON2_LENGTH)),
-                    5,
-                    5,
-                    5,
-                    5,
-                    5,
-                    5,
-                    1,
-                    *([1] * int(EasyHLA.EXON3_LENGTH - 7)),
-                ],
+                np.array(
+                    [
+                        *([15] * 2),
+                        *([1] * int(EasyHLA.EXON2_LENGTH)),
+                        5,
+                        5,
+                        5,
+                        5,
+                        5,
+                        5,
+                        1,
+                        *([1] * int(EasyHLA.EXON3_LENGTH - 7)),
+                    ]
+                ),
             ),
         ],
     )
@@ -728,7 +773,7 @@ class TestEasyHLA:
         sequence: str,
         name: str,
         hla_std: HLAStandard,
-        exp_result: List[int],
+        exp_result: np.ndarray,
     ):
         bin_list = easyhla.nuc2bin(sequence)
         result = easyhla.pad_short(seq=bin_list, name=name, hla_std=hla_std)
@@ -745,18 +790,20 @@ class TestEasyHLA:
         #     sum([1 for a in exp_result if a == 15]),
         #     len(exp_result),
         # )
-        assert result == exp_result
+        assert np.array_equal(result, exp_result)
 
     @pytest.mark.parametrize(
         "sequence, threshold, matching_standards, exp_result",
         [
             # Simple case
             (
-                [1, 2, 4, 8],
+                np.array([1, 2, 4, 8]),
                 1,
                 [
                     HLAStandardMatch(
-                        allele="std_allmatch", sequence=[1, 2, 4, 8], mismatch=0
+                        allele="std_allmatch",
+                        sequence=np.array([1, 2, 4, 8]),
+                        mismatch=0,
                     ),
                 ],
                 {
@@ -770,11 +817,13 @@ class TestEasyHLA:
             ),
             # No threshold defined
             (
-                [1, 2, 4, 8],
+                np.array([1, 2, 4, 8]),
                 None,
                 [
                     HLAStandardMatch(
-                        allele="std_allmatch", sequence=[1, 2, 4, 8], mismatch=0
+                        allele="std_allmatch",
+                        sequence=np.array([1, 2, 4, 8]),
+                        mismatch=0,
                     ),
                 ],
                 {
@@ -788,11 +837,13 @@ class TestEasyHLA:
             ),
             # Same case but HLAStandardMatch.mismatch is above threshold
             (
-                [1, 2, 4, 8],
+                np.array([1, 2, 4, 8]),
                 1,
                 [
                     HLAStandardMatch(
-                        allele="std_allmatch", sequence=[1, 4, 2, 8], mismatch=2
+                        allele="std_allmatch",
+                        sequence=np.array([1, 4, 2, 8]),
+                        mismatch=2,
                     ),
                 ],
                 {
@@ -806,14 +857,18 @@ class TestEasyHLA:
             ),
             #
             (
-                [1, 2, 4, 8],
+                np.array([1, 2, 4, 8]),
                 1,
                 [
                     HLAStandardMatch(
-                        allele="std_allmatch", sequence=[1, 2, 4, 8], mismatch=0
+                        allele="std_allmatch",
+                        sequence=np.array([1, 2, 4, 8]),
+                        mismatch=0,
                     ),
                     HLAStandardMatch(
-                        allele="std_allmatch2", sequence=[1, 4, 4, 8], mismatch=1
+                        allele="std_allmatch2",
+                        sequence=np.array([1, 4, 4, 8]),
+                        mismatch=1,
                     ),
                 ],
                 {
@@ -837,14 +892,18 @@ class TestEasyHLA:
             ),
             #
             (
-                [9, 6, 4, 6],
+                np.array([9, 6, 4, 6]),
                 1,
                 [
                     HLAStandardMatch(
-                        allele="std_allmatch", sequence=[1, 2, 4, 4], mismatch=0
+                        allele="std_allmatch",
+                        sequence=np.array([1, 2, 4, 4]),
+                        mismatch=0,
                     ),
                     HLAStandardMatch(
-                        allele="std_1mismatch2", sequence=[8, 4, 4, 8], mismatch=1
+                        allele="std_1mismatch2",
+                        sequence=np.array([8, 4, 4, 8]),
+                        mismatch=1,
                     ),
                 ],
                 {
@@ -864,11 +923,13 @@ class TestEasyHLA:
             ),
             #
             (
-                [1, 2, 4, 8],
+                np.array([1, 2, 4, 8]),
                 0,
                 [
                     HLAStandardMatch(
-                        allele="std_1mismatch", sequence=[1, 2, 4, 4], mismatch=1
+                        allele="std_1mismatch",
+                        sequence=np.array([1, 2, 4, 4]),
+                        mismatch=1,
                     )
                 ],
                 {
@@ -881,11 +942,13 @@ class TestEasyHLA:
                 },
             ),
             (
-                [1, 2, 4, 8],
+                np.array([1, 2, 4, 8]),
                 0,
                 [
                     HLAStandardMatch(
-                        allele="std_allmismatch", sequence=[8, 4, 2, 1], mismatch=4
+                        allele="std_allmismatch",
+                        sequence=np.array([8, 4, 2, 1]),
+                        mismatch=4,
                     )
                 ],
                 {
@@ -901,17 +964,23 @@ class TestEasyHLA:
             ),
             #
             (
-                [1, 2, 4, 8],
+                np.array([1, 2, 4, 8]),
                 0,
                 [
                     HLAStandardMatch(
-                        allele="std_allmatch", sequence=[1, 2, 4, 8], mismatch=0
+                        allele="std_allmatch",
+                        sequence=np.array([1, 2, 4, 8]),
+                        mismatch=0,
                     ),
                     HLAStandardMatch(
-                        allele="std_1mismatch", sequence=[1, 2, 4, 4], mismatch=1
+                        allele="std_1mismatch",
+                        sequence=np.array([1, 2, 4, 4]),
+                        mismatch=1,
                     ),
                     HLAStandardMatch(
-                        allele="std_allmismatch", sequence=[8, 4, 2, 1], mismatch=4
+                        allele="std_allmismatch",
+                        sequence=np.array([8, 4, 2, 1]),
+                        mismatch=4,
                     ),
                 ],
                 {
@@ -938,6 +1007,8 @@ class TestEasyHLA:
             seq=sequence,
             max_mismatch_threshold=threshold,
         )
+        print(sorted(result.items()))
+        print([(k, v) for k, v in exp_result.items()])
         assert sorted(result.items()) == [(k, v) for k, v in exp_result.items()]
 
     @pytest.mark.parametrize(

@@ -1,5 +1,7 @@
+import numpy as np
 from pydantic import BaseModel
 from typing import Optional, Dict, List, Tuple
+from pydantic_numpy.ndarray import NDArray
 
 
 class Exon(BaseModel):
@@ -21,22 +23,26 @@ class Exon(BaseModel):
 
 class HLASequence(BaseModel):
     exon: Exon
-    sequence: List[int]
+    sequence: NDArray
 
     def __eq__(self, other):
         if type(other) != type(self):
             raise TypeError(f"Cannot compare against {type(other)}")
-        return all([self.exon == other.exon, self.sequence == other.sequence])
+        return all(
+            [self.exon == other.exon, np.array_equal(self.sequence, other.sequence)]
+        )
 
 
 class HLAStandard(BaseModel):
     allele: str
-    sequence: List[int]
+    sequence: NDArray
 
     def __eq__(self, other):
         if type(self) != type(other):
             raise TypeError(f"Cannot compare against {type(other)}")
-        return all([self.allele == other.allele, self.sequence == other.sequence])
+        return all(
+            [self.allele == other.allele, np.array_equal(self.sequence, other.sequence)]
+        )
 
     def __lt__(self, other):
         if type(self) != type(other):
@@ -68,7 +74,7 @@ class HLAStandardMatch(HLAStandard):
         return all(
             [
                 self.allele == other.allele,
-                self.sequence == other.sequence,
+                np.array_equal(self.sequence, other.sequence),
                 self.mismatch == other.mismatch,
             ]
         )

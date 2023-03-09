@@ -2,6 +2,7 @@ import os
 import re
 import typer
 import logging
+import numpy as np
 from datetime import datetime
 from typing import List, Optional, Dict, Tuple, Any, Final
 from operator import itemgetter, attrgetter
@@ -123,18 +124,22 @@ class EasyHLA:
             raise ValueError(f"Sequence {name} has invalid characters")
         return True
 
-    def nuc2bin(self, seq: str) -> List[int]:
-        return [EasyHLA.NUC2BIN.get(seq[i], 0) for i in range(len(seq))]
+    def nuc2bin(self, seq: str) -> np.ndarray:
+        return np.array(
+            [EasyHLA.NUC2BIN.get(seq[i], 0) for i in range(len(seq))], dtype="int8"
+        )
 
-    def bin2nuc(self, seq: List[int]) -> str:
+    def bin2nuc(self, seq: np.ndarray) -> str:
         return "".join([EasyHLA.BIN2NUC.get(seq[i], "_") for i in range(len(seq))])
 
-    def calc_padding(self, std: List[int], seq: List[int]) -> Tuple[int, int]:
+    def calc_padding(self, std: np.ndarray, seq: np.ndarray) -> Tuple[int, int]:
         best = 10e10
         pad = len(std) - len(seq)
         left_pad = 0
         for i in range(pad):
-            pseq = self.nuc2bin("N" * i) + seq + self.nuc2bin("N" * (pad - i))
+            pseq = np.concatenate(
+                (self.nuc2bin("N" * i), seq, self.nuc2bin("N" * (pad - i)))
+            )
             mismatches = self.std_match(std, pseq)
             if mismatches < best:
                 best = mismatches
@@ -144,10 +149,10 @@ class EasyHLA:
 
     def pad_short(
         self,
-        seq: List[int],
+        seq: np.ndarray,
         name: str,
         hla_std: HLAStandard,
-    ) -> List[int]:
+    ) -> np.ndarray:
         # hla_stds expects [ ["label0", [1,2,3,4]], ["label1", [2,3,4,5]] ]
         std = None
         has_intron = False
@@ -171,18 +176,19 @@ class EasyHLA:
         else:
             left_pad, right_pad = self.calc_padding(std, seq)
 
-        return self.nuc2bin("N" * left_pad) + seq + self.nuc2bin("N" * right_pad)
+        short_padded_array = np.concatenate(
+            (self.nuc2bin("N" * left_pad), seq, self.nuc2bin("N" * right_pad))
+        )
+        return short_padded_array
 
-    def std_match(self, std: List[int], seq: List[int]) -> int:
+    def std_match(self, std: np.ndarray, seq: np.ndarray) -> int:
         mismatches = 0
-        delta = 0
-        for i in range(len(std)):
-            if std[i] & seq[i] == 0:
-                mismatches += 1
+        masked_array: np.ndarray = std & seq
+        mismatches = np.count_nonzero(masked_array == 0)
         return mismatches
 
     def get_matching_stds(
-        self, seq: List[int], hla_stds: List[HLAStandard]
+        self, seq: np.ndarray, hla_stds: List[HLAStandard]
     ) -> List[HLAStandardMatch]:
         # Returns [ ["std_name", [1,2,3,4], num_mismatches], ["std_name2", [2,3,4,5], num_mismatches2]]
         matching_stds: List[HLAStandardMatch] = []
@@ -230,16 +236,9 @@ class EasyHLA:
                 # Ruby allows lists as keys in hashes, python doesn't
 
                 mismatches = 0
-                for i in range(length):
-                    if std_b.sequence[i] == std_a.sequence[i]:
-                        std.append(std_b.sequence[i])
-                    else:
-                        std.append(std_b.sequence[i] | std_a.sequence[i])
-
-                    if (std[i] ^ seq[i]) & 15 != 0:
-                        mismatches += 1
-                    if mismatches > computed_minimum_mismatches:
-                        break
+                std = std_b.sequence | std_a.sequence
+                seq_mask = np.full_like(std, fill_value=15)
+                mismatches = np.count_nonzero((std ^ seq) & seq_mask != 0)
 
                 if mismatches <= computed_minimum_mismatches:
                     combined_std_name = "-".join([str(s) for s in std])
@@ -367,7 +366,7 @@ class EasyHLA:
             )
             exon2 = self.bin2nuc(exon2_bin)
             exon3 = self.bin2nuc(exon3_bin)
-            seq = exon2_bin + exon3_bin
+            seq = np.concatenate((exon2_bin, exon3_bin))
         else:
             seq = self.pad_short(
                 self.nuc2bin(entry.seq), samp, hla_std=self.hla_stds[0]
@@ -375,7 +374,9 @@ class EasyHLA:
             exon2 = self.bin2nuc(seq[: EasyHLA.EXON2_LENGTH])
             intron = self.bin2nuc(seq[EasyHLA.EXON2_LENGTH : -EasyHLA.EXON3_LENGTH])
             exon3 = self.bin2nuc(seq[-EasyHLA.EXON3_LENGTH :])
-            seq = seq[: EasyHLA.EXON2_LENGTH] + seq[-EasyHLA.EXON3_LENGTH :]
+            seq = np.concatenate(
+                (seq[: EasyHLA.EXON2_LENGTH], seq[-EasyHLA.EXON3_LENGTH :])
+            )
 
         matching_stds = self.get_matching_stds(seq, self.hla_stds)
         if len(matching_stds) == 0:
