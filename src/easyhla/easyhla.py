@@ -337,8 +337,8 @@ class EasyHLA:
                 if f"exon{exon}" in samp.lower():
                     is_exon = True
                     _samp = samp.split("_")[0]
-                    for other in unmatched[3 - exon]:
-                        if other.description.lower().startswith(_samp):
+                    for i, other in enumerate(unmatched[3 - exon]):
+                        if _samp.lower() in other.description.lower():
                             matched = True
                             intron = ""
                             if exon == 2:
@@ -348,7 +348,7 @@ class EasyHLA:
                                 exon2 = str(other.seq)
                                 exon3 = str(entry.seq)
 
-                            unmatched[3 - exon].remove(other)
+                            unmatched[3 - exon].pop(i)
                             samp = _samp
                             break
 
@@ -487,6 +487,13 @@ class EasyHLA:
         # print(row)
         return HLAResult(result=row, num_pats=1, num_seqs=nseqs)
 
+    def report_unmatched_sequences(
+        self, unmatched: List[List[Bio.SeqIO.SeqRecord]]
+    ) -> None:
+        for exon in [2, 3]:
+            for entry in unmatched[exon % 2]:
+                print(f"No matching exon{3 - exon % 2} for {entry.description}")
+
     def run(
         self,
         letter: HLA_TYPES,
@@ -498,9 +505,9 @@ class EasyHLA:
         npats = 0
         nseqs = 0
         time_start = datetime.now()
+        unmatched: List[List[Bio.SeqIO.SeqRecord]] = [[], []]
         with open(filename, "r", encoding="utf-8") as f:
             fasta = Bio.SeqIO.parse(f, "fasta")
-            unmatched: List[List[Bio.SeqIO.SeqRecord]] = [[], []]
             for i, entry in enumerate(fasta):
                 result = self.interpret(
                     letter,
@@ -514,6 +521,8 @@ class EasyHLA:
                     rows.append(result.result.get_result_as_str())
                     npats += result.num_pats
                     nseqs += result.num_seqs
+
+        self.report_unmatched_sequences(unmatched)
 
         with open(output_filename, "w", encoding="utf-8") as f:
             f.write(
