@@ -39,20 +39,30 @@ Documentation = "https://github.com/unknown/easyhla#readme"
 Issues = "https://github.com/unknown/easyhla/issues"
 Source = "https://github.com/unknown/easyhla"
 
+[project.scripts]
+easyhla = "easyhla:run"
+
 [tool.hatch.version]
 path = "src/easyhla/__about__.py"
 
 [tool.hatch.build]
 include = [
+  "src/entrypoint.py",
   "src/easyhla/*.py",
   "src/easyhla/*.csv",
   "src/easyhla/hla_nuc.fasta.mtime",
 ]
 exclude = [
   "src/easyhla/check_date_modified.py",
+  "tools",
+  "tests/output",
+  "tests/input"
 ]
 skip-excluded-dirs = true
 directory = "output"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/easyhla"]
 
 [tool.hatch.envs.default]
 dependencies = [
@@ -113,6 +123,7 @@ omit = [
   "src/easyhla/__about__.py",
   "src/easyhla/check_date_modified.py",
   "tests/__init__.py",
+  "src/easyhla/entrypoint.py",
 ]
 
 [tool.coverage.report]

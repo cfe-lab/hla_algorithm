@@ -1,13 +1,14 @@
 import os
 import re
-import typer
 import logging
+import typer
 import numpy as np
+from pathlib import Path
 from datetime import datetime
 from typing import List, Optional, Dict, Tuple, Any, Final, Literal
-from operator import itemgetter, attrgetter
-
 import Bio.SeqIO
+from enum import Enum
+
 
 from .models import (
     HLAStandard,
@@ -16,6 +17,13 @@ from .models import (
     HLAResult,
     HLAResultRow,
 )
+
+
+class HLAType(str, Enum):
+    A = "A"
+    B = "B"
+    C = "C"
+
 
 DATE_FORMAT = "%a %b %d %H:%M:%S %Z %Y"
 
@@ -86,12 +94,13 @@ class EasyHLA:
 
     COLUMN_IDS: Final[Dict[str, int]] = {"A": 0, "B": 2, "C": 4}
 
-    def __init__(self, letter: HLA_TYPES):
+    def __init__(self, letter: HLA_TYPES, logger: Optional[logging.Logger] = None):
         if letter.upper() not in ["A", "B", "C"]:
             raise ValueError("Invalid HLA Type!")
         self.letter: str = letter.upper()
         self.hla_stds: List[HLAStandard] = self.load_hla_stds(letter=self.letter)
         self.hla_freqs: Dict[str, int] = self.load_hla_frequencies(letter=self.letter)
+        self.log = logger or logging.Logger(__name__, logging.ERROR)
 
     def check_length(self, letter: HLA_TYPES, seq: str, name: str) -> bool:
         error_condition: bool = False
@@ -120,6 +129,16 @@ class EasyHLA:
                 f"Sequence {name} is the wrong length ({len(seq)} bp). Check the locus {letter}"
             )
         return True
+
+    def print(
+        self,
+        message: Any,
+        log_level: int = logging.INFO,
+        to_stdout: Optional[bool] = None,
+    ) -> None:
+        self.log.log(level=log_level, msg=message)
+        if to_stdout:
+            print(message)
 
     def check_bases(self, seq: str, name: str) -> bool:
         if not re.match(r"^[ATGCRYKMSWNBDHV]+$", seq):
@@ -316,6 +335,7 @@ class EasyHLA:
         entry: Bio.SeqIO.SeqRecord,
         unmatched: List[List[Bio.SeqIO.SeqRecord]],
         threshold: Optional[int] = None,
+        to_stdout: Optional[bool] = None,
     ) -> Optional[HLAResult]:
         samp = entry.description
 
@@ -382,8 +402,16 @@ class EasyHLA:
 
         matching_stds = self.get_matching_stds(seq, self.hla_stds)
         if len(matching_stds) == 0:
-            print(f"Sequence {samp} did not match any known alleles.")
-            print("Please check the locus and the orientation.")
+            self.print(
+                f"Sequence {samp} did not match any known alleles.",
+                log_level=logging.WARN,
+                to_stdout=to_stdout,
+            )
+            self.print(
+                "Please check the locus and the orientation.",
+                log_level=logging.WARN,
+                to_stdout=to_stdout,
+            )
             return None
 
         # Now, combine all the stds (pick up that can citizen!)
@@ -396,13 +424,24 @@ class EasyHLA:
             for i, combos in all_combos_sorted:
                 if i > threshold:
                     if i == 0:
-                        print("No matches found below specified threshold.")
-                        print("Please heck the locus, orientation, and/or increase")
-                        print("number of mismatches.")
+                        self.print(
+                            "No matches found below specified threshold.",
+                            log_level=logging.WARN,
+                            to_stdout=to_stdout,
+                        )
+                        self.print(
+                            "Please heck the locus, orientation, and/or increase",
+                            log_level=logging.WARN,
+                            to_stdout=to_stdout,
+                        )
+                        self.print(
+                            "number of mismatches.",
+                            log_level=logging.WARN,
+                            to_stdout=to_stdout,
+                        )
                     break
                 for cons in combos:
                     for pair in cons.discrete_allele_names:
-                        # print(" - ".join(pair))
                         misstrings = []
                         _seq = [int(nuc) for nuc in cons.standard.split("-")]
                         for n in range(len(_seq)):
@@ -414,8 +453,16 @@ class EasyHLA:
                                 else:
                                     dex = n + 1
                                 misstrings.append(f"{dex}:{base}->{correct_base}")
-                        # print(";".join(misstrings) + ",")
-                        # print(f"{exon2},{intron},{exon3}")
+                        self.print(
+                            ";".join(misstrings) + ",",
+                            log_level=logging.INFO,
+                            to_stdout=to_stdout,
+                        )
+                        self.print(
+                            f"{exon2},{intron},{exon3}",
+                            log_level=logging.INFO,
+                            to_stdout=to_stdout,
+                        )
 
         best_matches = all_combos_sorted[0][1]
         mismatch_count = all_combos_sorted[0][0]
@@ -488,11 +535,16 @@ class EasyHLA:
         return HLAResult(result=row, num_pats=1, num_seqs=nseqs)
 
     def report_unmatched_sequences(
-        self, unmatched: List[List[Bio.SeqIO.SeqRecord]]
+        self,
+        unmatched: List[List[Bio.SeqIO.SeqRecord]],
+        to_stdout: Optional[bool] = None,
     ) -> None:
         for exon in [2, 3]:
             for entry in unmatched[exon % 2]:
-                print(f"No matching exon{3 - exon % 2} for {entry.description}")
+                self.print(
+                    f"No matching exon{3 - exon % 2} for {entry.description}",
+                    to_stdout=to_stdout,
+                )
 
     def run(
         self,
@@ -500,12 +552,21 @@ class EasyHLA:
         filename: str,
         output_filename: str,
         threshold: Optional[int] = None,
+        to_stdout: Optional[bool] = None,
     ):
         rows = []
         npats = 0
         nseqs = 0
         time_start = datetime.now()
         unmatched: List[List[Bio.SeqIO.SeqRecord]] = [[], []]
+        self.print(
+            f"Run commencing {time_start.strftime(DATE_FORMAT)}. Allele definitions last updated {self.load_allele_definitions_last_modified_time().strftime(DATE_FORMAT)}.",
+            to_stdout=to_stdout,
+        )
+        self.print(
+            "ENUM,ALLELES_CLEAN,ALLELES,AMBIGUOUS,HOMOZYGOUS,MISMATCH_COUNT,MISMATCHES,EXON2,INTRON,EXON3",
+            to_stdout=to_stdout,
+        )
         with open(filename, "r", encoding="utf-8") as f:
             fasta = Bio.SeqIO.parse(f, "fasta")
             for i, entry in enumerate(fasta):
@@ -519,10 +580,16 @@ class EasyHLA:
                     continue
                 else:
                     rows.append(result.result.get_result_as_str())
+                    self.print(result.result.get_result_as_str(), to_stdout=to_stdout)
                     npats += result.num_pats
                     nseqs += result.num_seqs
 
-        self.report_unmatched_sequences(unmatched)
+        self.report_unmatched_sequences(unmatched, to_stdout=to_stdout)
+        self.print(
+            f"{npats} patients, {nseqs} sequences processed.", to_stdout=to_stdout
+        )
+
+        self.log.info(f"% patients, % sequences processed.", npats, nseqs)
 
         with open(output_filename, "w", encoding="utf-8") as f:
             f.write(
@@ -564,8 +631,6 @@ class EasyHLA:
             [a[0].strip().split(":"), a[1].strip().split(":")] for a in all_alleles
         ]
 
-        print(all_alleles)
-
         clean_allele: List[str] = []
         for n in [0, 1]:
             for i in [4, 3, 2, 1]:
@@ -576,7 +641,6 @@ class EasyHLA:
                     break
 
         clean_allele_str: str = " - ".join(clean_allele)
-        print(clean_allele_str)
         return clean_allele_str
 
     def get_alleles(
@@ -660,17 +724,3 @@ class EasyHLA:
                     alleles.remove(a)
 
         return ambig, alleles
-
-
-if __name__ == "__main__":
-    input_file = "tests/input/test.fasta"
-    output_file = "tests/output/test.csv"
-
-    easyhla = EasyHLA("A")
-
-    easyhla.run(
-        easyhla.letter,
-        input_file,
-        output_file,
-        0,
-    )
