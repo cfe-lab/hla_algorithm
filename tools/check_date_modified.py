@@ -23,7 +23,7 @@ import typer
 from math import ceil
 from typing import List, Tuple
 from datetime import datetime
-from .easyhla import DATE_FORMAT
+from src.easyhla.easyhla import DATE_FORMAT
 
 app = typer.Typer()
 
@@ -34,7 +34,7 @@ def _list_files() -> List[Tuple[str, int]]:
     date as an ISO timestamp.
     """
     file_mtime: List[Tuple[str, int]] = []
-    dir = os.path.dirname(__file__)
+    dir = os.path.join(os.path.dirname(__file__), "../src/easyhla/")
     for file_name in os.listdir(dir):
         if file_name.endswith(".csv"):
             file_mtime.append(
@@ -63,7 +63,7 @@ def get_latest_mtime():
 
 
 def _get_mtime_file() -> str:
-    return os.path.join(os.path.dirname(__file__), "hla_nuc.fasta.mtime")
+    return os.path.join(os.path.dirname(__file__), "../src/easyhla/hla_nuc.fasta.mtime")
 
 
 @app.command()
@@ -118,8 +118,8 @@ def _check_dates() -> bool:
     """
     Compare the date on record to the last modified date.
     """
-    latest_file_date = int(_get_latest_mtime().strftime("%Y%m%d"))
-    last_recorded_date = int(_get_last_recorded_mtime().strftime("%Y%m%d"))
+    latest_file_date = int(_get_latest_mtime().strftime("%Y-%m-%d"))
+    last_recorded_date = int(_get_last_recorded_mtime().strftime("%Y-%m-%d"))
     print("Last Modified Date:", latest_file_date)
     print("Last Recorded Date:", last_recorded_date)
     if latest_file_date == last_recorded_date:

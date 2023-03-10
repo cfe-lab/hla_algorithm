@@ -47,7 +47,6 @@ path = "src/easyhla/__about__.py"
 
 [tool.hatch.build]
 include = [
-  "src/entrypoint.py",
   "src/easyhla/*.py",
   "src/easyhla/*.csv",
   "src/easyhla/hla_nuc.fasta.mtime",
@@ -121,9 +120,9 @@ parallel = true
 omit = [
   "src/easyhla/__init__.py",
   "src/easyhla/__about__.py",
-  "src/easyhla/check_date_modified.py",
   "tests/__init__.py",
   "src/easyhla/entrypoint.py",
+  "tools/*.py"
 ]
 
 [tool.coverage.report]

@@ -38,6 +38,7 @@ Check-For-Black:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       changes:
         - src/**/*.py
+        - tools/*.py
 
 Check-HLA-Modified-Dates:
   stage: validate
@@ -48,7 +49,7 @@ Check-HLA-Modified-Dates:
     - pip install typer
   script:
     - cd $CI_PROJECT_DIR
-    - python src/easyhla/check_date_modified.py check-dates
+    - python tools/check_date_modified.py check-dates
   allow_failure: false
   rules:
     - if: $CI_JOB_MANUAL
