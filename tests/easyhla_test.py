@@ -157,30 +157,6 @@ class TestEasyHLADiscreteHLATypeA:
                     letter=easyhla.letter, seq=sequence, name=name
                 )
 
-    @pytest.mark.integration
-    @pytest.mark.slow
-    def test_run(self, easyhla: EasyHLA):
-        """
-        Integration test, assert that pyEasyHLA produces an identical output to
-        the original Ruby output.
-        """
-        input_file = os.path.dirname(__file__) + "/input/hla-a-seqs.fasta"
-        ref_output_file = os.path.dirname(__file__) + "/output/hla-a-output.csv"
-        output_file = os.path.dirname(__file__) + "/output/hla-a-test.csv"
-
-        easyhla.run(
-            easyhla.letter,
-            input_file,
-            output_file,
-            0,
-        )
-
-        compare_ref_vs_test(
-            easyhla=easyhla,
-            reference_output_file=ref_output_file,
-            output_file=output_file,
-        )
-
     @pytest.mark.parametrize(
         "best_matches, exp_ambig, exp_alleles",
         [
@@ -1129,3 +1105,60 @@ class TestEasyHLA:
         result = easyhla.get_clean_alleles(all_alleles=alleles)
 
         assert result == exp_result
+
+    @pytest.mark.integration
+    @pytest.mark.slow
+    def test_run(self, easyhla: EasyHLA):
+        """
+        Integration test, assert that pyEasyHLA produces an identical output to
+        the original Ruby output.
+        """
+
+        input_file = (
+            os.path.dirname(__file__)
+            + f"/input/hla-{easyhla.letter.lower()}-seqs.fasta"
+        )
+        ref_output_file = (
+            os.path.dirname(__file__)
+            + f"/output/hla-{easyhla.letter.lower()}-output-ref.csv"
+        )
+        output_file = (
+            os.path.dirname(__file__) + f"/output/hla-{easyhla.letter.lower()}-test.csv"
+        )
+
+        if not os.path.exists(input_file):
+            pytest.skip("Input sequence does not exist!")
+        if not os.path.exists(ref_output_file):
+            pytest.skip("Reference output does not exist!")
+
+        start_time = datetime.now()
+        print(f"Test started at {start_time.isoformat()}")
+
+        easyhla.run(
+            easyhla.letter,
+            input_file,
+            output_file,
+            0,
+        )
+
+        end_time = datetime.now()
+
+        print(f"Interpretation ended at {end_time.isoformat()}")
+
+        compare_ref_vs_test(
+            easyhla=easyhla,
+            reference_output_file=ref_output_file,
+            output_file=output_file,
+        )
+
+        end_compare_time = datetime.now()
+
+        print(f"Test ended at {end_compare_time.isoformat()}")
+
+        print(f"Time elapsed: {(end_compare_time-start_time).total_seconds()}")
+        print(
+            f"Time elapsed for interpretation: {(end_time-start_time).total_seconds()}"
+        )
+        print(
+            f"Time elapsed for output comparison: {(end_compare_time-end_time).total_seconds()}"
+        )

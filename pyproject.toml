@@ -80,6 +80,7 @@ extra-dependencies = [
   "pytest-cov",
   "pytest-html",
   "pytest-mock",
+  "pytest-xdist",
 ]
 
 [tool.hatch.envs.dev]
@@ -89,6 +90,7 @@ extra-dependencies = [
   "pytest-cov",
   "pytest-html",
   "pytest-mock",
+  "pytest-xdist",
   "black",
   "mypy-extensions"
 ]
@@ -105,7 +107,7 @@ python = ["38", "39", "310", "311"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra --cov --cov-report xml --strict-markers -m 'not slow'"
+addopts = "-ra -n 4 --cov --cov-report xml --strict-markers -m 'not slow'"
 testpaths = [
     "tests",
 ]
