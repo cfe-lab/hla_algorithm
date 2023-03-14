@@ -1,7 +1,7 @@
 import numpy as np
 import re
 from pydantic import BaseModel
-from typing import Optional, Dict, List, Tuple
+from typing import Optional, Dict, List, Tuple, Set
 from pydantic_numpy.ndarray import NDArray
 
 
@@ -55,7 +55,7 @@ class Alleles(BaseModel):
             (a[0].strip().split(":"), a[1].strip().split(":")) for a in self.alleles
         ]
 
-    def get_unique_collection(self) -> set[str]:
+    def get_unique_collection(self) -> Set[str]:
         return {
             f"{e[0][0]}, {e[1][0]}" for e in self.get_collection(remove_subtype=True)
         }
