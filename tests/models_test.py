@@ -1,7 +1,5 @@
 import pytest
-from datetime import datetime
-from contextlib import nullcontext as does_not_raise
-from typing import List, Optional, Dict, Tuple, Any
+from typing import List, Dict, Tuple, Set
 
 from src.easyhla.easyhla import EasyHLA, DATE_FORMAT
 from src.easyhla.models import (
@@ -134,7 +132,7 @@ class TestModels:
         exp_result_clean: List[str],
         exp_homozygous: bool,
         exp_ambiguous: bool,
-        exp_ambiguous_collection: set[str],
+        exp_ambiguous_collection: Set[str],
         exp_collection: List[Tuple[List[str], List[str]]],
     ):
         result = Alleles(alleles=alleles)
