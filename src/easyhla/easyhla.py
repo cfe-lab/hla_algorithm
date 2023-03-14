@@ -579,7 +579,7 @@ class EasyHLA:
         # DR 2023-02-24: To whomever made this comment, great shoutout!
         all_combos = self.combine_stds(matching_stds, seq, threshold)
 
-        self.get_mismatches(
+        self.report_mismatches(
             letter=self.letter,
             all_combos=all_combos,
             seq=seq,
@@ -591,48 +591,11 @@ class EasyHLA:
         best_matches: List[HLACombinedStandardResult] = min(all_combos.items())[1]
         mismatch_count: int = min(all_combos.items())[0]
 
-        mishash: Dict[int, List[int]] = {}
-
-        for cons in best_matches:
-            _seq = [int(nuc) for nuc in cons.standard.split("-")]
-            for i in range(len(_seq)):
-                base = EasyHLA.BIN2NUC[seq[i]]
-                if _seq[i] ^ seq[i] != 0:
-                    correct_base = EasyHLA.BIN2NUC[_seq[i]]
-                    if letter == "A" and i > 270:
-                        dex = i + 242
-                    else:
-                        dex = i + 1
-                    if not i in mishash:
-                        mishash[i] = []
-                    if not _seq[i] in mishash[i]:
-                        mishash[i].append(_seq[i])
-
-        mislist: List[str] = []
-
-        for m, mlist in mishash.items():
-            if letter == "A" and m > 270:
-                dex = m + 241
-            else:
-                dex = m + 1
-
-            base = EasyHLA.BIN2NUC[seq[m]]
-            correct_bases = ""
-            for correct_bin in mlist:
-                if not correct_bases:
-                    correct_bases = EasyHLA.BIN2NUC[correct_bin]
-                else:
-                    correct_bases += "/" + EasyHLA.BIN2NUC[correct_bin]
-            mislist.append(f"{dex}:{base}->{correct_bases}")
-
-        # mislist = mislist.sort_by{|b| b.split(":")[0].to_i}
-        # mismatches = mislist.join(";")
-        mislist.sort(key=lambda item: item.split(":")[0])
-        mismatches = ";".join(mislist)
-
         # Clean the alleles
 
-        fcnt = EasyHLA.COLUMN_IDS[letter]
+        mismatches = self.get_mismatches(
+            self.letter, best_matches=best_matches, seq=seq
+        )
 
         alleles = self.get_all_alleles(best_matches=best_matches)
         ambig = alleles.is_ambiguous()
@@ -690,6 +653,9 @@ class EasyHLA:
         threshold: Optional[int] = None,
         to_stdout: Optional[bool] = None,
     ):
+        if threshold and threshold < 0:
+            raise RuntimeError("Threshold must be >=0 or None!")
+
         rows = []
         npats = 0
         nseqs = 0
@@ -760,14 +726,15 @@ class EasyHLA:
         self, letter: HLA_TYPES, alleles: Alleles
     ) -> List[Tuple[str, str]]:
         """
-        _summary_
+        In case we have an ambiguous set of alleles, remove ambiguous alleles
+        using HLA Freq standards.
 
-        :param letter: _description_
+        :param letter: ...
         :type letter: HLA_TYPES
-        :param best_matches: _description_
-        :type best_matches: List[HLACombinedStandardResult]
-        :return: _description_
-        :rtype: Tuple[bool, List[Tuple[str,str]]]
+        :param alleles: ...
+        :type alleles: Alleles
+        :return: List of alleles filtered by HLA frequency.
+        :rtype: List[Tuple[str,str]]
         """
 
         collection_ambig = alleles.get_ambiguous_collection()
@@ -776,8 +743,6 @@ class EasyHLA:
                 if freq.startswith(k):
                     collection_ambig[k] = self.hla_freqs.get(freq, 0)
 
-        # TODO: Implement like the following commented ruby
-        # Easier if we made things a model.
         def sort_allele(item: Tuple[str, int]):
             """
             Produce a tuple that the sort function will use to determine the maximum allele.
@@ -825,13 +790,83 @@ class EasyHLA:
     def get_mismatches(
         self,
         letter: HLA_TYPES,
+        best_matches: List[HLACombinedStandardResult],
+        seq: np.ndarray,
+    ) -> str:
+        """
+        Report mismatched bases and their location versus a standard reference.
+
+        The output looks like "$LOC:$SEQ_BASE->$STANDARD_BASE", if multiple
+        mismatches are present, this will be delimited with `;`'s.
+
+        :param letter: ...
+        :type letter: HLA_TYPES
+        :param best_matches: List of the "best matched" standards to the sequence.
+        :type best_matches: List[HLACombinedStandardResult]
+        :param seq: The sequence being interpretted.
+        :type seq: np.ndarray
+        :return: A string-concatentated list of locations containing mismatches.
+        :rtype: str
+        """
+        correct_bases_at_pos: Dict[int, List[int]] = {}
+
+        for hla_csr in best_matches:
+            _seq = np.array([int(nuc) for nuc in hla_csr.standard.split("-")])
+            # TODO: replace with https://stackoverflow.com/questions/16094563/numpy-get-index-where-value-is-true
+            for idx in np.flatnonzero(_seq ^ seq):
+                if not idx in correct_bases_at_pos:
+                    correct_bases_at_pos[idx] = []
+                if not _seq[idx] in correct_bases_at_pos[idx]:
+                    correct_bases_at_pos[idx].append(_seq[idx])
+
+        mislist: List[str] = []
+
+        for index, correct_bases in correct_bases_at_pos.items():
+            if letter == "A" and index > 270:
+                dex = index + 241
+            else:
+                dex = index + 1
+
+            base = EasyHLA.BIN2NUC[seq[index]]
+            _correct_bases = "/".join(
+                [EasyHLA.BIN2NUC[correct_bin] for correct_bin in correct_bases]
+            )
+            mislist.append(f"{dex}:{base}->{_correct_bases}")
+
+        mislist.sort(key=lambda item: item.split(":")[0])
+        mismatches = ";".join(mislist)
+
+        return mismatches
+
+    def report_mismatches(
+        self,
+        letter: HLA_TYPES,
         all_combos: Dict[int, List[HLACombinedStandardResult]],
         seq: np.ndarray,
-        threshold: Optional[int],
+        threshold: Optional[int] = None,
         sequence_components: Optional[Exon] = None,
         to_stdout: Optional[bool] = None,
     ) -> None:
+        """
+        Report mismatches to log/stdout (if applicable).
+
+        :param letter: ...
+        :type letter: HLA_TYPES
+        :param all_combos: All possible combos
+        :type all_combos: Dict[int, List[HLACombinedStandardResult]]
+        :param seq: Sequence currently being interpretted.
+        :type seq: np.ndarray
+        :param threshold: Maximum allowed mismatches in a sequence compared to a standard, must be non-negative or None, defaults to None
+        :type threshold: Optional[int], optional
+        :param sequence_components: Components of a sequence, ex: Exon2, Intron, Exon3, defaults to None
+        :type sequence_components: Optional[Exon], optional
+        :param to_stdout: Print to STDOUT if true, defaults to None
+        :type to_stdout: Optional[bool], optional
+        :raises RuntimeError: Raised if threshold is < 0
+        """
         if threshold:
+            if threshold < 0:
+                raise RuntimeError("Threshold must be >=0 or None!")
             for i, combos in sorted(all_combos.items()):
                 if i > threshold:
                     if i == 0:
@@ -843,21 +878,15 @@ class EasyHLA:
                             to_stdout=to_stdout,
                         )
                     break
-                for cons in combos:
-                    misstrings = []
-                    _seq = np.array([int(nuc) for nuc in cons.standard.split("-")])
-                    # TODO: replace with https://stackoverflow.com/questions/16094563/numpy-get-index-where-value-is-true
-                    for n in np.flatnonzero(_seq ^ seq):
-                        base = EasyHLA.BIN2NUC[seq[n]]
-                        correct_base = EasyHLA.BIN2NUC[_seq[n]]
-                        if letter == "A" and n > 270:
-                            dex = n + 242
-                        else:
-                            dex = n + 1
-                        misstrings.append(f"{dex}:{base}->{correct_base}")
-                    self.print(
-                        ";".join(misstrings) + ","
-                        f"{sequence_components},{sequence_components},{sequence_components}",
-                        log_level=logging.INFO,
-                        to_stdout=to_stdout,
-                    )
+                # We can reuse get_mismatches here, as instead of the "best" match, we have "a match"
+                mismatches = self.get_mismatches(
+                    letter=letter, best_matches=combos, seq=seq
+                )
+                _seq_str = ""
+                if sequence_components:
+                    _seq_str = f"{sequence_components.two},{sequence_components.intron},{sequence_components.three}"
+                self.print(
+                    f"{mismatches},{_seq_str}",
+                    log_level=logging.INFO,
+                    to_stdout=to_stdout,
+                )
