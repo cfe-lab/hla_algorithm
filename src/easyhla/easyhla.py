@@ -5,7 +5,7 @@ import typer
 import numpy as np
 from pathlib import Path
 from datetime import datetime
-from typing import List, Optional, Dict, Tuple, Any, Final, Literal, TypeAlias
+from typing import List, Optional, Dict, Tuple, Any, Final, Literal
 import Bio.SeqIO
 from enum import Enum
 
@@ -31,7 +31,7 @@ class HLAType(str, Enum):
 
 DATE_FORMAT = "%a %b %d %H:%M:%S %Z %Y"
 
-HLA_TYPES: TypeAlias = Literal["A", "B", "C"]
+HLA_TYPES = Literal["A", "B", "C"]
 
 
 class EasyHLA:
