@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "easyhla"
 description = ''
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = "MIT"
 keywords = []
 authors = [
@@ -16,8 +16,6 @@ authors = [
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: Implementation :: CPython",
@@ -29,7 +27,7 @@ dependencies = [
   "pydantic-numpy",
   "typer",
   "pytz",
-  "numpy"
+  "numpy",
 ]
 
 dynamic = ["version"]
@@ -55,7 +53,7 @@ exclude = [
   "src/easyhla/check_date_modified.py",
   "tools",
   "tests/output",
-  "tests/input"
+  "tests/input",
 ]
 skip-excluded-dirs = true
 directory = "output"
@@ -70,7 +68,7 @@ dependencies = [
   "pydantic-numpy",
   "typer",
   "pytz",
-  "numpy"
+  "numpy",
 ]
 
 [tool.hatch.envs.test]
@@ -92,7 +90,8 @@ extra-dependencies = [
   "pytest-mock",
   "pytest-xdist",
   "black",
-  "mypy-extensions"
+  "mypy-extensions",
+  "isort",
 ]
 
 [tool.hatch.envs.test.scripts]
@@ -103,14 +102,13 @@ full-report = "pytest --junitxml=unit_test.xml --html=easyhla_test_report.html -
 no-cov = "cov --no-cov {args}"
 
 [[tool.hatch.envs.test.matrix]]
-python = ["38", "39", "310", "311"]
+python = ["310", "311"]
 
 [tool.pytest.ini_options]
+pythonpath = "src"
 minversion = "6.0"
 addopts = "-ra -n 4 --cov --cov-report xml --strict-markers -m 'not slow'"
-testpaths = [
-    "tests",
-]
+testpaths = ["tests"]
 markers = [
   "integration: Run integration tests",
   "slow: Run integration tests that take a really long time",
@@ -124,15 +122,11 @@ omit = [
   "src/easyhla/__about__.py",
   "tests/__init__.py",
   "src/easyhla/entrypoint.py",
-  "tools/*.py"
+  "tools/*.py",
 ]
 
 [tool.coverage.report]
-exclude_lines = [
-  "no cov",
-  "if __name__ == .__main__.:",
-  "if TYPE_CHECKING:",
-]
+exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
 
 [tool.pydocstyle]
 match = "src/**/*.py"

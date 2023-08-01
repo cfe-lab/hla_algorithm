@@ -1,6 +1,8 @@
-import typer
 import logging
 from pathlib import Path
+
+import typer
+
 from easyhla import EasyHLA, HLAType
 
 

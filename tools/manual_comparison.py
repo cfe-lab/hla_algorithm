@@ -5,9 +5,11 @@ For help use `python tests/manual_comparison.py --help`.
 """
 
 import os
+
+import typer
+
 from src.easyhla.easyhla import EasyHLA
 from tests.conftest import compare_ref_vs_test, make_comparison
-import typer
 
 
 def main(

@@ -1,9 +1,10 @@
-import numpy as np
 import re
-from pydantic import BaseModel
-from typing import Optional, Dict, List, Tuple, Set
-from pydantic_numpy.ndarray import NDArray
+from typing import Dict, List, Optional, Set, Tuple
 
+import numpy as np
+import pydantic_numpy.typing as pnd
+from pydantic import BaseModel
+from pydantic_numpy.model import NumpyModel
 
 ALLELES_MAX_REPORTABLE_STRING: int = 3900
 
@@ -140,14 +141,14 @@ class Alleles(BaseModel):
         return alleles_all_str
 
 
-class HLASequence(BaseModel):
+class HLASequence(NumpyModel):
     exon: Exon
-    sequence: NDArray
+    sequence: pnd.NpNDArray
 
 
-class HLAStandard(BaseModel):
+class HLAStandard(NumpyModel):
     allele: str
-    sequence: NDArray
+    sequence: pnd.NpNDArray
 
     def __eq__(self, other):
         if type(self) != type(other):

@@ -19,10 +19,12 @@ file.
 
 
 import os
-import typer
+from datetime import datetime
 from math import ceil
 from typing import List, Tuple
-from datetime import datetime
+
+import typer
+
 from src.easyhla.easyhla import DATE_FORMAT
 
 app = typer.Typer()

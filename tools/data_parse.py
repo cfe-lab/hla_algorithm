@@ -3,10 +3,11 @@ This converts data from the BC CfE COVID19 immunity study into an input/output f
 """
 
 import os
-import numpy as np
-import pandas as pd
 from random import Random
 from typing import Dict, List
+
+import numpy as np
+import pandas as pd
 
 ###
 

@@ -1,23 +1,23 @@
+import logging
 import os
 import re
-import logging
-import typer
-import numpy as np
-from pathlib import Path
 from datetime import datetime
-from typing import List, Optional, Dict, Tuple, Any, Final, Literal
-import Bio.SeqIO
 from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, Final, List, Literal, Optional, Tuple
 
+import Bio.SeqIO
+import numpy as np
+import typer
 
 from .models import (
-    Exon,
     Alleles,
-    HLAStandard,
-    HLAStandardMatch,
+    Exon,
     HLACombinedStandardResult,
     HLAResult,
     HLAResultRow,
+    HLAStandard,
+    HLAStandardMatch,
 )
 
 

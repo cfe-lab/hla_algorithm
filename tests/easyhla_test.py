@@ -1,21 +1,23 @@
-import pytest
 import json
 import os
-import pytz
-import numpy as np
-from datetime import datetime
 from contextlib import nullcontext as does_not_raise
+from datetime import datetime
 from pathlib import Path
-from src.easyhla.easyhla import EasyHLA, DATE_FORMAT
-from src.easyhla.models import (
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
+import pytest
+import pytz
+
+from easyhla.easyhla import DATE_FORMAT, EasyHLA
+from easyhla.models import (
+    Alleles,
+    HLACombinedStandardResult,
     HLAStandard,
     HLAStandardMatch,
-    HLACombinedStandardResult,
-    Alleles,
 )
-from typing import List, Optional, Dict, Tuple, Any
 
-from .conftest import make_comparison, compare_ref_vs_test
+from .conftest import compare_ref_vs_test, make_comparison
 
 
 @pytest.fixture(scope="module")

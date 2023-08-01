@@ -1,12 +1,13 @@
-import pytest
-from typing import List, Dict, Tuple, Set
+from typing import Dict, List, Set, Tuple
 
-from src.easyhla.easyhla import EasyHLA, DATE_FORMAT
-from src.easyhla.models import (
+import pytest
+
+from easyhla.easyhla import DATE_FORMAT, EasyHLA
+from easyhla.models import (
+    Alleles,
+    HLACombinedStandardResult,
     HLAStandard,
     HLAStandardMatch,
-    HLACombinedStandardResult,
-    Alleles,
 )
 
 
