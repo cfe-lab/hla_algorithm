@@ -10,7 +10,7 @@ requires-python = ">=3.10"
 license = "MIT"
 keywords = []
 authors = [
-  { name = "Rosemary McClunky", email = "retired@bccfe.ca" },
+  { name = "Rosemary McCloskey", email = "retired@bccfe.ca" },
   { name = "David Rickett", email = "drickett@bccfe.ca" },
 ]
 classifiers = [
