@@ -1,0 +1,14 @@
+{
+    "recommendations": [
+        "ms-python.python",
+        "ryanluker.vscode-coverage-gutters",
+        "ms-azuretools.vscode-docker",
+        "ms-python.isort",
+        "matangover.mypy",
+        "davidanson.vscode-markdownlint",
+        "ms-vscode.vscode-typescript-next",
+        "charliermarsh.ruff",
+        "tamasfe.even-better-toml",
+        "mechatroner.rainbow-csv"
+    ],
+}
