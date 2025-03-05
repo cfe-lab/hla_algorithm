@@ -17,15 +17,13 @@ to confirm whether you want to replace the contents of the `hla_nuc.fasta.mtime`
 file.
 """
 
-
 import os
 from datetime import datetime
-from math import ceil
 from typing import List, Tuple
 
 import typer
 
-from src.easyhla.easyhla import DATE_FORMAT
+from easyhla.easyhla import DATE_FORMAT
 
 app = typer.Typer()
 
@@ -133,8 +131,8 @@ def _check_dates() -> bool:
 def check_dates():
     if not _check_dates():
         warning_msg = "WARNING: The last modified file date has changed!"
-        preamble_height = 4
-        len_msg = ceil(len(warning_msg) / preamble_height)
+        # preamble_height = 4
+        # len_msg = ceil(len(warning_msg) / preamble_height)
         print("#" * len(warning_msg))
         print("#" * len(warning_msg))
         # if you want a silly message on an angle, uncomment this.

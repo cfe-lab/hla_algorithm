@@ -28,8 +28,6 @@ def main(
         "--print",
         "-p",
         help="Print to stdout as sequences are interpretted",
-        flag_value=True,
-        is_flag=True,
     ),
     sequence_file: Path = typer.Argument(
         ...,
@@ -57,8 +55,8 @@ def main(
 
     easyhla.run(
         easyhla.letter,
-        sequence_file,
-        output_file,
+        sequence_file.as_posix(),
+        output_file.as_posix(),
         threshold=mismatch_threshold,
         to_stdout=print_to_stdout,
     )

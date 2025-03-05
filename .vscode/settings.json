@@ -1,0 +1,47 @@
+{
+    "[python]": {
+        "diffEditor.ignoreTrimWhitespace": true,
+        "editor.detectIndentation": false,
+        "editor.tabSize": 4,
+        "editor.wordBasedSuggestions": "off",
+        "gitlens.codeLens.symbolScopes": [
+            "!Module"
+        ],
+        "editor.codeActionsOnSave": {
+            "source.organizeImports.ruff": "always"
+        },
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "charliermarsh.ruff"
+    },
+    "editor.renderControlCharacters": true,
+    "editor.renderFinalNewline": "dimmed",
+    "editor.renderWhitespace": "none",
+    "editor.rulers": [
+        80,
+        110
+    ],
+    "files.associations": {
+        "*.env": "properties"
+    },
+    "files.encoding": "utf8",
+    "files.eol": "\n",
+    "files.insertFinalNewline": true,
+    "files.trimFinalNewlines": true,
+    "files.trimTrailingWhitespace": true,
+    "python.envFile": "${workspaceFolder}/.env",
+    "python.languageServer": "Default",
+    "python.terminal.activateEnvironment": true,
+    "python.testing.autoTestDiscoverOnSaveEnabled": true,
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.pytestEnabled": true,
+    "python.testing.unittestEnabled": false,
+    "search.exclude": {
+        "**/.pytest_cache": false,
+        "**/.venv": false,
+        "**/__pycache__": false,
+        "**/output": false
+    },
+    "testing.gutterEnabled": true
+}
