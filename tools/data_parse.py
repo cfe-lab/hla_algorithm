@@ -47,21 +47,21 @@ for row in sample_input_df.iterrows():
     chance = Random().random()
     if chance > perc_pure_exon and row[1]["INTRON"] != "":
         if HLA_TYPE == "A":
-            sample_input_seqs[
-                row[1][ENUM_IDENTIFIER[HLA_TYPE]]
-            ] = f"{row[1]['EXON2']}{row[1]['INTRON']}{row[1]['EXON3']}"
+            sample_input_seqs[row[1][ENUM_IDENTIFIER[HLA_TYPE]]] = (
+                f"{row[1]['EXON2']}{row[1]['INTRON']}{row[1]['EXON3']}"
+            )
         else:
-            sample_input_seqs[
-                row[1][ENUM_IDENTIFIER[HLA_TYPE]]
-            ] = f"{row[1]['EXON2']}{row[1]['EXON3']}"
+            sample_input_seqs[row[1][ENUM_IDENTIFIER[HLA_TYPE]]] = (
+                f"{row[1]['EXON2']}{row[1]['EXON3']}"
+            )
     else:
         pure_exon_samples.append(row[1][ENUM_IDENTIFIER[HLA_TYPE]])
-        sample_input_seqs[
-            row[1][ENUM_IDENTIFIER[HLA_TYPE]] + "_exon2"
-        ] = f"{row[1]['EXON2']}"
-        sample_input_seqs[
-            row[1][ENUM_IDENTIFIER[HLA_TYPE]] + "_exon3"
-        ] = f"{row[1]['EXON3']}"
+        sample_input_seqs[row[1][ENUM_IDENTIFIER[HLA_TYPE]] + "_exon2"] = (
+            f"{row[1]['EXON2']}"
+        )
+        sample_input_seqs[row[1][ENUM_IDENTIFIER[HLA_TYPE]] + "_exon3"] = (
+            f"{row[1]['EXON3']}"
+        )
 
 with open(
     os.path.join(
@@ -98,7 +98,7 @@ with open(
                 row[1][ENUM_IDENTIFIER[HLA_TYPE]] in pure_exon_samples
                 and col == "INTRON"
             ):
-                f.write(f",")
+                f.write(",")
             elif col == output_columns[-1]:
                 f.write(f"{row[1][col]}")
             else:

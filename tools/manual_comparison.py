@@ -1,15 +1,17 @@
+# ruff: noqa: C901
+
 """
 Perform a manual comparison between two output files.
 
 For help use `python tests/manual_comparison.py --help`.
 """
 
-import os
+from itertools import zip_longest
 
 import typer
 
 from src.easyhla.easyhla import EasyHLA
-from tests.conftest import compare_ref_vs_test, make_comparison
+from tests.conftest import make_comparison
 
 
 def main(
@@ -30,22 +32,16 @@ def main(
         False,
         "--skip-preamble",
         "-s",
-        is_flag=True,
-        flag_value=True,
         help="If both files begin with a timestamp, skip that line",
     ),
     skip_preamble_ref: bool = typer.Option(
         False,
         "--skip-preamble-ref",
-        is_flag=True,
-        flag_value=True,
         help="If reference file begins with a timestamp, skip that line",
     ),
     skip_preamble_out: bool = typer.Option(
         False,
         "--skip-preamble-output",
-        is_flag=True,
-        flag_value=True,
         help="If output file begins with a timestamp, skip that line",
     ),
 ) -> None:
@@ -68,11 +64,13 @@ def main(
     if len(column_names) <= 1:
         raise RuntimeError("No column names detected, you may need to specify -s!")
 
-    assert len(reference_file) == len(
-        test_output_file
-    ), "Size of test output does not match reference file!"
+    assert len(reference_file) == len(test_output_file), (
+        "Size of test output does not match reference file!"
+    )
 
-    for row_num, (ref, test) in enumerate(zip(reference_file, test_output_file)):
+    for row_num, (ref, test) in enumerate(
+        zip_longest(reference_file, test_output_file)
+    ):
         for col_num, (_ref, _test) in enumerate(
             zip(ref.strip().split(","), test.strip().split(","))
         ):

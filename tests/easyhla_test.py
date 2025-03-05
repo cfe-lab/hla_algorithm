@@ -1,9 +1,7 @@
-import json
 import os
-from contextlib import nullcontext as does_not_raise
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Tuple
 
 import numpy as np
 import pytest
@@ -17,7 +15,7 @@ from easyhla.models import (
     HLAStandardMatch,
 )
 
-from .conftest import compare_ref_vs_test, make_comparison
+from .conftest import compare_ref_vs_test
 
 
 @pytest.fixture(scope="module")
@@ -71,14 +69,14 @@ class TestEasyHLAMisc:
         Assert we raise a value error if we put in an unknown HLA type.
         """
         with pytest.raises(ValueError):
-            easyhla = EasyHLA("D")
+            _ = EasyHLA("D")
 
     def test_known_hla_type_lowercase(self):
         """
         Assert we raise a value error if we put in an HLA type with wrong case.
         """
         with pytest.raises(ValueError):
-            easyhla = EasyHLA("a")
+            _ = EasyHLA("a")
 
     @pytest.mark.parametrize("easyhla", ["A"], indirect=True)
     def test_load_allele_definitions_last_modified_time(
@@ -1167,10 +1165,10 @@ class TestEasyHLA:
 
         print(f"Test ended at {end_compare_time.isoformat()}")
 
-        print(f"Time elapsed: {(end_compare_time-start_time).total_seconds()}")
+        print(f"Time elapsed: {(end_compare_time - start_time).total_seconds()}")
         print(
-            f"Time elapsed for interpretation: {(end_time-start_time).total_seconds()}"
+            f"Time elapsed for interpretation: {(end_time - start_time).total_seconds()}"
         )
         print(
-            f"Time elapsed for output comparison: {(end_compare_time-end_time).total_seconds()}"
+            f"Time elapsed for output comparison: {(end_compare_time - end_time).total_seconds()}"
         )

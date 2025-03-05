@@ -28,8 +28,6 @@ def main(
         "--print",
         "-p",
         help="Print to stdout as sequences are interpretted",
-        flag_value=True,
-        is_flag=True,
     ),
     sequence_file: Path = typer.Argument(
         ...,

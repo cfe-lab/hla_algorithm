@@ -1,14 +1,15 @@
+# ruff: noqa: C901
+# TODO: Remove this noqa line and refactor/reduce code-complexity
+
 import logging
 import os
 import re
 from datetime import datetime
 from enum import Enum
-from pathlib import Path
 from typing import Any, Dict, Final, List, Literal, Optional, Tuple
 
 import Bio.SeqIO
 import numpy as np
-import typer
 
 from .models import (
     Alleles,
@@ -342,7 +343,7 @@ class EasyHLA:
         seq: List[int],
         max_mismatch_threshold: Optional[int],
     ) -> Dict[int, List[HLACombinedStandardResult]]:
-        length = len(matching_stds[0].sequence)
+        # length = len(matching_stds[0].sequence)
 
         default_min = 9999
         if max_mismatch_threshold is None:
@@ -376,9 +377,9 @@ class EasyHLA:
                         computed_minimum_mismatches = max(
                             mismatches, tmp_max_mismatch_threshold
                         )
-                    if not mismatches in combos:
+                    if mismatches not in combos:
                         combos[mismatches] = {}
-                    if not combined_std_name in combos[mismatches]:
+                    if combined_std_name not in combos[mismatches]:
                         combos[mismatches][combined_std_name] = []
                     stds = [std_a.allele, std_b.allele]
                     stds.sort()
@@ -423,11 +424,11 @@ class EasyHLA:
         with open(filepath, "r", encoding="utf-8") as f:
             for line in f.readlines():
                 column_id = EasyHLA.COLUMN_IDS[letter]
-                l = line.strip().split(",")[column_id : column_id + 2]
-                _l = ",".join([f"{a[:2]}|{a[-2:]}" for a in l])
-                if hla_freqs.get(_l, None) is None:
-                    hla_freqs[_l] = 0
-                hla_freqs[_l] += 1
+                line_array = line.strip().split(",")[column_id : column_id + 2]
+                elements = ",".join([f"{a[:2]}|{a[-2:]}" for a in line_array])
+                if hla_freqs.get(elements, None) is None:
+                    hla_freqs[elements] = 0
+                hla_freqs[elements] += 1
         return hla_freqs
 
     # TODO: Convert this to a dictionary instead of a object that looks like:
@@ -449,9 +450,9 @@ class EasyHLA:
 
         with open(filepath, "r", encoding="utf-8") as f:
             for line in f.readlines():
-                l = line.strip().split(",")
-                seq = self.nuc2bin((l[1] + l[2]))
-                hla_stds.append(HLAStandard(allele=l[0], sequence=seq))
+                line_array = line.strip().split(",")
+                seq = self.nuc2bin((line_array[1] + line_array[2]))
+                hla_stds.append(HLAStandard(allele=line_array[0], sequence=seq))
         return hla_stds
 
     def load_allele_definitions_last_modified_time(self) -> datetime:
@@ -497,7 +498,7 @@ class EasyHLA:
                 return None
             if not self.check_bases(str(entry.seq), samp):
                 return None
-        except ValueError as e:
+        except ValueError:
             return None
 
         is_exon = False
@@ -691,7 +692,7 @@ class EasyHLA:
             f"{npats} patients, {nseqs} sequences processed.", to_stdout=to_stdout
         )
 
-        self.log.info(f"% patients, % sequences processed.", npats, nseqs)
+        self.log.info("% patients, % sequences processed.", npats, nseqs)
 
         with open(output_filename, "w", encoding="utf-8") as f:
             f.write(
@@ -814,9 +815,9 @@ class EasyHLA:
             _seq = np.array([int(nuc) for nuc in hla_csr.standard.split("-")])
             # TODO: replace with https://stackoverflow.com/questions/16094563/numpy-get-index-where-value-is-true
             for idx in np.flatnonzero(_seq ^ seq):
-                if not idx in correct_bases_at_pos:
+                if idx not in correct_bases_at_pos:
                     correct_bases_at_pos[idx] = []
-                if not _seq[idx] in correct_bases_at_pos[idx]:
+                if _seq[idx] not in correct_bases_at_pos[idx]:
                     correct_bases_at_pos[idx].append(_seq[idx])
 
         mislist: List[str] = []
