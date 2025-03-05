@@ -69,14 +69,14 @@ class TestEasyHLAMisc:
         Assert we raise a value error if we put in an unknown HLA type.
         """
         with pytest.raises(ValueError):
-            _ = EasyHLA("D")
+            _ = EasyHLA("D")  # type: ignore[arg-type]
 
     def test_known_hla_type_lowercase(self):
         """
         Assert we raise a value error if we put in an HLA type with wrong case.
         """
         with pytest.raises(ValueError):
-            _ = EasyHLA("a")
+            _ = EasyHLA("a")  # type: ignore[arg-type]
 
     @pytest.mark.parametrize("easyhla", ["A"], indirect=True)
     def test_load_allele_definitions_last_modified_time(
