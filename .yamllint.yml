@@ -1,0 +1,11 @@
+ignore:
+  - .git/*
+  - .venv/*
+
+extends: default
+
+rules:
+  truthy:
+    ignore: .github/*
+  document-end: disable
+  document-start: disable

@@ -1,5 +1,5 @@
 import re
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Set, Tuple
 
 import numpy as np
 import pydantic_numpy.typing as pnd
@@ -28,7 +28,7 @@ class Alleles(BaseModel):
         :return: ...
         :rtype: bool
         """
-        return any([_a[0] == _a[1] for _a in self.alleles])
+        return any(_a[0] == _a[1] for _a in self.alleles)
 
     def is_ambiguous(self) -> bool:
         """
@@ -108,7 +108,7 @@ class Alleles(BaseModel):
         clean_allele: List[str] = []
         for n in [0, 1]:
             for i in [4, 3, 2, 1]:
-                if len(set([":".join(a[n][0:i]) for a in self.get_collection()])) == 1:
+                if len({":".join(a[n][0:i]) for a in self.get_collection()}) == 1:
                     clean_allele.append(
                         re.sub(
                             r"[A-Z]$", "", ":".join(self.get_collection()[0][n][0:i])
@@ -151,7 +151,7 @@ class HLAStandard(NumpyModel):
     sequence: pnd.NpNDArray
 
     def __eq__(self, other):
-        if type(self) != type(other):
+        if not isinstance(other, self.__class__):
             raise TypeError(f"Cannot compare against {type(other)}")
         return all(
             [self.allele == other.allele, np.array_equal(self.sequence, other.sequence)]
@@ -162,7 +162,7 @@ class HLAStandardMatch(HLAStandard):
     mismatch: int
 
     def __eq__(self, other):
-        if type(other) != type(self):
+        if not isinstance(other, self.__class__):
             raise TypeError(f"Cannot compare against {type(other)}")
         return all(
             [
@@ -205,7 +205,7 @@ class HLAResultRow(BaseModel):
         ]
 
     def get_result_as_str(self) -> str:
-        return ",".join([el for el in self.get_result()])
+        return ",".join(el for el in self.get_result())
 
 
 class HLAResult(BaseModel):

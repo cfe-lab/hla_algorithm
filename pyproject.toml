@@ -10,7 +10,7 @@ requires-python = ">=3.10"
 license = "MIT"
 keywords = []
 authors = [
-  { name = "Rosemary ?", email = "retired@bccfe.ca" },
+  { name = "Rosemary McCloskey", email = "retired@bccfe.ca" },
   { name = "David Rickett", email = "drickett@bccfe.ca" },
 ]
 classifiers = [
@@ -18,19 +18,36 @@ classifiers = [
   "Programming Language :: Python",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = [
-  "biopython",
-  "pydantic",
-  "pydantic-numpy",
-  "typer",
-  "pytz",
-  "numpy",
-]
 
 dynamic = ["version"]
+dependencies = [
+  "biopython>=1.85",
+  "numpy>=2.2.3",
+  "pydantic>=2.10.6",
+  "pydantic-numpy>=8.0.1",
+  "pytz>=2025.1",
+  "typer>=0.15.2",
+]
+
+[dependency-groups]
+dev = [
+  "mypy>=1.15.0",
+  "mypy-extensions>=1.0.0",
+  "pandas>=2.2.3",
+  "pandas-stubs>=2.2.3.241126",
+  "pre-commit>=4.1.0",
+  "pytest>=8.3.5",
+  "pytest-cov>=6.0.0",
+  "pytest-html>=4.1.1",
+  "pytest-mock>=3.14.0",
+  "pytest-xdist>=3.6.1",
+  "ruff>=0.9.9",
+  "types-pytz>=2025.1.0.20250204",
+]
 
 [project.urls]
 Documentation = "https://github.com/unknown/easyhla#readme"
@@ -61,53 +78,13 @@ directory = "output"
 [tool.hatch.build.targets.wheel]
 packages = ["src/easyhla"]
 
-[tool.hatch.envs.default]
-dependencies = [
-  "biopython",
-  "pydantic",
-  "pydantic-numpy",
-  "typer",
-  "pytz",
-  "numpy",
-]
-
-[tool.hatch.envs.test]
-template = "default"
-extra-dependencies = [
-  "pytest",
-  "pytest-cov",
-  "pytest-html",
-  "pytest-mock",
-  "pytest-xdist",
-]
-
-[tool.hatch.envs.dev]
-template = "test"
-extra-dependencies = [
-  "pytest",
-  "pytest-cov",
-  "pytest-html",
-  "pytest-mock",
-  "pytest-xdist",
-  "black",
-  "mypy-extensions",
-  "isort",
-]
-
-[tool.hatch.envs.test.scripts]
-cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=src/easyhla --cov=tests {args}"
-cov-report = "pytest --cov-report xml --cov-config=pyproject.toml --cov=src/easyhla --cov=tests {args}"
-ci-report = "pytest --junitxml=unit_test.xml --cov-report xml:coverage.xml --cov-report term --cov-config=pyproject.toml --cov=src/easyhla --cov=tests {args}"
-full-report = "pytest --junitxml=unit_test.xml --html=easyhla_test_report.html --self-contained-html --cov-report xml:coverage.xml --cov-report term --cov-report html --cov-config=pyproject.toml --cov=src/easyhla --cov=tests {args}"
-no-cov = "cov --no-cov {args}"
-
-[[tool.hatch.envs.test.matrix]]
-python = ["310", "311"]
+[tool.uv]
+package = true
 
 [tool.pytest.ini_options]
 pythonpath = "src"
 minversion = "6.0"
-addopts = "-ra -n 4 --cov --cov-report xml --strict-markers -m 'not slow'"
+addopts = "-ra -n 4 --cov --cov-report term --cov-report xml --strict-markers -m 'not slow'"
 testpaths = ["tests"]
 markers = [
   "integration: Run integration tests",
@@ -117,6 +94,7 @@ markers = [
 [tool.coverage.run]
 branch = true
 parallel = true
+source = ["src"]
 omit = [
   "src/easyhla/__init__.py",
   "src/easyhla/__about__.py",
@@ -127,6 +105,27 @@ omit = [
 
 [tool.coverage.report]
 exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
+skip_empty = true
+
+[tool.coverage.xml]
+output = 'coverage.xml'
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "C"]
+# ignore warnings where `== True` occurs, because we're using a lot of pandas
+# https://www.flake8rules.com/rules/E712.html
+ignore = ["E712"]
+
 
 [tool.pydocstyle]
 match = "src/**/*.py"
+
+[tool.mypy]
+plugins = ["numpy.typing.mypy_plugin"]
+ignore_missing_imports = true

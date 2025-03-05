@@ -1,12 +1,13 @@
 ---
 variables:
+  JUNIT_TEST_REPORT: test_report_${CI_COMMIT_SHORT_SHA}.html
+  COVERAGE_TEST_REPORT: coverage_report_${CI_COMMIT_SHORT_SHA}
   PYTHON_VERSION:
-    value: "3.8"
+    value: "3.10"
     options:
-      - "3.8"
-      - "3.9"
       - "3.10"
       - "3.11"
+      - "3.12"
     description: Python version to use
 
 stages:
@@ -26,13 +27,21 @@ validate-yaml:
         - "*.yml"
         - "*.yaml"
 
-Check-For-Black:
+.python:
+  image:
+    name: python:${PYTHON_VERSION}-slim
+    pull_policy: if-not-present
+  before_script:
+    - pip install uv
+  allow_failure: false
+
+Code-Check:
+  extends: .python
   stage: validate
-  image: black
   script:
     - cd $CI_PROJECT_DIR
-    - black --check src/
-  allow_failure: false
+    - uv run mypy --check .
+    - uv run ruff check .
   rules:
     - if: $CI_JOB_MANUAL
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
@@ -42,15 +51,14 @@ Check-For-Black:
 
 Check-HLA-Modified-Dates:
   stage: validate
-  image: python:${PYTHON_VERSION}-slim
-  before_script:
+  extends: .python
+  variables:
+    PYTHONPATH: "${CI_BUILDS_DIR}/src"
+  script:
     - apt update
     - apt install git-restore-mtime -y --no-install-recommends
-    - pip install typer
-  script:
     - cd $CI_PROJECT_DIR
-    - python tools/check_date_modified.py check-dates
-  allow_failure: false
+    - uv run tools/check_date_modified.py check-dates
   rules:
     - if: $CI_JOB_MANUAL
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
@@ -59,23 +67,31 @@ Check-HLA-Modified-Dates:
         - src/**/*.mtime
 
 Unit-Tests:
-  image: python:${PYTHON_VERSION}-slim
-  before_script:
-    - pip install hatch
+  extends: .python
+  stage: test
   script:
-    - hatch env run --env test ci-report
+    - cd $CI_PROJECT_DIR
+    - uv run pytest
+      -vra
+      --html=${JUNIT_TEST_REPORT}
+      --self-contained-html
+      --cov-report=html:${COVERAGE_TEST_REPORT}
+      --cov-report=term
+      --junitxml=pytest.xml
   parallel:
     matrix:
       - PYTHON_VERSION:
-          - "3.8"
-          - "3.9"
           - "3.10"
           - "3.11"
+          - "3.12"
   coverage: '/^TOTAL.+?(\d+\%)$/'
   interruptible: true
   artifacts:
     reports:
-      junit: unit_test.xml
+      junit: pytest.xml
       coverage_report:
         coverage_format: cobertura
         path: coverage.xml
+    paths:
+      - ${COVERAGE_TEST_REPORT}/*
+      - ${JUNIT_TEST_REPORT}

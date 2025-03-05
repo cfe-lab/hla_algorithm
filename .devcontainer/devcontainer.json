@@ -1,0 +1,75 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
+{
+	"image": "python:3.10-slim",
+	"features": {
+		"ghcr.io/devcontainers/features/git:1": {
+			"ppa": true,
+			"version": "latest"
+		},
+		"ghcr.io/va-h/devcontainers-features/uv:1": {
+			"shellautocompletion": true,
+			"version": "latest"
+		},
+		"ghcr.io/jsburckhardt/devcontainer-features/ruff:1": {},
+		"ghcr.io/itsmechlark/features/redis-server:1": {
+			"version": "latest"
+		}
+	},
+	"updateRemoteUserUID": true,
+	"containerEnv": {
+		"WORKON_HOME": "${containerWorkspaceFolder}/.venv",
+		"PYTHONPATH": "${containerWorkspaceFolder}"
+	},
+	"onCreateCommand": {
+		"update apt": [
+			"/usr/bin/apt",
+			"update"
+		],
+		"sync venv/install if missing": [
+			"/usr/local/bin/uv",
+			"sync",
+			"--frozen"
+		]
+	},
+	"postCreateCommand": {
+		"install ssh client": [
+			"/usr/bin/apt",
+			"install",
+			"--no-install-recommends",
+			"-y",
+			"openssh-client"
+		]
+	},
+	"postAttachCommand": {
+		"message": [
+			"/usr/bin/echo",
+			"Sleeping while environment activates"
+		],
+		"sleep": [
+			"/usr/bin/sleep",
+			"10s"
+		]
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-python.python",
+				"ryanluker.vscode-coverage-gutters",
+				"ms-azuretools.vscode-docker",
+				"ms-python.isort",
+				"matangover.mypy",
+				"davidanson.vscode-markdownlint",
+				"ms-vscode.vscode-typescript-next",
+				"charliermarsh.ruff",
+				"tamasfe.even-better-toml",
+				"mechatroner.rainbow-csv"
+			],
+			"settings": {
+				"python.terminal.activateEnvironment": true,
+				"python.terminal.activateEnvInCurrentTerminal": true,
+				"python.venvPath": "${containerWorkspaceFolder}"
+			}
+		}
+	}
+}
