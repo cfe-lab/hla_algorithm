@@ -484,6 +484,7 @@ class TestEasyHLA:
             with pytest.raises(ValueError):
                 result = easyhla.check_bases(seq=sequence, name=sequence)
 
+    # FIXME: something with a V and something with a B
     @pytest.mark.parametrize(
         "sequence_str, sequence_list",
         [
@@ -510,6 +511,7 @@ class TestEasyHLA:
         result_list = easyhla.nuc2bin(sequence_str)
         assert np.array_equal(result_list, sequence_list)
 
+    # FIXME: add some tests when there are ties
     @pytest.mark.parametrize(
         "HLAStandard, sequence, exp_left_pad, exp_right_pad",
         [
@@ -536,6 +538,7 @@ class TestEasyHLA:
         assert left_pad == exp_left_pad
         assert right_pad == exp_right_pad
 
+    # FIXME: add some tests for mixtures
     @pytest.mark.parametrize(
         "sequence, standard, exp_result",
         [
@@ -556,6 +559,7 @@ class TestEasyHLA:
         print(result)
         assert result == exp_result
 
+    # FIXME: some mixtures here too? and maybe some ties?
     @pytest.mark.parametrize(
         "sequence, hla_stds, exp_result",
         [

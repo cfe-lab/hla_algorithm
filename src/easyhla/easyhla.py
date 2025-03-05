@@ -397,6 +397,7 @@ class EasyHLA:
 
         return result
 
+    # TODO: allow loading from a specified file/IO object
     def load_hla_frequencies(self, letter: HLA_TYPES) -> Dict[str, int]:
         """
         Load HLA frequencies from reference file.
@@ -432,6 +433,8 @@ class EasyHLA:
 
     # TODO: Convert this to a dictionary instead of a object that looks like:
     # [ [allele_name, [1,2,3,4,5]], [allele_name2, [2,5,2,5,4]] ]
+    # TODO: allow changes to the source files; perhaps allow TextIO there as well
+    # for, e.g., test purposes
     def load_hla_stds(self, letter: HLA_TYPES) -> List[HLAStandard]:
         """
         Load HLA Standards from reference file.
@@ -454,6 +457,7 @@ class EasyHLA:
                 hla_stds.append(HLAStandard(allele=l[0], sequence=seq))
         return hla_stds
 
+    # FIXME: allow loading from a specified file/IO
     def load_allele_definitions_last_modified_time(self) -> datetime:
         """
         Load a datetime object describing when standard definitions were last updated.
