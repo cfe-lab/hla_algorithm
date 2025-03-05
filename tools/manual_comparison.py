@@ -10,7 +10,7 @@ from itertools import zip_longest
 
 import typer
 
-from src.easyhla.easyhla import EasyHLA
+from easyhla.easyhla import EasyHLA
 from tests.conftest import make_comparison
 
 
@@ -56,7 +56,7 @@ def main(
     )
 
     with open(ref_output_file, "r", encoding="utf-8") as f_reference:
-        reference_file = f_reference.readlines()[int(_skip_preamble[0]) :]
+        reference_file = "\n".join(f_reference.readlines()[int(_skip_preamble[0]) :])
     with open(output_file, "r", encoding="utf-8") as f_test_output:
         test_output_file = f_test_output.readlines()[int(_skip_preamble[1]) :]
 

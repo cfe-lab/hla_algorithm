@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 import pytest
@@ -648,7 +648,7 @@ class TestEasyHLA:
         hla_stds: List[HLAStandard],
         exp_result: List[HLAStandardMatch],
     ):
-        result = easyhla.get_matching_stds(seq=sequence, hla_stds=hla_stds)
+        result = easyhla.get_matching_stds(seq=sequence, hla_stds=hla_stds)  # type: ignore
         print(result)
         assert result == exp_result
 
@@ -1034,7 +1034,7 @@ class TestEasyHLA:
         sequence: List[int],
         threshold: int,
         matching_standards: List[HLAStandardMatch],
-        exp_result: List[int],
+        exp_result: Dict[int, List[int]],
     ):
         result = easyhla.combine_stds(
             matching_stds=matching_standards,
@@ -1042,8 +1042,8 @@ class TestEasyHLA:
             max_mismatch_threshold=threshold,
         )
         print(sorted(result.items()))
-        print([(k, v) for k, v in exp_result.items()])
-        assert sorted(result.items()) == [(k, v) for k, v in exp_result.items()]
+        print((k, v) for k, v in exp_result.items())
+        assert sorted(result.items()) == list((k, v) for k, v in exp_result.items())  # noqa: C400
 
     @pytest.mark.parametrize(
         "best_matches, exp_homozygous, exp_alleles",

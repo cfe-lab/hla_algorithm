@@ -30,8 +30,8 @@ def make_comparison(easyhla: EasyHLA, ref_seq: str, test_seq: str) -> str:
             side_is_short = "test"
         elif len(ref) < len(test):
             side_is_short = "ref"
-        return easyhla.bin2nuc(masked_seq) + f" [{side_is_short} is short]"
-    return easyhla.bin2nuc(masked_seq)
+        return easyhla.bin2nuc(masked_seq) + f" [{side_is_short} is short]"  # type: ignore
+    return easyhla.bin2nuc(masked_seq)  # type: ignore
 
 
 def compare_ref_vs_test(
@@ -60,9 +60,9 @@ def compare_ref_vs_test(
 
     column_names = reference_file[0].strip().split(",")
 
-    assert len(reference_file) == len(
-        test_output_file
-    ), "Size of test output does not match reference file!"
+    assert len(reference_file) == len(test_output_file), (
+        "Size of test output does not match reference file!"
+    )
 
     for row_num, (ref, test) in enumerate(zip(reference_file, test_output_file)):
         try:
@@ -86,19 +86,19 @@ def compare_ref_vs_test(
 
                 _row_num = row_num + 1 + int(skip_preamble[1])
                 # Check that there is no strippable whitespace when there shouldn't be.
-                assert (
-                    _test == _test.strip()
-                ), f"Whitespace detected at row {_row_num}, column {col_num} ('{column_names[col_num]}')"
-                assert (
-                    _ref == _ref.strip()
-                ), f"[REFERENCE FILE] Whitespace detected at row {_row_num}, column {col_num} ('{column_names[col_num]}')"
+                assert _test == _test.strip(), (
+                    f"Whitespace detected at row {_row_num}, column {col_num} ('{column_names[col_num]}')"
+                )
+                assert _ref == _ref.strip(), (
+                    f"[REFERENCE FILE] Whitespace detected at row {_row_num}, column {col_num} ('{column_names[col_num]}')"
+                )
 
-                assert len(_ref.strip()) == len(
-                    _test.strip()
-                ), f"Length mismatch detected at row {_row_num}, column {col_num} ('{column_names[col_num]}')"
-                assert (
-                    _ref.strip() == _test.strip()
-                ), f"Content mismatch detected at row {_row_num}, column {col_num} ('{column_names[col_num]}')"
+                assert len(_ref.strip()) == len(_test.strip()), (
+                    f"Length mismatch detected at row {_row_num}, column {col_num} ('{column_names[col_num]}')"
+                )
+                assert _ref.strip() == _test.strip(), (
+                    f"Content mismatch detected at row {_row_num}, column {col_num} ('{column_names[col_num]}')"
+                )
 
                 if row_num > 0 and column_names[col_num] in [
                     "ALLELES_CLEAN",
@@ -107,7 +107,9 @@ def compare_ref_vs_test(
                     assert (
                         set(_ref.strip().split(";")) ^ set(_test.strip().split(";"))
                         == set()
-                    ), f"Order mismatch detected at row {_row_num}, column {col_num} ('{column_names[col_num]}')"
+                    ), (
+                        f"Order mismatch detected at row {_row_num}, column {col_num} ('{column_names[col_num]}')"
+                    )
         except AssertionError as e:
             print("REF >>>", ref)
             print("OUT >>>", test)

@@ -55,8 +55,8 @@ def main(
 
     easyhla.run(
         easyhla.letter,
-        sequence_file,
-        output_file,
+        sequence_file.as_posix(),
+        output_file.as_posix(),
         threshold=mismatch_threshold,
         to_stdout=print_to_stdout,
     )

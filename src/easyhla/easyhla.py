@@ -552,7 +552,9 @@ class EasyHLA:
             seq = np.concatenate((exon2_bin, exon3_bin))
         else:
             seq = self.pad_short(
-                self.nuc2bin(entry.seq), samp, hla_std=self.hla_stds[0]
+                self.nuc2bin(entry.seq),  # type: ignore
+                samp,
+                hla_std=self.hla_stds[0],
             )
             exon2 = self.bin2nuc(seq[: EasyHLA.EXON2_LENGTH])
             intron = self.bin2nuc(seq[EasyHLA.EXON2_LENGTH : -EasyHLA.EXON3_LENGTH])
@@ -617,7 +619,7 @@ class EasyHLA:
             alleles_all_str=alleles_all_str,
             ambig=int(ambig),
             homozygous=int(homozygous),
-            mismatch_count=f"{mismatch_count}",
+            mismatch_count=mismatch_count,
             mismatches=f"{mismatches}",
             exon2=exon2.upper(),
             intron=intron.upper(),

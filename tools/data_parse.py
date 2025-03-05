@@ -34,10 +34,9 @@ df = df.replace(np.nan, "")
 
 # 0-1, percentage of input samples that should be suffixed '_exon#'
 # HLA Type A has to include the intron
+perc_pure_exon: float = 0.0
 if HLA_TYPE.upper() == "A":
-    perc_pure_exon: float = 0.0
-else:
-    perc_pure_exon: float = 0.0
+    perc_pure_exon = 0.0
 
 sample_input_df = df[[ENUM_IDENTIFIER[HLA_TYPE], "EXON2", "INTRON", "EXON3"]]
 sample_input_seqs: Dict[str, str] = {}

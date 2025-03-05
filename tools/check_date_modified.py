@@ -23,7 +23,7 @@ from typing import List, Tuple
 
 import typer
 
-from src.easyhla.easyhla import DATE_FORMAT
+from easyhla.easyhla import DATE_FORMAT
 
 app = typer.Typer()
 

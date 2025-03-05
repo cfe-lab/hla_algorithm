@@ -37,6 +37,8 @@ dependencies = [
 dev = [
   "mypy>=1.15.0",
   "mypy-extensions>=1.0.0",
+  "pandas>=2.2.3",
+  "pandas-stubs>=2.2.3.241126",
   "pre-commit>=4.1.0",
   "pytest>=8.3.5",
   "pytest-cov>=6.0.0",
@@ -82,7 +84,7 @@ package = true
 [tool.pytest.ini_options]
 pythonpath = "src"
 minversion = "6.0"
-addopts = "-ra -n 4 --cov --cov-report xml --strict-markers -m 'not slow'"
+addopts = "-ra -n 4 --cov --cov-report term --cov-report xml --strict-markers -m 'not slow'"
 testpaths = ["tests"]
 markers = [
   "integration: Run integration tests",
@@ -123,3 +125,7 @@ ignore = ["E712"]
 
 [tool.pydocstyle]
 match = "src/**/*.py"
+
+[tool.mypy]
+plugins = ["numpy.typing.mypy_plugin"]
+ignore_missing_imports = true
