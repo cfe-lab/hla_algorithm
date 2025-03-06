@@ -64,16 +64,16 @@ def hla_last_modified_file(tmp_path: Path, timestamp: datetime) -> str:
 
 
 class TestEasyHLAMisc:
-    def test_unknown_hla_type(self):
+    def test_unknown_hla_gene(self):
         """
-        Assert we raise a value error if we put in an unknown HLA type.
+        Assert we raise a value error if we put in an unknown HLA gene.
         """
         with pytest.raises(ValueError):
             _ = EasyHLA("D")  # type: ignore[arg-type]
 
-    def test_known_hla_type_lowercase(self):
+    def test_known_hla_gene_lowercase(self):
         """
-        Assert we raise a value error if we put in an HLA type with wrong case.
+        Assert we raise a value error if we put in an HLA gene with wrong case.
         """
         with pytest.raises(ValueError):
             _ = EasyHLA("a")  # type: ignore[arg-type]
@@ -103,9 +103,9 @@ class TestEasyHLAMisc:
 
 
 @pytest.mark.parametrize("easyhla", ["A"], indirect=True)
-class TestEasyHLADiscreteHLATypeA:
+class TestEasyHLADiscreteHLALocusA:
     """
-    Testing EasyHLA where tests require HLA type A.
+    Testing EasyHLA where tests require HLA-A.
     """
 
     @pytest.mark.parametrize(
@@ -295,9 +295,9 @@ class TestEasyHLADiscreteHLATypeA:
 
 
 @pytest.mark.parametrize("easyhla", ["B"], indirect=True)
-class TestEasyHLADiscreteHLATypeB:
+class TestEasyHLADiscreteHLALocusB:
     """
-    Testing EasyHLA where tests require HLA type B.
+    Testing EasyHLA where tests require HLA-B.
     """
 
     @pytest.mark.parametrize(
@@ -358,9 +358,9 @@ class TestEasyHLADiscreteHLATypeB:
 
 
 @pytest.mark.parametrize("easyhla", ["C"], indirect=True)
-class TestEasyHLADiscreteHLATypeC:
+class TestEasyHLADiscreteHLALocus:
     """
-    Testing EasyHLA where tests require HLA type C.
+    Testing EasyHLA where tests require HLA-C.
     """
 
     @pytest.mark.parametrize(
@@ -544,6 +544,9 @@ class TestEasyHLA:
             ([1, 2, 4, 8], [1, 2, 4, 8], 0),
             ([1, 2, 4, 8], [1, 2, 4, 4], 1),
             ([1, 2, 4, 8], [8, 4, 2, 1], 4),
+            ([1, 2, 4, 8], [5, 2, 6, 12], 0),
+            ([5, 2, 6, 12], [1, 2, 4, 8], 0),
+            ([1, 2, 7, 2], [2, 3, 6, 2], 1),
         ],
     )
     def test_std_match(

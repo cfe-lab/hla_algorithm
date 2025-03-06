@@ -4,6 +4,7 @@
 import logging
 import os
 import re
+from io import TextIOBase
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Final, List, Literal, Optional, Tuple
@@ -22,8 +23,8 @@ from .models import (
 )
 
 
-class HLAType(str, Enum):
-    """Valid HLA subtypes."""
+class HLALocus(str, Enum):
+    """Valid HLA genes."""
 
     A = "A"
     B = "B"
@@ -32,7 +33,7 @@ class HLAType(str, Enum):
 
 DATE_FORMAT = "%a %b %d %H:%M:%S %Z %Y"
 
-HLA_TYPES = Literal["A", "B", "C"]
+HLA_LOCI = Literal["A", "B", "C"]
 
 
 class EasyHLA:
@@ -43,7 +44,7 @@ class EasyHLA:
     EXON3_LENGTH: Final[int] = 276
     ALLELES_MAX_REPORTABLE_STRING: Final[int] = 3900
 
-    ALLOWED_HLA_TYPES: Final[List[str]] = ["A", "B", "C"]
+    ALLOWED_HLA_LOCI: Final[List[str]] = ["A", "B", "C"]
 
     # A lookup table of translations from ambiguous nucleotides to unambiguous
     # nucleotides.
@@ -100,25 +101,147 @@ class EasyHLA:
 
     COLUMN_IDS: Final[Dict[str, int]] = {"A": 0, "B": 2, "C": 4}
 
-    def __init__(self, letter: HLA_TYPES, logger: Optional[logging.Logger] = None):
+    def __init__(
+        self,
+        locus: HLA_LOCI,
+        hla_standards: Optional[TextIOBase] = None,
+        hla_frequencies: Optional[TextIOBase] = None,
+        last_modified_time: Optional[datetime] = None,
+        logger: Optional[logging.Logger] = None
+    ):
         """
         Initialize an EasyHLA class.
 
-        :param letter: HLA subtype that this object will be performing
+        :param locus: HLA subtype that this object will be performing
         interpretation against.
-        :type letter: "A", "B", or "C"
+        :type locus: "A", "B", or "C"
         :param logger: Python logger object, defaults to None
         :type logger: Optional[logging.Logger], optional
-        :raises ValueError: Raised if letter != "A"/"B"/"C"
+        :raises ValueError: Raised if locus != "A"/"B"/"C"
         """
-        if letter not in ["A", "B", "C"]:
+        if locus not in ["A", "B", "C"]:
             raise ValueError("Invalid HLA Type!")
-        self.letter: HLA_TYPES = letter
-        self.hla_stds: List[HLAStandard] = self.load_hla_stds(letter=self.letter)
-        self.hla_freqs: Dict[str, int] = self.load_hla_frequencies(letter=self.letter)
+        self.locus: HLA_LOCI = locus
+        self.hla_stds: List[HLAStandard] = self.load_hla_stds(
+            locus=self.locus,
+            hla_standards=hla_standards,
+        )
+        self.hla_freqs: Dict[str, int] = self.load_hla_frequencies(
+            locus=self.locus,
+            hla_frequencies=hla_frequencies,
+        )
+        self.last_modified_time: datetime = last_modified_time
+        if last_modified_time is None:
+            self.last_modified_time = self.load_allele_definitions_last_modified_time()
         self.log = logger or logging.Logger(__name__, logging.ERROR)
 
-    def check_length(self, letter: HLA_TYPES, seq: str, name: str) -> bool:
+    # TODO: allow loading from a specified file/IO object
+    def load_hla_frequencies(
+        self,
+        locus: HLA_LOCI,
+        hla_frequencies: Optional[TextIOBase] = None,
+    ) -> Dict[str, int]:
+        """
+        Load HLA frequencies from reference file.
+
+        This takes two columns AAAA,BBBB out of 6 (...FFFF), and then uses a
+        subset of these two columns (AABB,CCDD) to use as the key, in this case
+        "AA|BB,CC|DD", we then count the number of times this key appears in our
+        columns.
+
+        Implementation Note: This will eventually be consumed by a regex
+        function! In the original ruby script we would output a hash similar to
+        `{ ["AA|BB", "CC|DD"] => 0 }`, but Python does not support lists as keys
+        in dict objects. If using this dict for regex you will need to perform a
+        `.split(',')` on the key.
+
+        :param locus: ...
+        :type locus: HLA_LOCI
+        :return: Lookup table of HLA frequencies.
+        :rtype: Dict[str, int]
+        """
+        hla_freqs: Dict[str, int] = {}
+
+        freqs_io: TextIOBase = hla_frequencies
+        default_freqs_used: bool = False
+        try:
+            if hla_frequencies is None:
+                freqs_io = open(
+                    os.path.join(os.path.dirname(__file__), "hla_frequencies.csv"),
+                    "r",
+                    encoding="utf-8",
+                )
+                default_freqs_used = True
+
+            for line in freqs_io.readlines():
+                column_id = EasyHLA.COLUMN_IDS[locus]
+                line_array = line.strip().split(",")[column_id : column_id + 2]
+                elements = ",".join([f"{a[:2]}|{a[-2:]}" for a in line_array])
+                if hla_freqs.get(elements, None) is None:
+                    hla_freqs[elements] = 0
+                hla_freqs[elements] += 1
+        finally:
+            if default_freqs_used:
+                freqs_io.close()
+
+        return hla_freqs
+
+    # TODO: Convert this to a dictionary instead of a object that looks like:
+    # [ [allele_name, [1,2,3,4,5]], [allele_name2, [2,5,2,5,4]] ]
+    # TODO: allow changes to the source files; perhaps allow TextIO there as well
+    # for, e.g., test purposes
+    def load_hla_stds(
+        self,
+        locus: HLA_LOCI,
+        hla_standards: Optional[TextIOBase],
+    ) -> List[HLAStandard]:
+        """
+        Load HLA Standards from reference file.
+
+        :param locus: ...
+        :type locus: HLA_LOCI
+        :return: List of known HLA standards
+        :rtype: List[HLAStandard]
+        """
+        hla_stds: List[HLAStandard] = []
+
+        standards_io: TextIOBase = hla_standards
+        default_standards_used: bool = False
+        try:
+            if hla_standards is None:
+                standards_io = open(
+                    os.path.join(
+                        os.path.dirname(__file__),
+                        f"hla_{locus.lower()}_std_reduced.csv",
+                    ),
+                    "r",
+                    encoding="utf-8",
+                )
+                default_standards_used = True
+
+            for line in standards_io.readlines():
+                line_array = line.strip().split(",")
+                seq = self.nuc2bin((line_array[1] + line_array[2]))
+                hla_stds.append(HLAStandard(allele=line_array[0], sequence=seq))
+        finally:
+            if default_standards_used:
+                standards_io.close()
+
+        return hla_stds
+
+    def load_allele_definitions_last_modified_time(self) -> datetime:
+        """
+        Load a datetime object describing when standard definitions were last updated.
+
+        :return: Date representing time when references were last updated.
+        :rtype: datetime
+        """
+        filename = os.path.join(os.path.dirname(__file__), "hla_nuc.fasta.mtime")
+        with open(filename, "r", encoding="utf-8") as f:
+            last_mod_date = "".join(f.readlines()).strip()
+        return datetime.strptime(last_mod_date, DATE_FORMAT)
+
+    def check_length(self, letter: HLA_LOCI, seq: str, name: str) -> bool:
         """
         Validates the length of a sequence. This asserts a sequence either
         exactly a certain size, or is within an allowed range.
@@ -130,8 +253,8 @@ class EasyHLA:
          - EasyHLA.MAX_HLA_BC_LENGTH
          - EasyHLA.MIN_HLA_BC_LENGTH
 
-        :param letter: HLA Subtype
-        :type letter: HLA_TYPES
+        :param letter: HLA gene
+        :type letter: HLA_LOCI
         :param seq: Sequence to be validated.
         :type seq: str
         :param name: Name of sequence. This will commonly be the ID/descriptor
@@ -398,82 +521,9 @@ class EasyHLA:
 
         return result
 
-    # TODO: allow loading from a specified file/IO object
-    def load_hla_frequencies(self, letter: HLA_TYPES) -> Dict[str, int]:
-        """
-        Load HLA frequencies from reference file.
-
-        This takes two columns AAAA,BBBB out of 6 (...FFFF), and then uses a
-        subset of these two columns (AABB,CCDD) to use as the key, in this case
-        "AA|BB,CC|DD", we then count the number of times this key appears in our
-        columns.
-
-        Implementation Note: This will eventually be consumed by a regex
-        function! In the original ruby script we would output a hash similar to
-        `{ ["AA|BB", "CC|DD"] => 0 }`, but Python does not support lists as keys
-        in dict objects. If using this dict for regex you will need to perform a
-        `.split(',')` on the key.
-
-        :param letter: ...
-        :type letter: HLA_TYPES
-        :return: Lookup table of HLA frequencies.
-        :rtype: Dict[str, int]
-        """
-        hla_freqs: Dict[str, int] = {}
-        filepath = os.path.join(os.path.dirname(__file__), "hla_frequencies.csv")
-
-        with open(filepath, "r", encoding="utf-8") as f:
-            for line in f.readlines():
-                column_id = EasyHLA.COLUMN_IDS[letter]
-                line_array = line.strip().split(",")[column_id : column_id + 2]
-                elements = ",".join([f"{a[:2]}|{a[-2:]}" for a in line_array])
-                if hla_freqs.get(elements, None) is None:
-                    hla_freqs[elements] = 0
-                hla_freqs[elements] += 1
-        return hla_freqs
-
-    # TODO: Convert this to a dictionary instead of a object that looks like:
-    # [ [allele_name, [1,2,3,4,5]], [allele_name2, [2,5,2,5,4]] ]
-    # TODO: allow changes to the source files; perhaps allow TextIO there as well
-    # for, e.g., test purposes
-    def load_hla_stds(self, letter: HLA_TYPES) -> List[HLAStandard]:
-        """
-        Load HLA Standards from reference file.
-
-        :param letter: ...
-        :type letter: HLA_TYPES
-        :return: List of known HLA standards
-        :rtype: List[HLAStandard]
-        """
-        hla_stds: List[HLAStandard] = []
-
-        filepath = os.path.join(
-            os.path.dirname(__file__), f"hla_{letter.lower()}_std_reduced.csv"
-        )
-
-        with open(filepath, "r", encoding="utf-8") as f:
-            for line in f.readlines():
-                line_array = line.strip().split(",")
-                seq = self.nuc2bin((line_array[1] + line_array[2]))
-                hla_stds.append(HLAStandard(allele=line_array[0], sequence=seq))
-        return hla_stds
-
-    # FIXME: allow loading from a specified file/IO
-    def load_allele_definitions_last_modified_time(self) -> datetime:
-        """
-        Load a datetime object describing when standard definitions were last updated.
-
-        :return: Date representing time when references were last updated.
-        :rtype: datetime
-        """
-        filename = os.path.join(os.path.dirname(__file__), "hla_nuc.fasta.mtime")
-        with open(filename, "r", encoding="utf-8") as f:
-            last_mod_date = "".join(f.readlines()).strip()
-        return datetime.strptime(last_mod_date, DATE_FORMAT)
-
     def interpret(
         self,
-        letter: HLA_TYPES,
+        letter: HLA_LOCI,
         entry: Bio.SeqIO.SeqRecord,
         unmatched: List[List[Bio.SeqIO.SeqRecord]],
         threshold: Optional[int] = None,
@@ -483,7 +533,7 @@ class EasyHLA:
         Interpret sequence. The main function.
 
         :param letter: _description_
-        :type letter: HLA_TYPES
+        :type letter: HLA_LOCI
         :param entry: _description_
         :type entry: Bio.SeqIO.SeqRecord
         :param unmatched: _description_
@@ -654,7 +704,7 @@ class EasyHLA:
 
     def run(
         self,
-        letter: HLA_TYPES,
+        letter: HLA_LOCI,
         filename: str,
         output_filename: str,
         threshold: Optional[int] = None,
@@ -730,14 +780,14 @@ class EasyHLA:
         return Alleles(alleles=alleles_all)
 
     def filter_reportable_alleles(
-        self, letter: HLA_TYPES, alleles: Alleles
+        self, letter: HLA_LOCI, alleles: Alleles
     ) -> List[Tuple[str, str]]:
         """
         In case we have an ambiguous set of alleles, remove ambiguous alleles
         using HLA Freq standards.
 
         :param letter: ...
-        :type letter: HLA_TYPES
+        :type letter: HLA_LOCI
         :param alleles: ...
         :type alleles: Alleles
         :return: List of alleles filtered by HLA frequency.
@@ -796,7 +846,7 @@ class EasyHLA:
 
     def get_mismatches(
         self,
-        letter: HLA_TYPES,
+        letter: HLA_LOCI,
         best_matches: List[HLACombinedStandardResult],
         seq: np.ndarray,
     ) -> str:
@@ -807,7 +857,7 @@ class EasyHLA:
         mismatches are present, this will be delimited with `;`'s.
 
         :param letter: ...
-        :type letter: HLA_TYPES
+        :type letter: HLA_LOCI
         :param best_matches: List of the "best matched" standards to the sequence.
         :type best_matches: List[HLACombinedStandardResult]
         :param seq: The sequence being interpretted.
@@ -847,7 +897,7 @@ class EasyHLA:
 
     def report_mismatches(
         self,
-        letter: HLA_TYPES,
+        letter: HLA_LOCI,
         all_combos: Dict[int, List[HLACombinedStandardResult]],
         seq: np.ndarray,
         threshold: Optional[int] = None,
@@ -858,7 +908,7 @@ class EasyHLA:
         Report mismatches to log/stdout (if applicable).
 
         :param letter: ...
-        :type letter: HLA_TYPES
+        :type letter: HLA_LOCI
         :param all_combos: All possible combos
         :type all_combos: Dict[int, List[HLACombinedStandardResult]]
         :param seq: Sequence currently being interpretted.

@@ -3,12 +3,12 @@ from pathlib import Path
 
 import typer
 
-from easyhla import EasyHLA, HLAType
+from easyhla import EasyHLA, HLALocus
 
 
 def main(
-    letter: HLAType = typer.Option(
-        HLAType.A.value, "--letter", "-l", help="", case_sensitive=False
+    letter: HLALocus = typer.Option(
+        HLALocus.A.value, "--letter", "-l", help="", case_sensitive=False
     ),
     mismatch_threshold: int = typer.Option(
         0,
