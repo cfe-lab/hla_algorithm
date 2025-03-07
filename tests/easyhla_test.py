@@ -108,6 +108,7 @@ class TestEasyHLADiscreteHLALocusA:
     Testing EasyHLA where tests require HLA-A.
     """
 
+    # Tests of check_length:
     @pytest.mark.parametrize(
         "sequence, name, exp_return",
         [
@@ -162,6 +163,7 @@ class TestEasyHLADiscreteHLALocusA:
                     letter=easyhla.letter, seq=sequence, name=name
                 )
 
+    # Tests for get_all_alleles.
     @pytest.mark.parametrize(
         "best_matches, exp_ambig, exp_alleles",
         [

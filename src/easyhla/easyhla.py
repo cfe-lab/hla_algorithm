@@ -770,7 +770,6 @@ class EasyHLA:
         :rtype: Alleles
         """
         alleles_all: List[Tuple[str, str]] = []
-        # Lets say if we detect two of the same mixtures, its heterozygous
         for a in best_matches:
             for _allele in a.discrete_allele_names:
                 alleles_all.append((_allele[0], _allele[1]))
