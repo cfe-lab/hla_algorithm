@@ -4,9 +4,9 @@
 import logging
 import os
 import re
-from io import TextIOBase
 from datetime import datetime
 from enum import Enum
+from io import TextIOBase
 from typing import Any, Dict, Final, List, Literal, Optional, Tuple
 
 import Bio.SeqIO
@@ -107,7 +107,7 @@ class EasyHLA:
         hla_standards: Optional[TextIOBase] = None,
         hla_frequencies: Optional[TextIOBase] = None,
         last_modified_time: Optional[datetime] = None,
-        logger: Optional[logging.Logger] = None
+        logger: Optional[logging.Logger] = None,
     ):
         """
         Initialize an EasyHLA class.
@@ -135,7 +135,6 @@ class EasyHLA:
             self.last_modified_time = self.load_allele_definitions_last_modified_time()
         self.log = logger or logging.Logger(__name__, logging.ERROR)
 
-    # TODO: allow loading from a specified file/IO object
     def load_hla_frequencies(
         self,
         locus: HLA_LOCI,
@@ -793,8 +792,8 @@ class EasyHLA:
         :rtype: List[Tuple[str,str]]
         """
 
-        collection_ambig = alleles.get_ambiguous_collection()
-        for k in collection_ambig:
+        collection_ambig: dict[str, int] = {}
+        for k in alleles.get_proteins_as_strings():
             for freq in self.hla_freqs:
                 if freq.startswith(k):
                     collection_ambig[k] = self.hla_freqs.get(freq, 0)

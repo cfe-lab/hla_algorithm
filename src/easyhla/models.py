@@ -25,6 +25,9 @@ class Alleles(BaseModel):
         Homozygousity meaning a pair is matching on both sides, ex:
         `Cw*0722 - Cw*0722`
 
+        If *any* pair of alleles matches, then we declare the whole set to be
+        homozygous.
+
         :return: ...
         :rtype: bool
         """
@@ -34,45 +37,72 @@ class Alleles(BaseModel):
         """
         Determine whether our collection of alleles is ambiguous or not.
 
+        This is determined by checking whether every allele in the collection
+        belongs to the same allele group (i.e. has the first field in its
+        "coordinates").
+
         :return: ...
         :rtype: bool
         """
-        if len(self.get_unique_collection()) != 1:
+        if len(self.get_allele_groups()) != 1:
             return True
         return False
 
-    def get_collection(
+    @staticmethod
+    def _allele_coordinates(
+        allele: str,
+        remove_subtype: bool = False,
+    ) -> List[str]:
+        """
+        Convert an allele string into a list of coordinates.
+
+        For example, allele "A*01:23:45" gets converted to
+        ["A*01", "23", "45"] or ["01", "23", "45] depending on the value of
+        remove_subtype.
+        """
+        clean_allele_str: str = allele
+        if remove_subtype:
+            clean_allele_str = re.sub("r[^\d:]", "", allele)
+        return clean_allele_str.strip().split(":")
+
+    def get_gene_coordinates(
         self, remove_subtype: bool = False
     ) -> List[Tuple[List[str], List[str]]]:
-        if remove_subtype:
-            return [
-                (
-                    re.sub(r"[^\d:]", "", a[0]).split(":"),
-                    re.sub(r"[^\d:]", "", a[1]).split(":"),
-                )
-                for a in self.alleles
-            ]
+        """
+        Retrieve a list of gene coordinates for all alleles in the collection.
+
+        For example, if the allele were "A*01:23:45 - A*98:76", this
+        would be converted to (["A*01", "23", "45"], ["A*98", "76"]).
+        If remove_subtype is True, then "A*01" would simply be "01",
+        and "A*98" would be "98".
+        """
         return [
-            (a[0].strip().split(":"), a[1].strip().split(":")) for a in self.alleles
+            (
+                self._allele_coordinates(allele_pair[0], remove_subtype),
+                self._allele_coordinates(allele_pair[1], remove_subtype),
+            )
+            for allele_pair in self.alleles
         ]
 
-    def get_unique_collection(self) -> Set[str]:
+    def get_allele_groups(self) -> Set[str]:
         return {
-            f"{e[0][0]}, {e[1][0]}" for e in self.get_collection(remove_subtype=True)
+            f"{e[0][0]}, {e[1][0]}"
+            for e in self.get_gene_coordinates(remove_subtype=True)
         }
 
-    def get_ambiguous_collection(self) -> Dict[str, int]:
+    def get_proteins_as_strings(self) -> Set[str]:
         """
-        Gets an ambiguous collection of alleles as a dict of frequencies.
+        Gets the allele groups and proteins of each pair of alleles.
 
-        This will be filled by
+        For example, the allele pair "A*01:23:45 - A*98:76" becomes
+        "01|23,98|76".
 
         :return: _description_
         :rtype: Dict[str, int]
         """
         return {
             f"{'|'.join(e[0][0:2])},{'|'.join(e[1][0:2])}": 0
-            for e in self.get_collection(remove_subtype=True)
+            for e in self.get_gene_coordinates(remove_subtype=True)
         }
 
     def stringify_clean(self) -> str:
@@ -108,10 +138,12 @@ class Alleles(BaseModel):
         clean_allele: List[str] = []
         for n in [0, 1]:
             for i in [4, 3, 2, 1]:
-                if len({":".join(a[n][0:i]) for a in self.get_collection()}) == 1:
+                if len({":".join(a[n][0:i]) for a in self.get_gene_coordinates()}) == 1:
                     clean_allele.append(
                         re.sub(
-                            r"[A-Z]$", "", ":".join(self.get_collection()[0][n][0:i])
+                            r"[A-Z]$",
+                            "",
+                            ":".join(self.get_gene_coordinates()[0][n][0:i]),
                         )
                     )
                     break

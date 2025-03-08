@@ -9,7 +9,7 @@ from easyhla.models import (
 
 class TestModels:
     @pytest.mark.parametrize(
-        "alleles, exp_result_clean, exp_homozygous, exp_ambiguous, exp_ambiguous_collection, exp_collection",
+        "alleles, exp_result_clean, exp_homozygous, exp_ambiguous, exp_proteins_as_strings, exp_gene_coordinates",
         [
             (
                 [
@@ -32,17 +32,17 @@ class TestModels:
                 False,
                 False,
                 {
-                    "02|01,03|01": 0,
-                    "02|237,03|05": 0,
-                    "02|26,03|07": 0,
-                    "02|34,03|08": 0,
-                    "02|90,03|09": 0,
-                    "02|24,03|17": 0,
-                    "02|195,03|23": 0,
-                    "02|338,03|95": 0,
-                    "02|35,03|108": 0,
-                    "02|86,03|123": 0,
-                    "02|20,03|157": 0,
+                    "02|01,03|01",
+                    "02|237,03|05",
+                    "02|26,03|07",
+                    "02|34,03|08",
+                    "02|90,03|09",
+                    "02|24,03|17",
+                    "02|195,03|23",
+                    "02|338,03|95",
+                    "02|35,03|108",
+                    "02|86,03|123",
+                    "02|20,03|157",
                 },
                 [
                     (["A*02", "01"], ["A*03", "01"]),
@@ -70,7 +70,7 @@ class TestModels:
                 "A*11 - A*26",
                 False,
                 False,
-                {"11|01,26|01": 0, "11|19,26|13": 0},
+                {"11|01,26|01", "11|19,26|13"},
                 [
                     (["A*11", "01"], ["A*26", "01"]),
                     (["A*11", "01"], ["A*26", "01"]),
@@ -85,7 +85,7 @@ class TestModels:
                 "A*11 - A*26",
                 False,
                 False,
-                {"11|01,26|01": 0, "11|40,26|01": 0},
+                {"11|01,26|01", "11|40,26|01"},
                 [
                     (["A*11", "01"], ["A*26", "01"]),
                     (["A*11", "40"], ["A*26", "01G"]),
@@ -99,7 +99,7 @@ class TestModels:
                 "A*11 - A*11",
                 True,
                 False,
-                {"11|01,11|01": 0, "11|40,11|01": 0},
+                {"11|01,11|01", "11|40,11|01"},
                 [
                     (["A*11", "01"], ["A*11", "01"]),
                     (["A*11", "40"], ["A*11", "01G"]),
@@ -114,7 +114,7 @@ class TestModels:
                 "A*11",  # Strictly speaking, this would be a failure since it should be a pair
                 False,
                 True,
-                {"11|01,12|01": 0, "11|40,13|01": 0},
+                {"11|01,12|01", "11|40,13|01"},
                 [
                     (["A*11", "01"], ["A*12", "01"]),
                     (["A*11", "01"], ["A*12", "01"]),
@@ -129,16 +129,16 @@ class TestModels:
         exp_result_clean: List[str],
         exp_homozygous: bool,
         exp_ambiguous: bool,
-        exp_ambiguous_collection: Set[str],
-        exp_collection: List[Tuple[List[str], List[str]]],
+        exp_proteins_as_strings: Set[str],
+        exp_gene_coordinates: List[Tuple[List[str], List[str]]],
     ):
         result = Alleles(alleles=alleles)
 
         assert result.is_ambiguous() == exp_ambiguous
         assert result.is_homozygous() == exp_homozygous
         assert result.stringify_clean() == exp_result_clean
-        assert result.get_ambiguous_collection() == exp_ambiguous_collection
-        assert result.get_collection() == exp_collection
+        assert result.get_proteins_as_strings() == exp_proteins_as_strings
+        assert result.get_gene_coordinates() == exp_gene_coordinates
 
     @pytest.mark.parametrize(
         "alleles, exp_result",
