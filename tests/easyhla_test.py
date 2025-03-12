@@ -281,13 +281,13 @@ class TestEasyHLADiscreteHLALocusA:
             ),
         ],
     )
-    def test_filter_reportable_alleles(
+    def test_reduce_to_unambiguous(
         self,
         easyhla: EasyHLA,
         alleles: List[Tuple[str, str]],
         exp_result: List[Tuple[str, str]],
     ):
-        result = easyhla.filter_reportable_alleles(
+        result = easyhla.reduce_to_unambiguous(
             letter=easyhla.letter, alleles=Alleles(alleles=alleles)
         )
 
@@ -836,12 +836,11 @@ class TestEasyHLA:
         assert np.array_equal(result, exp_result)
 
     @pytest.mark.parametrize(
-        "sequence, threshold, matching_standards, exp_result",
+        "sequence, matching_standards, exp_result",
         [
             # Simple case
             (
                 np.array([1, 2, 4, 8]),
-                1,
                 [
                     HLAStandardMatch(
                         allele="std_allmatch",
@@ -858,30 +857,8 @@ class TestEasyHLA:
                     ]
                 },
             ),
-            # No threshold defined
             (
                 np.array([1, 2, 4, 8]),
-                None,
-                [
-                    HLAStandardMatch(
-                        allele="std_allmatch",
-                        sequence=np.array([1, 2, 4, 8]),
-                        mismatch=0,
-                    ),
-                ],
-                {
-                    0: [
-                        HLACombinedStandardResult(
-                            standard="1-2-4-8",
-                            discrete_allele_names=[["std_allmatch", "std_allmatch"]],
-                        )
-                    ]
-                },
-            ),
-            # Same case but HLAStandardMatch.mismatch is above threshold
-            (
-                np.array([1, 2, 4, 8]),
-                1,
                 [
                     HLAStandardMatch(
                         allele="std_allmatch",
@@ -901,7 +878,6 @@ class TestEasyHLA:
             #
             (
                 np.array([1, 2, 4, 8]),
-                1,
                 [
                     HLAStandardMatch(
                         allele="std_allmatch",
@@ -936,7 +912,6 @@ class TestEasyHLA:
             #
             (
                 np.array([9, 6, 4, 6]),
-                1,
                 [
                     HLAStandardMatch(
                         allele="std_allmatch",
@@ -967,7 +942,6 @@ class TestEasyHLA:
             #
             (
                 np.array([1, 2, 4, 8]),
-                0,
                 [
                     HLAStandardMatch(
                         allele="std_1mismatch",
@@ -986,7 +960,6 @@ class TestEasyHLA:
             ),
             (
                 np.array([1, 2, 4, 8]),
-                0,
                 [
                     HLAStandardMatch(
                         allele="std_allmismatch",
@@ -1008,7 +981,6 @@ class TestEasyHLA:
             #
             (
                 np.array([1, 2, 4, 8]),
-                0,
                 [
                     HLAStandardMatch(
                         allele="std_allmatch",
@@ -1041,14 +1013,12 @@ class TestEasyHLA:
         self,
         easyhla: EasyHLA,
         sequence: List[int],
-        threshold: int,
         matching_standards: List[HLAStandardMatch],
         exp_result: Dict[int, List[int]],
     ):
         result = easyhla.combine_stds(
             matching_stds=matching_standards,
             seq=sequence,
-            max_mismatch_threshold=threshold,
         )
         print(sorted(result.items()))
         print((k, v) for k, v in exp_result.items())

@@ -9,7 +9,7 @@ from pydantic_numpy.model import NumpyModel
 ALLELES_MAX_REPORTABLE_STRING: int = 3900
 
 
-class Exon(BaseModel):
+class HLASequenceComponents(BaseModel):
     two: str
     intron: str = ""
     three: str
@@ -101,13 +101,13 @@ class Alleles(BaseModel):
         :rtype: Dict[str, int]
         """
         return {
-            f"{'|'.join(e[0][0:2])},{'|'.join(e[1][0:2])}": 0
+            f"{'|'.join(e[0][0:2])},{'|'.join(e[1][0:2])}"
             for e in self.get_gene_coordinates(remove_subtype=True)
         }
 
     def stringify_clean(self) -> str:
         """
-        Get most common allele in all identified alleles.
+        Produce a string representation of the "common" allele.
 
         Example:
         ```
@@ -119,12 +119,12 @@ class Alleles(BaseModel):
         We expect to get `A*11:02 - A*12`
 
         **Implementation Note:** This should be run *after*
-        `EasyHLA.filter_reportable_alleles` if `self.is_ambiguous()` is true:
+        `EasyHLA.reduce_to_unambiguous` if `self.is_ambiguous()` is true:
 
         ```
         alleles_all_str = alleles.stringify()
         if alleles.is_ambiguous():
-            alleles.alleles = self.filter_reportable_alleles(
+            alleles.alleles = self.reduce_to_unambiguous(
                 letter=self.letter, alleles=alleles
             )
         clean_allele_str = alleles.stringify_clean()
@@ -174,7 +174,7 @@ class Alleles(BaseModel):
 
 
 class HLASequence(NumpyModel):
-    exon: Exon
+    exon: HLASequenceComponents
     sequence: pnd.NpNDArray
 
 
