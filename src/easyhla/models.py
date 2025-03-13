@@ -9,12 +9,6 @@ from pydantic_numpy.model import NumpyModel
 ALLELES_MAX_REPORTABLE_STRING: int = 3900
 
 
-class HLASequenceComponents(BaseModel):
-    two: str
-    intron: str = ""
-    three: str
-
-
 class Alleles(BaseModel):
     alleles: List[Tuple[str, str]]
 
@@ -105,9 +99,49 @@ class Alleles(BaseModel):
             for e in self.get_gene_coordinates(remove_subtype=True)
         }
 
+    def get_unambiguous_allele_set(self) -> list[tuple[str, str]]:
+        """
+        Filter the alleles to an unambiguous set.
+
+        The alleles to be retained are determined by the following tiebreaks:
+        1) their frequency, according to our stored table;
+        2) lowest "first coordinate" of the first allele;
+        3) lowest "second coordinate" of the first allele;
+        4) lowest "first coordinate" of the second allele; and
+        5) lowest "second coordinate" of the second allele.
+
+        :param locus: ...
+        :type locus: HLA_LOCI
+        :return: List of alleles filtered by HLA frequency.
+        :rtype: List[Tuple[str,str]]
+        """
+
+        collection_ambig: dict[str, int] = {}
+        for k in self.get_proteins_as_strings():
+            for freq in self.hla_freqs:
+                if freq.startswith(k):
+                    collection_ambig[k] = self.hla_freqs.get(freq, 0)
+
+        max_allele = sorted(
+            collection_ambig.items(),
+            key=lambda item: self.sort_allele_tuple(item[0], item[1]),
+            reverse=True,
+        )
+
+        a1 = max_allele[0][0].split(",")[0]
+        a2 = max_allele[0][0].split(",")[1]
+        regex_str_a1 = f"^[ABCabc]\\*({a1}):([^\\s])+"
+        regex_str_a2 = f"^[ABCabc]\\*({a2}):([^\\s])+"
+        reduced_set: list[tuple[str, str]] = []
+        for allele_1, allele_2 in self.alleles:
+            if re.match(regex_str_a1, allele_1) and re.match(regex_str_a2, allele_2):
+                reduced_set.append((allele_1, allele_2))
+
+        return reduced_set
+
     def stringify_clean(self) -> str:
         """
-        Produce a string representation of the "common" allele.
+        Produce a string representation of the "best common" allele.
 
         Example:
         ```
@@ -118,32 +152,26 @@ class Alleles(BaseModel):
 
         We expect to get `A*11:02 - A*12`
 
-        **Implementation Note:** This should be run *after*
-        `EasyHLA.reduce_to_unambiguous` if `self.is_ambiguous()` is true:
-
-        ```
-        alleles_all_str = alleles.stringify()
-        if alleles.is_ambiguous():
-            alleles.alleles = self.reduce_to_unambiguous(
-                letter=self.letter, alleles=alleles
-            )
-        clean_allele_str = alleles.stringify_clean()
-        ```
-
-        :param all_alleles: ...
-        :type all_alleles: List[List[str]]
-        :return: A string representing the most common allele pair.
+        :return: A string representing the best common allele pair.
         :rtype: str
         """
+        # Starting with an unambiguous set assures that we will definitely get
+        # a result.
+        unambiguous_set: Alleles = Alleles(self.get_unambiguous_allele_set())
+
         clean_allele: List[str] = []
         for n in [0, 1]:
             for i in [4, 3, 2, 1]:
-                if len({":".join(a[n][0:i]) for a in self.get_gene_coordinates()}) == 1:
+                all_leading_coordinates = {
+                    ":".join(a[n][0:i]) for a in unambiguous_set.get_gene_coordinates()
+                }
+                if len(all_leading_coordinates) == 1:
+                    best_common_coords = all_leading_coordinates.pop()
                     clean_allele.append(
                         re.sub(
                             r"[A-Z]$",
                             "",
-                            ":".join(self.get_gene_coordinates()[0][n][0:i]),
+                            ":".join(best_common_coords),
                         )
                     )
                     break
@@ -174,8 +202,12 @@ class Alleles(BaseModel):
 
 
 class HLASequence(NumpyModel):
-    exon: HLASequenceComponents
+    two: str
+    intron: str = ""
+    three: str
     sequence: pnd.NpNDArray
+    name: str
+    num_sequences_used: int = 1
 
 
 class HLAStandard(NumpyModel):

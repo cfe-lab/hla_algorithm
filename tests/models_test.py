@@ -9,6 +9,56 @@ from easyhla.models import (
 
 class TestModels:
     @pytest.mark.parametrize(
+        "raw_alleles, exp_result",
+        [
+            (
+                [
+                    ("A*11:01", "A*26:01"),
+                    ("A*11:01", "A*26:01"),
+                    ("A*11:19", "A*26:13"),
+                ],
+                [
+                    ("A*11:01", "A*26:01"),
+                    ("A*11:01", "A*26:01"),
+                    ("A*11:19", "A*26:13"),
+                ],
+            ),
+            (
+                [
+                    ("A*11:01", "A*26:01"),
+                    ("A*11:40", "A*23:01"),
+                ],
+                [("A*11:01", "A*26:01")],
+            ),
+            (
+                [
+                    ("A*11:01", "A*12:01"),
+                    ("A*11:01", "A*12:01"),
+                    ("A*11:40", "A*13:01"),
+                ],
+                [("A*11:40", "A*13:01")],
+            ),
+            (
+                [
+                    ("A*11:01", "A*12:01"),
+                    ("A*13:01", "A*12:44"),
+                    ("A*13:40", "A*12:01"),
+                ],
+                [("A*13:01", "A*12:44"), ("A*13:40", "A*12:01")],
+            ),
+        ],
+    )
+    def test_get_unambiguous_allele_set(
+        self,
+        raw_alleles: List[Tuple[str, str]],
+        exp_result: List[Tuple[str, str]],
+    ):
+        alleles = Alleles(raw_alleles)
+        result = alleles.get_unambiguous_allele_set()
+        # print(result)
+        assert result == exp_result
+
+    @pytest.mark.parametrize(
         "alleles, exp_result_clean, exp_homozygous, exp_ambiguous, exp_proteins_as_strings, exp_gene_coordinates",
         [
             (

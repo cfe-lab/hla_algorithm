@@ -4,21 +4,22 @@
 import logging
 import os
 import re
+from collections.abc import Iterable
 from datetime import datetime
 from enum import Enum
 from io import TextIOBase
 from typing import Any, Dict, Final, List, Literal, Optional, Tuple
-from collections.abc import Iterable
 
 import Bio.SeqIO
 import numpy as np
+import pydantic_numpy.typing as pnd
 
 from .models import (
     Alleles,
-    HLASequenceComponents,
     HLACombinedStandardResult,
     HLAResult,
     HLAResultRow,
+    HLASequence,
     HLAStandard,
     HLAStandardMatch,
 )
@@ -394,15 +395,15 @@ class EasyHLA:
     def pad_short(
         self,
         seq: np.ndarray,
-        name: str,
+        exon: Optional[EXON_NAME],
         hla_std: HLAStandard,
     ) -> np.ndarray:
         # hla_stds expects [ ["label0", [1,2,3,4]], ["label1", [2,3,4,5]] ]
         std = None
         has_intron = False
-        if "exon2" in name.lower():
+        if exon == "exon2":
             std = hla_std.sequence[: EasyHLA.EXON2_LENGTH]
-        elif "exon3" in name.lower():
+        elif exon == "exon3":
             std = hla_std.sequence[EasyHLA.EXON2_LENGTH : EasyHLA.EXON3_LENGTH]
         else:
             has_intron = True
@@ -518,7 +519,7 @@ class EasyHLA:
     def pair_exons(
         self,
         sequence_records: Iterable[Bio.SeqIO.SeqRecord],
-    ):
+    ) -> tuple[list[HLASequence], dict[EXON_NAME, dict[str, Bio.SeqIO.SeqRecord]]]:
         """
         Pair exons in the given input sequences.
 
@@ -528,14 +529,15 @@ class EasyHLA:
         (the intron is not used in our testing).  We iterate through the
         sequences and attempt to match them up.
         """
+        matched_sequences: list[HLASequence] = []
         unmatched: dict[EXON_NAME, dict[str, Bio.SeqIO.SeqRecord]] = {
             "exon2": {},
             "exon3": {},
         }
-        matched_sequences: list[HLASequenceComponents] = []
 
         for sr in sequence_records:
-            samp: string = sr.description
+            # The description field is expected to hold the sample name.
+            samp: str = sr.description
 
             is_exon: bool = False
             matched = False
@@ -543,19 +545,18 @@ class EasyHLA:
             intron = ""
             exon3 = ""
 
-            # Check if the sequence is an exon2 or exon3. If so, try to match it with an
-            # existing other exon.
-            other_exon_lookup: dict[EXON_NAME, EXON_NAME] = {
-                "exon2": "exon3",
-                "exon3": "exon2",
-            }
-            for exon, other_exon in other_exon_lookup.items():
+            # Check if the sequence is an exon2 or exon3. If so, try to match it
+            # with an existing other exon.
+            exon_and_other_exon: list[tuple[EXON_NAME, EXON_NAME]] = [
+                ("exon2", "exon3"),
+                ("exon3", "exon2"),
+            ]
+            for exon, other_exon in exon_and_other_exon:
                 if exon in samp.lower():
                     is_exon = True
                     identifier = samp.split("_")[0]
-                    for description, other_sr in unmatched[other_exon]:
-                    # for i, other in enumerate(unmatched[3 - exon]):
-                        if identifier.lower() in description.lower():
+                    for other_desc, other_sr in unmatched[other_exon].items():
+                        if identifier.lower() in other_desc.lower():
                             matched = True
                             intron = ""
                             if exon == "exon2":
@@ -565,19 +566,17 @@ class EasyHLA:
                                 exon2 = str(other_sr.seq)
                                 exon3 = str(sr.seq)
 
-                            unmatched[other_exon].pop(description)
+                            unmatched[other_exon].pop(other_desc)
                             samp = identifier
                             break
-                    # If we can't match the exon, put the entry in the list we weren't looking in
-                    # Ex: exon2 looks in mismatches[1] ( [[],[] <- this bucket] )
-                    # If it can't find its pair in mismatches[1], then it puts itself into
-                    # mismatches[0]
+                    # If we can't match the exon, put the entry in the list we
+                    # weren't looking in.
                     if not matched:
                         unmatched[exon][samp] = sr
 
             # If it was an exon2 or 3 but didn't have a pair, keep going.
             if is_exon and not matched:
-                return None
+                continue
 
             if is_exon:
                 exon2_bin = self.pad_short(
@@ -588,39 +587,50 @@ class EasyHLA:
                 )
                 exon2 = self.bin2nuc(exon2_bin)
                 exon3 = self.bin2nuc(exon3_bin)
-                seq_parts = HLASequenceComponents(two=exon2, three=exon3)
-                seq = np.concatenate((exon2_bin, exon3_bin))
+                matched_sequences.append(
+                    HLASequence(
+                        two=exon2,
+                        three=exon3,
+                        seq=np.concatenate((exon2_bin, exon3_bin)),
+                        name=samp,
+                        num_sequences_used=2,
+                    )
+                )
             else:
                 seq = self.pad_short(
                     self.nuc2bin(entry.seq),  # type: ignore
-                    samp,
+                    None,
                     hla_std=self.hla_stds[0],
                 )
                 exon2 = self.bin2nuc(seq[: EasyHLA.EXON2_LENGTH])
                 intron = self.bin2nuc(seq[EasyHLA.EXON2_LENGTH : -EasyHLA.EXON3_LENGTH])
                 exon3 = self.bin2nuc(seq[-EasyHLA.EXON3_LENGTH :])
-                seq_parts = HLASequenceComponents(two=exon2, intron=intron, three=exon3)
-                seq = np.concatenate(
-                    (seq[: EasyHLA.EXON2_LENGTH], seq[-EasyHLA.EXON3_LENGTH :])
+                matched_sequences.append(
+                    HLASequence(
+                        two=exon2,
+                        intron=intron,
+                        three=exon3,
+                        seq=np.concatenate(
+                            (seq[: EasyHLA.EXON2_LENGTH], seq[-EasyHLA.EXON3_LENGTH :])
+                        ),
+                        name=samp,
+                        num_sequences_used=1,
+                    )
                 )
+        return matched_sequences, unmatched
 
+    # FIXME move the length and base check to the calling function
     def interpret(
         self,
-        locus: HLA_LOCI,
-        entry: Bio.SeqIO.SeqRecord,
-        unmatched: List[List[Bio.SeqIO.SeqRecord]],
+        hla_sequence: HLASequence,
         threshold: Optional[int] = None,
         to_stdout: Optional[bool] = None,
     ) -> Optional[HLAResult]:
         """
         Interpret sequence. The main function.
 
-        :param locus: _description_
-        :type locus: HLA_LOCI
-        :param entry: _description_
-        :type entry: Bio.SeqIO.SeqRecord
-        :param unmatched: _description_
-        :type unmatched: List[List[Bio.SeqIO.SeqRecord]]
+        :param hla_sequence: the sequence to perform interpretation on
+        :type hla_sequence: HLASequence
         :param threshold: _description_, defaults to None
         :type threshold: Optional[int], optional
         :param to_stdout: _description_, defaults to None
@@ -628,81 +638,19 @@ class EasyHLA:
         :return: _description_
         :rtype: Optional[HLAResult]
         """
-        samp = entry.description
+        # try:
+        #     self.check_length(locus, str(entry.seq), samp)
+        #     self.check_bases(str(entry.seq), samp)
+        # except ValueError:
+        #     return None
 
-        try:
-            self.check_length(locus, str(entry.seq), samp)
-            self.check_bases(str(entry.seq), samp):
-        except ValueError:
-            return None
-
-        is_exon = False
-        matched = False
-        exon2 = ""
-        intron = ""
-        exon3 = ""
-
-        # Check if the sequence is an exon2 or exon3. If so, try to match it with an
-        # existing other exon.
-        if "exon" in samp.lower():
-            for exon in [2, 3]:
-                if f"exon{exon}" in samp.lower():
-                    is_exon = True
-                    _samp = samp.split("_")[0]
-                    for i, other in enumerate(unmatched[3 - exon]):
-                        if _samp.lower() in other.description.lower():
-                            matched = True
-                            intron = ""
-                            if exon == 2:
-                                exon2 = str(entry.seq)
-                                exon3 = str(other.seq)
-                            else:
-                                exon2 = str(other.seq)
-                                exon3 = str(entry.seq)
-
-                            unmatched[3 - exon].pop(i)
-                            samp = _samp
-                            break
-                    # If we can't match the exon, put the entry in the list we weren't looking in
-                    # Ex: exon2 looks in mismatches[1] ( [[],[] <- this bucket] )
-                    # If it can't find its pair in mismatches[1], then it puts itself into
-                    # mismatches[0]
-                    if not matched:
-                        unmatched[exon % 2].append(entry)
-
-        # If it was an exon2 or 3 but didn't have a pair, keep going.
-        if is_exon and not matched:
-            return None
-
-        if is_exon:
-            exon2_bin = self.pad_short(
-                self.nuc2bin(exon2), "exon2", hla_std=self.hla_stds[0]
-            )
-            exon3_bin = self.pad_short(
-                self.nuc2bin(exon3), "exon3", hla_std=self.hla_stds[0]
-            )
-            exon2 = self.bin2nuc(exon2_bin)
-            exon3 = self.bin2nuc(exon3_bin)
-            seq_parts = HLASequenceComponents(two=exon2, three=exon3)
-            seq = np.concatenate((exon2_bin, exon3_bin))
-        else:
-            seq = self.pad_short(
-                self.nuc2bin(entry.seq),  # type: ignore
-                samp,
-                hla_std=self.hla_stds[0],
-            )
-            exon2 = self.bin2nuc(seq[: EasyHLA.EXON2_LENGTH])
-            intron = self.bin2nuc(seq[EasyHLA.EXON2_LENGTH : -EasyHLA.EXON3_LENGTH])
-            exon3 = self.bin2nuc(seq[-EasyHLA.EXON3_LENGTH :])
-            seq_parts = HLASequenceComponents(two=exon2, intron=intron, three=exon3)
-            seq = np.concatenate(
-                (seq[: EasyHLA.EXON2_LENGTH], seq[-EasyHLA.EXON3_LENGTH :])
-            )
+        seq: pnd.NpNDArray = hla_sequence.sequence
+        name: str = hla_sequence.name
 
         matching_stds = self.get_matching_stds(seq, self.hla_stds)
         if len(matching_stds) == 0:
             self.print(
-                f"Sequence {samp} did not match any known alleles.",
+                f"Sequence {name} did not match any known alleles.",
                 log_level=logging.WARN,
                 to_stdout=to_stdout,
             )
@@ -731,37 +679,31 @@ class EasyHLA:
 
         # Clean the alleles
 
-        mismatches = self.get_mismatches(
-            self.locus, best_matches=best_matches, seq=seq
-        )
+        mismatches = self.get_mismatches(self.locus, best_matches=best_matches, seq=seq)
 
         alleles = self.get_all_alleles(best_matches=best_matches)
         ambig = alleles.is_ambiguous()
         homozygous = alleles.is_homozygous()
         alleles_all_str = alleles.stringify()
-        if alleles.is_ambiguous():
-            alleles.alleles = self.reduce_to_unambiguous(
-                locus=self.locus, alleles=alleles
-            )
         clean_allele_str = alleles.stringify_clean()
 
-        # if this is an exon, then nseqs = 2
-        nseqs = 1 + int(is_exon)
-
         row = HLAResultRow(
-            samp=samp,
+            samp=name,
             clean_allele_str=clean_allele_str,
             alleles_all_str=alleles_all_str,
             ambig=int(ambig),
             homozygous=int(homozygous),
             mismatch_count=mismatch_count,
             mismatches=f"{mismatches}",
-            exon2=exon2.upper(),
-            intron=intron.upper(),
-            exon3=exon3.upper(),
+            exon2=hla_sequence.two.upper(),
+            intron=hla_sequence.intron.upper(),
+            exon3=hla_sequence.three.upper(),
         )
-        # print(row)
-        return HLAResult(result=row, num_pats=1, num_seqs=nseqs)
+        return HLAResult(
+            result=row,
+            num_pats=1,
+            num_seqs=hla_sequence.num_sequences_used,
+        )
 
     def report_unmatched_sequences(
         self,
@@ -867,13 +809,17 @@ class EasyHLA:
         """
         Produce a tuple from an allele pair and frequency to allow sorting.
         """
-        first_allele, second_allele: tuple[str, str] = allele_pair.split(",")
-        first_group, first_protein: tuple[int, int] = (
-            int(x) for x in first_allele.split("|")
-        )
-        second_group, second_protein: tuple[int, int] = (
-            int(x) for x in second_allele.split("|")
-        )
+        first_allele: str
+        second_allele: str
+        first_allele, second_allele = allele_pair.split(",")
+
+        first_group: int
+        first_protein: int
+        first_group, first_protein = (int(x) for x in first_allele.split("|"))
+
+        second_group: int
+        second_protein: int
+        second_group, second_protein = (int(x) for x in second_allele.split("|"))
         return (
             frequency,
             first_group,
@@ -881,52 +827,6 @@ class EasyHLA:
             second_group,
             second_protein,
         )
-
-    def reduce_to_unambiguous(
-        self, locus: HLA_LOCI, alleles: Alleles
-    ) -> List[Tuple[str, str]]:
-        """
-        Filter the alleles to an unambiguous set.
-
-        The alleles to be retained are determined by the following tiebreaks:
-        1) their frequency, according to our stored table;
-        2) lowest "first coordinate" of the first allele;
-        3) lowest "second coordinate" of the first allele;
-        4) lowest "first coordinate" of the second allele; and
-        5) lowest "second coordinate" of the second allele.
-
-        :param locus: ...
-        :type locus: HLA_LOCI
-        :param alleles: ...
-        :type alleles: Alleles
-        :return: List of alleles filtered by HLA frequency.
-        :rtype: List[Tuple[str,str]]
-        """
-
-        collection_ambig: dict[str, int] = {}
-        for k in alleles.get_proteins_as_strings():
-            for freq in self.hla_freqs:
-                if freq.startswith(k):
-                    collection_ambig[k] = self.hla_freqs.get(freq, 0)
-
-        max_allele = sorted(
-            collection_ambig.items(),
-            key=lambda item: self.sort_allele_tuple(item[0], item[1]),
-            reverse=True,
-        )
-
-        a1 = max_allele[0][0].split(",")[0]
-        a2 = max_allele[0][0].split(",")[1]
-        _alleles = alleles.alleles
-        for i, a in enumerate(_alleles.copy()):
-            regex_str_a1 = f"^{locus}\\*({a1}):([^\\s])+"
-            if not re.match(regex_str_a1, a[0]) and a in _alleles:
-                _alleles.remove(a)
-            regex_str_a2 = f"^{locus}\\*({a2}):([^\\s])+"
-            if not re.match(regex_str_a2, a[1]) and a in _alleles:
-                _alleles.remove(a)
-
-        return _alleles
 
     def get_mismatches(
         self,

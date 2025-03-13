@@ -241,60 +241,6 @@ class TestEasyHLADiscreteHLALocusA:
         assert result_alleles.is_ambiguous() == exp_ambig
         assert result_alleles.alleles == exp_alleles
 
-    @pytest.mark.parametrize(
-        "alleles, exp_result",
-        [
-            (
-                [
-                    ("A*11:01", "A*26:01"),
-                    ("A*11:01", "A*26:01"),
-                    ("A*11:19", "A*26:13"),
-                ],
-                [
-                    ("A*11:01", "A*26:01"),
-                    ("A*11:01", "A*26:01"),
-                    ("A*11:19", "A*26:13"),
-                ],
-            ),
-            (
-                [
-                    ("A*11:01", "A*26:01"),
-                    ("A*11:40", "A*23:01"),
-                ],
-                [("A*11:01", "A*26:01")],
-            ),
-            (
-                [
-                    ("A*11:01", "A*12:01"),
-                    ("A*11:01", "A*12:01"),
-                    ("A*11:40", "A*13:01"),
-                ],
-                [("A*11:40", "A*13:01")],
-            ),
-            (
-                [
-                    ("A*11:01", "A*12:01"),
-                    ("A*13:01", "A*12:44"),
-                    ("A*13:40", "A*12:01"),
-                ],
-                [("A*13:01", "A*12:44"), ("A*13:40", "A*12:01")],
-            ),
-        ],
-    )
-    def test_reduce_to_unambiguous(
-        self,
-        easyhla: EasyHLA,
-        alleles: List[Tuple[str, str]],
-        exp_result: List[Tuple[str, str]],
-    ):
-        result = easyhla.reduce_to_unambiguous(
-            letter=easyhla.letter, alleles=Alleles(alleles=alleles)
-        )
-
-        print(result)
-
-        assert result == exp_result
-
 
 @pytest.mark.parametrize("easyhla", ["B"], indirect=True)
 class TestEasyHLADiscreteHLALocusB:
