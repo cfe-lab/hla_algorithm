@@ -188,7 +188,7 @@ class TestModels:
         assert result.is_homozygous() == exp_homozygous
         assert result.stringify_clean() == exp_result_clean
         assert result.get_proteins_as_strings() == exp_proteins_as_strings
-        assert result.get_gene_coordinates() == exp_gene_coordinates
+        assert result.get_paired_gene_coordinates() == exp_gene_coordinates
 
     @pytest.mark.parametrize(
         "alleles, exp_result",

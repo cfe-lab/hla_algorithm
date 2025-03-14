@@ -16,7 +16,7 @@ import pydantic_numpy.typing as pnd
 
 from .models import (
     Alleles,
-    HLACombinedStandardResult,
+    HLACombinedStandard,
     HLAResult,
     HLAResultRow,
     HLASequence,
@@ -463,9 +463,9 @@ class EasyHLA:
 
     def combine_stds(
         self,
-        matching_stds: List[HLAStandardMatch],
-        seq: List[int],
-    ) -> Dict[int, List[HLACombinedStandardResult]]:
+        matching_stds: list[HLAStandardMatch],
+        seq: list[int],
+    ) -> dict[int, list[HLACombinedStandard]]:
         """
         Find the combinations of standards that match the given sequence.
 
@@ -479,7 +479,7 @@ class EasyHLA:
         are already "decent" matches for our sequence, to reduce running time)
         and "mush" them together to produce potential matches for our sequence.
         """
-        combos: Dict[int, Dict[str, List[List[str]]]] = {}
+        combos: dict[int, dict[str, list[list[str]]]] = {}
 
         for std_ai, std_a in enumerate(matching_stds):
             for std_bi, std_b in enumerate(matching_stds):
@@ -503,12 +503,12 @@ class EasyHLA:
                 stds.sort()
                 combos[mismatches][combined_std_name].append(stds)
 
-        result: Dict[int, List[HLACombinedStandardResult]] = {}
+        result: dict[int, list[HLACombinedStandard]] = {}
         for mismatch, matching_combos_dict in combos.items():
-            cur_combo: List[HLACombinedStandardResult] = []
+            cur_combo: list[HLACombinedStandard] = []
             for std, allele_list in matching_combos_dict.items():
                 cur_combo.append(
-                    HLACombinedStandardResult(
+                    HLACombinedStandard(
                         standard=std, discrete_allele_names=allele_list
                     )
                 )
@@ -665,27 +665,29 @@ class EasyHLA:
         # DR 2023-02-24: To whomever made this comment, great shoutout!
         all_combos = self.combine_stds(matching_stds, seq)
 
-        self.report_mismatches(
-            locus=self.locus,
-            all_combos=all_combos,
-            seq=seq,
-            threshold=threshold,
-            sequence_components=seq_parts,
-            to_stdout=to_stdout,
-        )
+        if threshold is not None:
+            self.report_mismatches(
+                all_combos=all_combos,
+                seq=seq,
+                threshold=threshold,
+                exon2=hla_sequence.two,
+                intron=hla_sequence.intron,
+                exon3=hla_sequence.three,
+                to_stdout=to_stdout,
+            )
 
-        best_matches: List[HLACombinedStandardResult] = min(all_combos.items())[1]
+        best_matches: List[HLACombinedStandard] = min(all_combos.items())[1]
         mismatch_count: int = min(all_combos.items())[0]
 
         # Clean the alleles
 
         mismatches = self.get_mismatches(self.locus, best_matches=best_matches, seq=seq)
 
-        alleles = self.get_all_alleles(best_matches=best_matches)
+        alleles = self.get_all_allele_pairs(best_matches=best_matches)
         ambig = alleles.is_ambiguous()
         homozygous = alleles.is_homozygous()
         alleles_all_str = alleles.stringify()
-        clean_allele_str = alleles.stringify_clean()
+        clean_allele_str = alleles.best_common_allele_pair_str(self.hla_freqs)
 
         row = HLAResultRow(
             samp=name,
@@ -701,7 +703,6 @@ class EasyHLA:
         )
         return HLAResult(
             result=row,
-            num_pats=1,
             num_seqs=hla_sequence.num_sequences_used,
         )
 
@@ -763,7 +764,7 @@ class EasyHLA:
                 else:
                     rows.append(result.result.get_result_as_str())
                     self.print(result.result.get_result_as_str(), to_stdout=to_stdout)
-                    npats += result.num_pats
+                    npats += 1
                     nseqs += result.num_seqs
 
         self.report_unmatched_sequences(unmatched, to_stdout=to_stdout)
@@ -783,23 +784,23 @@ class EasyHLA:
             for _r in rows:
                 f.write(_r + "\n")
 
-    def get_all_alleles(self, best_matches: List[HLACombinedStandardResult]) -> Alleles:
+    def get_all_allele_pairs(self, best_matches: list[HLACombinedStandard]) -> AllelePairs:
         """
-        Get all alleles that best match our sequence.
+        Get all allele pairs that best match our sequence.
 
         :param best_matches: ...
-        :type best_matches: List[HLACombinedStandardResult]
+        :type best_matches: List[HLACombinedStandard]
         :return: ...
         :rtype: Alleles
         """
-        alleles_all: List[Tuple[str, str]] = []
-        for a in best_matches:
-            for _allele in a.discrete_allele_names:
+        alleles_all: list[tuple[str, str]] = []
+        for combined_std in best_matches:
+            for _allele in combined_std.discrete_allele_names:
                 alleles_all.append((_allele[0], _allele[1]))
 
         alleles_all.sort()
 
-        return Alleles(alleles=alleles_all)
+        return AllelePairs(allele_pairs=alleles_all)
 
     @staticmethod
     def sort_allele_tuple(
@@ -830,41 +831,37 @@ class EasyHLA:
 
     def get_mismatches(
         self,
-        locus: HLA_LOCI,
-        best_matches: List[HLACombinedStandardResult],
+        best_matches: list[HLACombinedStandard],
         seq: np.ndarray,
     ) -> str:
         """
         Report mismatched bases and their location versus a standard reference.
 
         The output looks like "$LOC:$SEQ_BASE->$STANDARD_BASE", if multiple
-        mismatches are present, this will be delimited with `;`'s.
+        mismatches are present, they will be delimited with `;`'s.
 
-        :param locus: ...
-        :type locus: HLA_LOCI
         :param best_matches: List of the "best matched" standards to the sequence.
-        :type best_matches: List[HLACombinedStandardResult]
-        :param seq: The sequence being interpretted.
+        :type best_matches: list[HLACombinedStandard]
+        :param seq: The sequence being interpreted.
         :type seq: np.ndarray
-        :return: A string-concatentated list of locations containing mismatches.
+        :return: A string-concatenated list of locations containing mismatches.
         :rtype: str
         """
-        correct_bases_at_pos: Dict[int, List[int]] = {}
+        correct_bases_at_pos: dict[int, list[int]] = {}
 
-        for hla_csr in best_matches:
-            _seq = np.array([int(nuc) for nuc in hla_csr.standard.split("-")])
-            # TODO: replace with https://stackoverflow.com/questions/16094563/numpy-get-index-where-value-is-true
-            for idx in np.flatnonzero(_seq ^ seq):
+        for combined_std in best_matches:
+            std_bin_seq = np.array([int(nuc) for nuc in combined_std.standard.split("-")])
+            for idx in np.flatnonzero(std_bin_seq ^ seq):
                 if idx not in correct_bases_at_pos:
                     correct_bases_at_pos[idx] = []
-                if _seq[idx] not in correct_bases_at_pos[idx]:
-                    correct_bases_at_pos[idx].append(_seq[idx])
+                if std_bin_seq[idx] not in correct_bases_at_pos[idx]:
+                    correct_bases_at_pos[idx].append(std_bin_seq[idx])
 
-        mislist: List[str] = []
+        mislist: list[str] = []
 
         for index, correct_bases in correct_bases_at_pos.items():
-            if locus == "A" and index > 270:
-                dex = index + 241
+            if self.locus == "A" and index > 270:
+                dex = index + 242
             else:
                 dex = index + 1
 
@@ -881,53 +878,56 @@ class EasyHLA:
 
     def report_mismatches(
         self,
-        locus: HLA_LOCI,
-        all_combos: Dict[int, List[HLACombinedStandardResult]],
+        all_combos: Dict[int, List[HLACombinedStandard]],
         seq: np.ndarray,
-        threshold: Optional[int] = None,
-        sequence_components: Optional[HLASequenceComponents] = None,
+        threshold: int,
+        exon2: str,
+        intron: str,
+        exon3: str,
         to_stdout: Optional[bool] = None,
     ) -> None:
         """
         Report mismatches to log/stdout (if applicable).
 
-        :param locus: ...
-        :type locus: HLA_LOCI
         :param all_combos: All possible combos
-        :type all_combos: Dict[int, List[HLACombinedStandardResult]]
+        :type all_combos: Dict[int, List[HLACombinedStandard]]
         :param seq: Sequence currently being interpretted.
         :type seq: np.ndarray
-        :param threshold: Maximum allowed mismatches in a sequence compared to a standard, must be non-negative or None, defaults to None
-        :type threshold: Optional[int], optional
-        :param sequence_components: Components of a sequence (exon2, intron, exon3); defaults to None
-        :type sequence_components: Optional[HLASequenceComponents], optional
+        :param threshold: Maximum allowed mismatches in a sequence compared to a standard, must be non-negative
+        :type threshold: int
+        :param exon2: exon2 of the sequence in question
+        :type exon2: str
+        :param intron: intron of the sequence in question
+        :type intron: str
+        :param exon3: exon3 of the sequence in question
+        :type exon3: str
         :param to_stdout: Print to STDOUT if true, defaults to None
         :type to_stdout: Optional[bool], optional
         :raises RuntimeError: Raised if threshold is < 0
         """
-        if threshold:
-            if threshold < 0:
-                raise RuntimeError("Threshold must be >=0 or None!")
-            for i, combos in sorted(all_combos.items()):
-                if i > threshold:
-                    if i == 0:
-                        self.print(
-                            "No matches found below specified threshold. "
-                            "Please check the locus, orientation, and/or increase "
-                            "number of mismatches.",
-                            log_level=logging.WARN,
-                            to_stdout=to_stdout,
-                        )
-                    break
-                # We can reuse get_mismatches here, as instead of the "best" match, we have "a match"
-                mismatches = self.get_mismatches(
-                    locus=locus, best_matches=combos, seq=seq
-                )
-                _seq_str = ""
-                if sequence_components:
-                    _seq_str = f"{sequence_components.two},{sequence_components.intron},{sequence_components.three}"
-                self.print(
-                    f"{mismatches},{_seq_str}",
-                    log_level=logging.INFO,
-                    to_stdout=to_stdout,
-                )
+        if threshold < 0:
+            raise RuntimeError("threshold must be 0 or greater")
+
+        any_matches_found: bool = False
+        for i, combos in sorted(all_combos.items()):
+            if i > threshold:
+                break
+
+            # We can reuse get_mismatches here, as instead of the "best" match, we have "a match"
+            mismatches = self.get_mismatches(
+                locus=locus, best_matches=combos, seq=seq
+            )
+            self.print(
+                f"{mismatches},{exon2},{intron},{exon3}",
+                log_level=logging.INFO,
+                to_stdout=to_stdout,
+            )
+
+        if not any_matches_found:
+            self.print(
+                "No matches found below specified threshold. "
+                "Please check the locus, orientation, and/or increase "
+                "number of mismatches.",
+                log_level=logging.WARN,
+                to_stdout=to_stdout,
+            )

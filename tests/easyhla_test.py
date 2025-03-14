@@ -10,7 +10,7 @@ import pytz
 from easyhla.easyhla import DATE_FORMAT, EasyHLA
 from easyhla.models import (
     Alleles,
-    HLACombinedStandardResult,
+    HLACombinedStandard,
     HLAStandard,
     HLAStandardMatch,
 )
@@ -169,7 +169,7 @@ class TestEasyHLADiscreteHLALocusA:
         [
             (
                 [
-                    HLACombinedStandardResult(
+                    HLACombinedStandard(
                         standard="",
                         discrete_allele_names=[
                             ["A*02:01:01G", "A*03:01:01G"],
@@ -209,7 +209,7 @@ class TestEasyHLADiscreteHLALocusA:
             ),
             (
                 [
-                    HLACombinedStandardResult(
+                    HLACombinedStandard(
                         standard="",
                         discrete_allele_names=[
                             ["A*11:01:01G", "A*26:01:01G"],
@@ -232,7 +232,7 @@ class TestEasyHLADiscreteHLALocusA:
     def test_get_all_alleles(
         self,
         easyhla: EasyHLA,
-        best_matches: List[HLACombinedStandardResult],
+        best_matches: List[HLACombinedStandard],
         exp_ambig: bool,
         exp_alleles: List[Tuple[str, str]],
     ):
@@ -796,7 +796,7 @@ class TestEasyHLA:
                 ],
                 {
                     0: [
-                        HLACombinedStandardResult(
+                        HLACombinedStandard(
                             standard="1-2-4-8",
                             discrete_allele_names=[["std_allmatch", "std_allmatch"]],
                         )
@@ -814,7 +814,7 @@ class TestEasyHLA:
                 ],
                 {
                     2: [
-                        HLACombinedStandardResult(
+                        HLACombinedStandard(
                             standard="1-4-2-8",
                             discrete_allele_names=[["std_allmatch", "std_allmatch"]],
                         )
@@ -838,17 +838,17 @@ class TestEasyHLA:
                 ],
                 {
                     0: [
-                        HLACombinedStandardResult(
+                        HLACombinedStandard(
                             standard="1-2-4-8",
                             discrete_allele_names=[["std_allmatch", "std_allmatch"]],
                         )
                     ],
                     1: [
-                        HLACombinedStandardResult(
+                        HLACombinedStandard(
                             standard="1-6-4-8",
                             discrete_allele_names=[["std_allmatch", "std_allmatch2"]],
                         ),
-                        HLACombinedStandardResult(
+                        HLACombinedStandard(
                             standard="1-4-4-8",
                             discrete_allele_names=[["std_allmatch2", "std_allmatch2"]],
                         ),
@@ -872,13 +872,13 @@ class TestEasyHLA:
                 ],
                 {
                     1: [
-                        HLACombinedStandardResult(
+                        HLACombinedStandard(
                             standard="9-6-4-12",
                             discrete_allele_names=[["std_1mismatch2", "std_allmatch"]],
                         )
                     ],
                     3: [
-                        HLACombinedStandardResult(
+                        HLACombinedStandard(
                             standard="1-2-4-4",
                             discrete_allele_names=[["std_allmatch", "std_allmatch"]],
                         )
@@ -897,7 +897,7 @@ class TestEasyHLA:
                 ],
                 {
                     1: [
-                        HLACombinedStandardResult(
+                        HLACombinedStandard(
                             standard="1-2-4-4",
                             discrete_allele_names=[["std_1mismatch", "std_1mismatch"]],
                         )
@@ -915,7 +915,7 @@ class TestEasyHLA:
                 ],
                 {
                     4: [
-                        HLACombinedStandardResult(
+                        HLACombinedStandard(
                             standard="8-4-2-1",
                             discrete_allele_names=[
                                 ["std_allmismatch", "std_allmismatch"]
@@ -946,7 +946,7 @@ class TestEasyHLA:
                 ],
                 {
                     0: [
-                        HLACombinedStandardResult(
+                        HLACombinedStandard(
                             standard="1-2-4-8",
                             discrete_allele_names=[["std_allmatch", "std_allmatch"]],
                         )
@@ -975,7 +975,7 @@ class TestEasyHLA:
         [
             (
                 [
-                    HLACombinedStandardResult(
+                    HLACombinedStandard(
                         standard="",
                         discrete_allele_names=[
                             ["A*02:01:01G", "A*03:01:01G"],
@@ -1009,7 +1009,7 @@ class TestEasyHLA:
             ),
             (
                 [
-                    HLACombinedStandardResult(
+                    HLACombinedStandard(
                         standard="",
                         discrete_allele_names=[
                             ["A*11:01:01G", "A*26:01:01G"],
@@ -1032,7 +1032,7 @@ class TestEasyHLA:
     def test_get_all_alleles(
         self,
         easyhla: EasyHLA,
-        best_matches: List[HLACombinedStandardResult],
+        best_matches: List[HLACombinedStandard],
         exp_homozygous: bool,
         exp_alleles: List[List[str]],
     ):

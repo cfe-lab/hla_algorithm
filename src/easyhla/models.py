@@ -9,8 +9,8 @@ from pydantic_numpy.model import NumpyModel
 ALLELES_MAX_REPORTABLE_STRING: int = 3900
 
 
-class Alleles(BaseModel):
-    alleles: List[Tuple[str, str]]
+class AllelePairs(BaseModel):
+    allele_pairs: list[tuple[str, str]]
 
     def is_homozygous(self) -> bool:
         """
@@ -29,16 +29,17 @@ class Alleles(BaseModel):
 
     def is_ambiguous(self) -> bool:
         """
-        Determine whether our collection of alleles is ambiguous or not.
+        Determine whether our collection of allele pairs is ambiguous or not.
 
-        This is determined by checking whether every allele in the collection
-        belongs to the same allele group (i.e. has the first field in its
-        "coordinates").
+        This is determined by checking whether every allele pair in the
+        collection belongs to the same allele groups (i.e. every first allele
+        has the same first field in its "coordinates", and likewise for the
+        second).
 
         :return: ...
         :rtype: bool
         """
-        if len(self.get_allele_groups()) != 1:
+        if len(self.get_paired_allele_groups()) != 1:
             return True
         return False
 
@@ -46,7 +47,7 @@ class Alleles(BaseModel):
     def _allele_coordinates(
         allele: str,
         remove_subtype: bool = False,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Convert an allele string into a list of coordinates.
 
@@ -59,9 +60,9 @@ class Alleles(BaseModel):
             clean_allele_str = re.sub("r[^\d:]", "", allele)
         return clean_allele_str.strip().split(":")
 
-    def get_gene_coordinates(
+    def get_paired_gene_coordinates(
         self, remove_subtype: bool = False
-    ) -> List[Tuple[List[str], List[str]]]:
+    ) -> list[tuple[list[str], list[str]]]:
         """
         Retrieve a list of gene coordinates for all alleles in the collection.
 
@@ -75,16 +76,16 @@ class Alleles(BaseModel):
                 self._allele_coordinates(allele_pair[0], remove_subtype),
                 self._allele_coordinates(allele_pair[1], remove_subtype),
             )
-            for allele_pair in self.alleles
+            for allele_pair in self.allele_pairs
         ]
 
-    def get_allele_groups(self) -> Set[str]:
+    def get_paired_allele_groups(self) -> set[str]:
         return {
-            f"{e[0][0]}, {e[1][0]}"
-            for e in self.get_gene_coordinates(remove_subtype=True)
+            f"{first[0]}, {second[0]}"
+            for first, second in self.get_paired_gene_coordinates(remove_subtype=True)
         }
 
-    def get_proteins_as_strings(self) -> Set[str]:
+    def get_proteins_as_strings(self) -> set[str]:
         """
         Gets the allele groups and proteins of each pair of alleles.
 
@@ -92,23 +93,31 @@ class Alleles(BaseModel):
         "01|23,98|76".
 
         :return: _description_
-        :rtype: Dict[str, int]
+        :rtype: set[str, int]
         """
         return {
             f"{'|'.join(e[0][0:2])},{'|'.join(e[1][0:2])}"
-            for e in self.get_gene_coordinates(remove_subtype=True)
+            for e in self.get_paired_gene_coordinates(remove_subtype=True)
         }
 
-    def get_unambiguous_allele_set(self) -> list[tuple[str, str]]:
+    def get_unambiguous_allele_pairs(
+        self,
+        frequencies: dict[str, int],
+    ) -> list[tuple[str, str]]:
         """
-        Filter the alleles to an unambiguous set.
+        Filter the allele pairs to an unambiguous set.
 
-        The alleles to be retained are determined by the following tiebreaks:
-        1) their frequency, according to our stored table;
+        The "top" allele pair is determined by the following tiebreaks:
+
+        1) its frequency, according to the specified dict;
         2) lowest "first coordinate" of the first allele;
         3) lowest "second coordinate" of the first allele;
         4) lowest "first coordinate" of the second allele; and
         5) lowest "second coordinate" of the second allele.
+
+        The allele pairs that belong to the same allele groups (i.e. the first
+        allele has the same first "coordinate" as the top first allele, and
+        likewise for the second) are retained.
 
         :param locus: ...
         :type locus: HLA_LOCI
@@ -118,9 +127,9 @@ class Alleles(BaseModel):
 
         collection_ambig: dict[str, int] = {}
         for k in self.get_proteins_as_strings():
-            for freq in self.hla_freqs:
+            for freq in frequencies:
                 if freq.startswith(k):
-                    collection_ambig[k] = self.hla_freqs.get(freq, 0)
+                    collection_ambig[k] = frequencies.get(freq, 0)
 
         max_allele = sorted(
             collection_ambig.items(),
@@ -128,8 +137,9 @@ class Alleles(BaseModel):
             reverse=True,
         )
 
-        a1 = max_allele[0][0].split(",")[0]
-        a2 = max_allele[0][0].split(",")[1]
+        # Entries in max_allele look like ("12|34,90|32", 55).
+        a1 = max_allele[0][0].split(",")[0].split("|")[0]
+        a2 = max_allele[0][0].split(",")[1].split("|")[0]
         regex_str_a1 = f"^[ABCabc]\\*({a1}):([^\\s])+"
         regex_str_a2 = f"^[ABCabc]\\*({a2}):([^\\s])+"
         reduced_set: list[tuple[str, str]] = []
@@ -139,9 +149,12 @@ class Alleles(BaseModel):
 
         return reduced_set
 
-    def stringify_clean(self) -> str:
+    def best_common_allele_pair_str(
+        self,
+        frequencies: dict[str, int],
+    ) -> str:
         """
-        Produce a string representation of the "best common" allele.
+        Produce a string representation of the "best common allele pair".
 
         Example:
         ```
@@ -157,13 +170,15 @@ class Alleles(BaseModel):
         """
         # Starting with an unambiguous set assures that we will definitely get
         # a result.
-        unambiguous_set: Alleles = Alleles(self.get_unambiguous_allele_set())
+        unambiguous_set: AllelePairs = AllelePairs(
+            self.get_unambiguous_allele_pairs(frequencies)
+        )
 
         clean_allele: List[str] = []
         for n in [0, 1]:
             for i in [4, 3, 2, 1]:
                 all_leading_coordinates = {
-                    ":".join(a[n][0:i]) for a in unambiguous_set.get_gene_coordinates()
+                    ":".join(a[n][0:i]) for a in unambiguous_set.get_paired_gene_coordinates()
                 }
                 if len(all_leading_coordinates) == 1:
                     best_common_coords = all_leading_coordinates.pop()
@@ -176,8 +191,8 @@ class Alleles(BaseModel):
                     )
                     break
 
-        clean_allele_str: str = " - ".join(clean_allele)
-        return clean_allele_str
+        clean_allele_pair_str: str = " - ".join(clean_allele)
+        return clean_allele_pair_str
 
     def stringify(self) -> str:
         """
@@ -189,16 +204,16 @@ class Alleles(BaseModel):
         :return: ...
         :rtype: str
         """
-        alleles_all_str = ";".join([f"{_a[0]} - {_a[1]}" for _a in self.alleles])
+        summary_str = ";".join([f"{_a[0]} - {_a[1]}" for _a in self.allele_pairs])
 
-        if len(alleles_all_str) > ALLELES_MAX_REPORTABLE_STRING:
-            alleles_all_str = re.sub(
+        if len(summary_str) > ALLELES_MAX_REPORTABLE_STRING:
+            summary_str = re.sub(
                 r";[^;]+$",
                 ";...TRUNCATED",
-                alleles_all_str[: ALLELES_MAX_REPORTABLE_STRING + 20],
+                summary_str[: ALLELES_MAX_REPORTABLE_STRING + 20],
             )
 
-        return alleles_all_str
+        return summary_str
 
 
 class HLASequence(NumpyModel):
@@ -237,7 +252,7 @@ class HLAStandardMatch(HLAStandard):
         )
 
 
-class HLACombinedStandardResult(BaseModel):
+class HLACombinedStandard(BaseModel):
     standard: str
     discrete_allele_names: List[List[str]]
 
@@ -275,4 +290,3 @@ class HLAResultRow(BaseModel):
 class HLAResult(BaseModel):
     result: HLAResultRow
     num_seqs: int = 1
-    num_pats: int = 1
