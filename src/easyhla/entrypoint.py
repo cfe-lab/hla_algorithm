@@ -1,9 +1,18 @@
 import logging
 from pathlib import Path
+from enum import Enum
 
 import typer
 
-from easyhla import EasyHLA, HLALocus
+from easyhla import EasyHLA
+
+
+class HLALocus(str, Enum):
+    """Valid HLA genes."""
+
+    A = "A"
+    B = "B"
+    C = "C"
 
 
 def main(

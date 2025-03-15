@@ -1,12 +1,8 @@
-# ruff: noqa: C901
-# TODO: Remove this noqa line and refactor/reduce code-complexity
-
 import logging
 import os
 import re
 from collections.abc import Iterable
 from datetime import datetime
-from enum import Enum
 from io import TextIOBase
 from typing import Any, Dict, Final, List, Literal, Optional, Tuple
 
@@ -15,7 +11,7 @@ import numpy as np
 import pydantic_numpy.typing as pnd
 
 from .models import (
-    Alleles,
+    AllelePairs,
     HLACombinedStandard,
     HLAResult,
     HLAResultRow,
@@ -25,19 +21,15 @@ from .models import (
 )
 
 
-class HLALocus(str, Enum):
-    """Valid HLA genes."""
-
-    A = "A"
-    B = "B"
-    C = "C"
-
-
 DATE_FORMAT = "%a %b %d %H:%M:%S %Z %Y"
 
 HLA_LOCI = Literal["A", "B", "C"]
 
 EXON_NAME = Literal["exon2", "exon3"]
+EXON_AND_OTHER_EXON: list[tuple[EXON_NAME, EXON_NAME]] = [
+    ("exon2", "exon3"),
+    ("exon3", "exon2"),
+]
 
 
 class EasyHLA:
@@ -124,14 +116,12 @@ class EasyHLA:
         :raises ValueError: Raised if locus != "A"/"B"/"C"
         """
         if locus not in ["A", "B", "C"]:
-            raise ValueError("Invalid HLA Type!")
+            raise ValueError("Invalid HLA locus specified; must be A, B, or C")
         self.locus: HLA_LOCI = locus
         self.hla_stds: List[HLAStandard] = self.load_hla_stds(
-            locus=self.locus,
             hla_standards=hla_standards,
         )
         self.hla_freqs: Dict[str, int] = self.load_hla_frequencies(
-            locus=self.locus,
             hla_frequencies=hla_frequencies,
         )
         self.last_modified_time: datetime = last_modified_time
@@ -141,7 +131,6 @@ class EasyHLA:
 
     def load_hla_frequencies(
         self,
-        locus: HLA_LOCI,
         hla_frequencies: Optional[TextIOBase] = None,
     ) -> Dict[str, int]:
         """
@@ -158,8 +147,6 @@ class EasyHLA:
         in dict objects. If using this dict for regex you will need to perform a
         `.split(',')` on the key.
 
-        :param locus: ...
-        :type locus: HLA_LOCI
         :return: Lookup table of HLA frequencies.
         :rtype: Dict[str, int]
         """
@@ -177,7 +164,7 @@ class EasyHLA:
                 default_freqs_used = True
 
             for line in freqs_io.readlines():
-                column_id = EasyHLA.COLUMN_IDS[locus]
+                column_id = EasyHLA.COLUMN_IDS[self.locus]
                 line_array = line.strip().split(",")[column_id : column_id + 2]
                 elements = ",".join([f"{a[:2]}|{a[-2:]}" for a in line_array])
                 if hla_freqs.get(elements, None) is None:
@@ -189,24 +176,20 @@ class EasyHLA:
 
         return hla_freqs
 
-    # TODO: Convert this to a dictionary instead of a object that looks like:
-    # [ [allele_name, [1,2,3,4,5]], [allele_name2, [2,5,2,5,4]] ]
-    # TODO: allow changes to the source files; perhaps allow TextIO there as well
-    # for, e.g., test purposes
+    # In the future it may make sense to convert this to return a dictionary
+    # keyed by the allele name, but in the current code it's only ever used
+    # as a list.
     def load_hla_stds(
         self,
-        locus: HLA_LOCI,
         hla_standards: Optional[TextIOBase],
-    ) -> List[HLAStandard]:
+    ) -> list[HLAStandard]:
         """
         Load HLA Standards from reference file.
 
-        :param locus: ...
-        :type locus: HLA_LOCI
         :return: List of known HLA standards
-        :rtype: List[HLAStandard]
+        :rtype: list[HLAStandard]
         """
-        hla_stds: List[HLAStandard] = []
+        hla_stds: list[HLAStandard] = []
 
         standards_io: TextIOBase = hla_standards
         default_standards_used: bool = False
@@ -215,7 +198,7 @@ class EasyHLA:
                 standards_io = open(
                     os.path.join(
                         os.path.dirname(__file__),
-                        f"hla_{locus.lower()}_std_reduced.csv",
+                        f"hla_{self.locus.lower()}_std_reduced.csv",
                     ),
                     "r",
                     encoding="utf-8",
@@ -244,7 +227,7 @@ class EasyHLA:
             last_mod_date = "".join(f.readlines()).strip()
         return datetime.strptime(last_mod_date, DATE_FORMAT)
 
-    def check_length(self, locus: HLA_LOCI, seq: str, name: str) -> None:
+    def check_length(self, seq: str, name: str) -> None:
         """
         Validates the length of a sequence. This asserts a sequence either
         exactly a certain size, or is within an allowed range.
@@ -256,8 +239,6 @@ class EasyHLA:
          - EasyHLA.MAX_HLA_BC_LENGTH
          - EasyHLA.MIN_HLA_BC_LENGTH
 
-        :param locus: HLA gene
-        :type locus: HLA_LOCI
         :param seq: Sequence to be validated.
         :type seq: str
         :param name: Name of sequence. This will commonly be the ID/descriptor
@@ -270,7 +251,7 @@ class EasyHLA:
         """
         error_condition: bool = False
         if name.lower().endswith("short"):
-            if locus.upper() == "A":
+            if self.locus.upper() == "A":
                 error_condition = len(seq) >= EasyHLA.HLA_A_LENGTH
             elif "exon2" in name.lower():
                 error_condition = len(seq) >= EasyHLA.EXON2_LENGTH
@@ -278,7 +259,7 @@ class EasyHLA:
                 error_condition = len(seq) >= EasyHLA.EXON3_LENGTH
             else:
                 error_condition = len(seq) >= EasyHLA.MAX_HLA_BC_LENGTH
-        elif locus.upper() == "A":
+        elif self.locus.upper() == "A":
             error_condition = len(seq) != EasyHLA.HLA_A_LENGTH
         elif "exon2" in name.lower():
             error_condition = len(seq) != EasyHLA.EXON2_LENGTH
@@ -291,7 +272,7 @@ class EasyHLA:
 
         if error_condition:
             raise ValueError(
-                f"Sequence {name} is the wrong length ({len(seq)} bp). Check the locus {locus}"
+                f"Sequence {name} is the wrong length ({len(seq)} bp). Check the locus {self.locus}"
             )
 
     def print(
@@ -314,7 +295,8 @@ class EasyHLA:
         if to_stdout:
             print(message)
 
-    def check_bases(self, seq: str, name: str) -> None:
+    @staticmethod
+    def check_bases(seq: str) -> None:
         """
         Check a string sequence for invalid characters.
 
@@ -322,16 +304,13 @@ class EasyHLA:
 
         :param seq: ...
         :type seq: str
-        :param name: Name of sequence. This will commonly be the ID/descriptor
-        in the fasta file.
-        :type name: str
         :raises ValueError: Raised if a sequence contains letters we don't
         expect
         :return: True if our sequence only contains valid characters.
         :rtype: bool
         """
         if not re.match(r"^[ATGCRYKMSWNBDHV]+$", seq):
-            raise ValueError(f"Sequence {name} has invalid characters")
+            raise ValueError(f"Sequence has invalid characters")
 
     def nuc2bin(self, seq: str) -> np.ndarray:
         """
@@ -447,7 +426,7 @@ class EasyHLA:
 
     def get_matching_stds(
         self, seq: np.ndarray, hla_stds: List[HLAStandard]
-    ) -> List[HLAStandardMatch]:
+    ) -> list[HLAStandardMatch]:
         # Returns [ ["std_name", [1,2,3,4], num_mismatches], ["std_name2", [2,3,4,5], num_mismatches2]]
         matching_stds: List[HLAStandardMatch] = []
         for std in hla_stds:
@@ -458,7 +437,6 @@ class EasyHLA:
                         allele=std.allele, sequence=std.sequence, mismatch=mismatches
                     )
                 )
-
         return matching_stds
 
     def combine_stds(
@@ -516,6 +494,22 @@ class EasyHLA:
 
         return result
 
+    def get_all_allele_pairs(self, best_matches: list[HLACombinedStandard]) -> AllelePairs:
+        """
+        Get all allele pairs that best match our sequence.
+
+        :param best_matches: ...
+        :type best_matches: List[HLACombinedStandard]
+        :return: ...
+        :rtype: Alleles
+        """
+        alleles_all: list[tuple[str, str]] = []
+        for combined_std in best_matches:
+            for _allele in combined_std.discrete_allele_names:
+                alleles_all.append((_allele[0], _allele[1]))
+        alleles_all.sort()
+        return AllelePairs(allele_pairs=alleles_all)
+
     def pair_exons(
         self,
         sequence_records: Iterable[Bio.SeqIO.SeqRecord],
@@ -539,6 +533,14 @@ class EasyHLA:
             # The description field is expected to hold the sample name.
             samp: str = sr.description
 
+            # Skip over any sequences that aren't the right length or contain
+            # bad bases.
+            try:
+                self.check_length(str(sr.seq), samp)
+                self.check_bases(str(sr.seq))
+            except ValueError:
+                continue
+
             is_exon: bool = False
             matched = False
             exon2 = ""
@@ -547,11 +549,7 @@ class EasyHLA:
 
             # Check if the sequence is an exon2 or exon3. If so, try to match it
             # with an existing other exon.
-            exon_and_other_exon: list[tuple[EXON_NAME, EXON_NAME]] = [
-                ("exon2", "exon3"),
-                ("exon3", "exon2"),
-            ]
-            for exon, other_exon in exon_and_other_exon:
+            for exon, other_exon in EXON_AND_OTHER_EXON:
                 if exon in samp.lower():
                     is_exon = True
                     identifier = samp.split("_")[0]
@@ -619,7 +617,6 @@ class EasyHLA:
                 )
         return matched_sequences, unmatched
 
-    # FIXME move the length and base check to the calling function
     def interpret(
         self,
         hla_sequence: HLASequence,
@@ -638,12 +635,6 @@ class EasyHLA:
         :return: _description_
         :rtype: Optional[HLAResult]
         """
-        # try:
-        #     self.check_length(locus, str(entry.seq), samp)
-        #     self.check_bases(str(entry.seq), samp)
-        # except ValueError:
-        #     return None
-
         seq: pnd.NpNDArray = hla_sequence.sequence
         name: str = hla_sequence.name
 
@@ -664,24 +655,28 @@ class EasyHLA:
         # Now, combine all the stds (pick up that can citizen!)
         # DR 2023-02-24: To whomever made this comment, great shoutout!
         all_combos = self.combine_stds(matching_stds, seq)
+        counts_and_combined_standards = sorted(all_combos.items())
+
+        best_matches: list[HLACombinedStandard]
+        mismatch_count: int
+        mismatch_count, best_matches = counts_and_combined_standards[0]
+
+        best_match_mismatches = self.get_mismatches(
+            combined_standards=best_matches,
+            seq=seq,
+        )
+
+        all_mismatches: dict[int, list[str]] = {}
+        all_mismatches[mismatch_count] = best_match_mismatches
 
         if threshold is not None:
-            self.report_mismatches(
-                all_combos=all_combos,
-                seq=seq,
-                threshold=threshold,
-                exon2=hla_sequence.two,
-                intron=hla_sequence.intron,
-                exon3=hla_sequence.three,
-                to_stdout=to_stdout,
-            )
-
-        best_matches: List[HLACombinedStandard] = min(all_combos.items())[1]
-        mismatch_count: int = min(all_combos.items())[0]
-
-        # Clean the alleles
-
-        mismatches = self.get_mismatches(self.locus, best_matches=best_matches, seq=seq)
+            for curr_mismatch_count, combos in counts_and_combined_standards[1:]:
+                if curr_mismatch_count > threshold:
+                    break
+                all_mismatches[curr_mismatch_count] = self.get_mismatches(
+                    combined_standards=combos,
+                    seq=seq,
+                )
 
         alleles = self.get_all_allele_pairs(best_matches=best_matches)
         ambig = alleles.is_ambiguous()
@@ -696,19 +691,20 @@ class EasyHLA:
             ambig=int(ambig),
             homozygous=int(homozygous),
             mismatch_count=mismatch_count,
-            mismatches=f"{mismatches}",
+            mismatches=";".join(best_match_mismatches),
             exon2=hla_sequence.two.upper(),
             intron=hla_sequence.intron.upper(),
             exon3=hla_sequence.three.upper(),
         )
         return HLAResult(
-            result=row,
+            result_row=row,
+            mismatches_by_count=all_mismatches,
             num_seqs=hla_sequence.num_sequences_used,
         )
 
     def report_unmatched_sequences(
         self,
-        unmatched: List[List[Bio.SeqIO.SeqRecord]],
+        unmatched: dict[EXON_NAME, dict[str, Bio.SeqIO.SeqRecord]],
         to_stdout: Optional[bool] = None,
     ) -> None:
         """
@@ -719,129 +715,26 @@ class EasyHLA:
         :param to_stdout: ..., defaults to None
         :type to_stdout: Optional[bool], optional
         """
-        for exon in [2, 3]:
-            for entry in unmatched[exon % 2]:
+        for exon, other_exon in EXON_AND_OTHER_EXON:
+            for entry in unmatched[exon]:
                 self.print(
-                    f"No matching exon{3 - exon % 2} for {entry.description}",
+                    f"No matching {other_exon} for {entry.description}",
                     to_stdout=to_stdout,
                 )
 
-    def run(
-        self,
-        locus: HLA_LOCI,
-        filename: str,
-        output_filename: str,
-        threshold: Optional[int] = None,
-        to_stdout: Optional[bool] = None,
-    ):
-        if threshold and threshold < 0:
-            raise RuntimeError("Threshold must be >=0 or None!")
-
-        rows = []
-        npats = 0
-        nseqs = 0
-        time_start = datetime.now()
-        unmatched: List[List[Bio.SeqIO.SeqRecord]] = [[], []]
-        self.print(
-            f"Run commencing {time_start.strftime(DATE_FORMAT)}. Allele definitions last updated {self.load_allele_definitions_last_modified_time().strftime(DATE_FORMAT)}.",
-            to_stdout=to_stdout,
-        )
-        self.print(
-            "ENUM,ALLELES_CLEAN,ALLELES,AMBIGUOUS,HOMOZYGOUS,MISMATCH_COUNT,MISMATCHES,EXON2,INTRON,EXON3",
-            to_stdout=to_stdout,
-        )
-        with open(filename, "r", encoding="utf-8") as f:
-            fasta = Bio.SeqIO.parse(f, "fasta")
-            for i, entry in enumerate(fasta):
-                result = self.interpret(
-                    locus,
-                    entry,
-                    unmatched=unmatched,
-                    threshold=threshold,
-                )
-                if not result:
-                    continue
-                else:
-                    rows.append(result.result.get_result_as_str())
-                    self.print(result.result.get_result_as_str(), to_stdout=to_stdout)
-                    npats += 1
-                    nseqs += result.num_seqs
-
-        self.report_unmatched_sequences(unmatched, to_stdout=to_stdout)
-        self.print(
-            f"{npats} patients, {nseqs} sequences processed.", to_stdout=to_stdout
-        )
-
-        self.log.info("% patients, % sequences processed.", npats, nseqs)
-
-        with open(output_filename, "w", encoding="utf-8") as f:
-            f.write(
-                f"Run commencing {time_start.strftime(DATE_FORMAT)}. Allele definitions last updated {self.load_allele_definitions_last_modified_time().strftime(DATE_FORMAT)}.\n"
-            )
-            f.write(
-                "ENUM,ALLELES_CLEAN,ALLELES,AMBIGUOUS,HOMOZYGOUS,MISMATCH_COUNT,MISMATCHES,EXON2,INTRON,EXON3\n"
-            )
-            for _r in rows:
-                f.write(_r + "\n")
-
-    def get_all_allele_pairs(self, best_matches: list[HLACombinedStandard]) -> AllelePairs:
-        """
-        Get all allele pairs that best match our sequence.
-
-        :param best_matches: ...
-        :type best_matches: List[HLACombinedStandard]
-        :return: ...
-        :rtype: Alleles
-        """
-        alleles_all: list[tuple[str, str]] = []
-        for combined_std in best_matches:
-            for _allele in combined_std.discrete_allele_names:
-                alleles_all.append((_allele[0], _allele[1]))
-
-        alleles_all.sort()
-
-        return AllelePairs(allele_pairs=alleles_all)
-
-    @staticmethod
-    def sort_allele_tuple(
-        allele_pair: str,
-        frequency: int,
-    ) -> tuple[int, int, int, int, int]:
-        """
-        Produce a tuple from an allele pair and frequency to allow sorting.
-        """
-        first_allele: str
-        second_allele: str
-        first_allele, second_allele = allele_pair.split(",")
-
-        first_group: int
-        first_protein: int
-        first_group, first_protein = (int(x) for x in first_allele.split("|"))
-
-        second_group: int
-        second_protein: int
-        second_group, second_protein = (int(x) for x in second_allele.split("|"))
-        return (
-            frequency,
-            first_group,
-            first_protein,
-            second_group,
-            second_protein,
-        )
-
     def get_mismatches(
         self,
-        best_matches: list[HLACombinedStandard],
+        combined_standards: list[HLACombinedStandard],
         seq: np.ndarray,
-    ) -> str:
+    ) -> list[str]:
         """
         Report mismatched bases and their location versus a standard reference.
 
         The output looks like "$LOC:$SEQ_BASE->$STANDARD_BASE", if multiple
         mismatches are present, they will be delimited with `;`'s.
 
-        :param best_matches: List of the "best matched" standards to the sequence.
-        :type best_matches: list[HLACombinedStandard]
+        :param combined_standards: List of the combined standards we wish to compare to the sequence.
+        :type combined_standards: list[HLACombinedStandard]
         :param seq: The sequence being interpreted.
         :type seq: np.ndarray
         :return: A string-concatenated list of locations containing mismatches.
@@ -849,7 +742,7 @@ class EasyHLA:
         """
         correct_bases_at_pos: dict[int, list[int]] = {}
 
-        for combined_std in best_matches:
+        for combined_std in combined_standards:
             std_bin_seq = np.array([int(nuc) for nuc in combined_std.standard.split("-")])
             for idx in np.flatnonzero(std_bin_seq ^ seq):
                 if idx not in correct_bases_at_pos:
@@ -872,62 +765,85 @@ class EasyHLA:
             mislist.append(f"{dex}:{base}->{_correct_bases}")
 
         mislist.sort(key=lambda item: item.split(":")[0])
-        mismatches = ";".join(mislist)
+        return mislist
 
-        return mismatches
-
-    def report_mismatches(
+    def run(
         self,
-        all_combos: Dict[int, List[HLACombinedStandard]],
-        seq: np.ndarray,
-        threshold: int,
-        exon2: str,
-        intron: str,
-        exon3: str,
+        filename: str,
+        output_filename: str,
+        threshold: Optional[int] = None,
         to_stdout: Optional[bool] = None,
-    ) -> None:
-        """
-        Report mismatches to log/stdout (if applicable).
+    ):
+        if threshold and threshold < 0:
+            raise RuntimeError("Threshold must be >=0 or None!")
 
-        :param all_combos: All possible combos
-        :type all_combos: Dict[int, List[HLACombinedStandard]]
-        :param seq: Sequence currently being interpretted.
-        :type seq: np.ndarray
-        :param threshold: Maximum allowed mismatches in a sequence compared to a standard, must be non-negative
-        :type threshold: int
-        :param exon2: exon2 of the sequence in question
-        :type exon2: str
-        :param intron: intron of the sequence in question
-        :type intron: str
-        :param exon3: exon3 of the sequence in question
-        :type exon3: str
-        :param to_stdout: Print to STDOUT if true, defaults to None
-        :type to_stdout: Optional[bool], optional
-        :raises RuntimeError: Raised if threshold is < 0
-        """
-        if threshold < 0:
-            raise RuntimeError("threshold must be 0 or greater")
+        rows: list[str] = []
+        npats: int = 0
+        nseqs: int = 0
+        time_start: datetime = datetime.now()
+        csv_header: str = (
+            "ENUM,ALLELES_CLEAN,ALLELES,AMBIGUOUS,HOMOZYGOUS,MISMATCH_COUNT,"
+            "MISMATCHES,EXON2,INTRON,EXON3"
+        )
 
-        any_matches_found: bool = False
-        for i, combos in sorted(all_combos.items()):
-            if i > threshold:
-                break
+        start_message: str = (
+            f"Run commencing {time_start.strftime(DATE_FORMAT)}. "
+            f"Allele definitions last updated {self.last_modified_time}."
+        )
 
-            # We can reuse get_mismatches here, as instead of the "best" match, we have "a match"
-            mismatches = self.get_mismatches(
-                locus=locus, best_matches=combos, seq=seq
-            )
-            self.print(
-                f"{mismatches},{exon2},{intron},{exon3}",
-                log_level=logging.INFO,
-                to_stdout=to_stdout,
+        self.print(start_message, to_stdout=to_stdout)
+        self.print(csv_header, to_stdout=to_stdout)
+
+        matched_sequences: list[HLASequence]
+        unmatched: dict[EXON_NAME, dict[str, Bio.SeqIO.SeqRecord]]
+
+        with open(filename, "r", encoding="utf-8") as f:
+            matched_sequences, unmatched = self.pair_exons(
+                Bio.SeqIO.parse(f, "fasta")
             )
 
-        if not any_matches_found:
-            self.print(
-                "No matches found below specified threshold. "
-                "Please check the locus, orientation, and/or increase "
-                "number of mismatches.",
-                log_level=logging.WARN,
-                to_stdout=to_stdout,
+        for hla_sequence in matched_sequences:
+            result: Optional[HLAResult] = self.interpret(
+                hla_sequence,
+                threshold,
+                to_stdout,
             )
+            if result is None:
+                continue
+
+            if min(result.mismatches_by_count.keys()) > threshold:
+                self.print(
+                    "No matches found below specified threshold. "
+                    "Please check the locus, orientation, and/or increase "
+                    "the tolerated number of mismatches.",
+                    log_level=logging.WARN,
+                    to_stdout=to_stdout,
+                )
+
+            exon2: str = result.result_row.exon2
+            intron: str = result.result_row.intron
+            exon3: str = result.result_row.exon3
+            for _, mismatches in sorted(result.mismatches_by_count.items()):
+                self.print(
+                    f"{mismatches},{exon2},{intron},{exon3}",
+                    log_level=logging.INFO,
+                    to_stdout=to_stdout,
+                )
+
+            row_str: str = result.result_row.get_result_as_str()
+            rows.append(row_str)
+            self.print(row_str, to_stdout=to_stdout)
+            npats += 1
+            nseqs += result.num_seqs
+
+        self.report_unmatched_sequences(unmatched, to_stdout=to_stdout)
+
+        counts_str: str = f"{npats} patients, {nseqs} sequences processed."
+        self.print(counts_str, to_stdout=to_stdout)
+        self.log.info(counts_str)
+
+        with open(output_filename, "w", encoding="utf-8") as f:
+            f.write(f"{start_message}\n")
+            f.write(f"{csv_header}\n")
+            for _r in rows:
+                f.write(_r + "\n")

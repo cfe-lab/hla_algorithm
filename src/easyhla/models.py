@@ -100,6 +100,33 @@ class AllelePairs(BaseModel):
             for e in self.get_paired_gene_coordinates(remove_subtype=True)
         }
 
+    @staticmethod
+    def sort_allele_tuple(
+        allele_pair: str,
+        frequency: int,
+    ) -> tuple[int, int, int, int, int]:
+        """
+        Produce a tuple from an allele pair and frequency to allow sorting.
+        """
+        first_allele: str
+        second_allele: str
+        first_allele, second_allele = allele_pair.split(",")
+
+        first_group: int
+        first_protein: int
+        first_group, first_protein = (int(x) for x in first_allele.split("|"))
+
+        second_group: int
+        second_protein: int
+        second_group, second_protein = (int(x) for x in second_allele.split("|"))
+        return (
+            frequency,
+            first_group,
+            first_protein,
+            second_group,
+            second_protein,
+        )
+
     def get_unambiguous_allele_pairs(
         self,
         frequencies: dict[str, int],
@@ -288,5 +315,6 @@ class HLAResultRow(BaseModel):
 
 
 class HLAResult(BaseModel):
-    result: HLAResultRow
+    result_row: HLAResultRow
+    mismatches_by_count: dict[int, list[str]]
     num_seqs: int = 1
