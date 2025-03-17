@@ -279,7 +279,7 @@ class EasyHLA:
         self,
         message: Any,
         log_level: int = logging.INFO,
-        to_stdout: Optional[bool] = None,
+        to_stdout: bool = False,
     ) -> None:
         """
         Output messages to logger, optionally prints to STDOUT.
@@ -288,8 +288,8 @@ class EasyHLA:
         :type message: Any
         :param log_level: ..., defaults to logging.INFO
         :type log_level: int, optional
-        :param to_stdout: Whether to print to STDOUT or not, defaults to None
-        :type to_stdout: Optional[bool]
+        :param to_stdout: Whether to print to STDOUT or not, defaults to False
+        :type to_stdout: bool
         """
         self.log.log(level=log_level, msg=message)
         if to_stdout:
@@ -621,7 +621,7 @@ class EasyHLA:
         self,
         hla_sequence: HLASequence,
         threshold: Optional[int] = None,
-        to_stdout: Optional[bool] = None,
+        to_stdout: bool = False,
     ) -> Optional[HLAResult]:
         """
         Interpret sequence. The main function.
@@ -705,13 +705,13 @@ class EasyHLA:
     def report_unmatched_sequences(
         self,
         unmatched: dict[EXON_NAME, dict[str, Bio.SeqIO.SeqRecord]],
-        to_stdout: Optional[bool] = None,
+        to_stdout: bool = False,
     ) -> None:
         """
         Report exon sequences that did not have a matching exon.
 
-        :param unmatched: ...
-        :type unmatched: List[List[Bio.SeqIO.SeqRecord]]
+        :param unmatched: unmatched exon sequences, grouped by which exon they represent
+        :type unmatched: dict[EXON_NAME, dict[str, Bio.SeqIO.SeqRecord]]
         :param to_stdout: ..., defaults to None
         :type to_stdout: Optional[bool], optional
         """
@@ -772,7 +772,7 @@ class EasyHLA:
         filename: str,
         output_filename: str,
         threshold: Optional[int] = None,
-        to_stdout: Optional[bool] = None,
+        to_stdout: bool = False,
     ):
         if threshold and threshold < 0:
             raise RuntimeError("Threshold must be >=0 or None!")
