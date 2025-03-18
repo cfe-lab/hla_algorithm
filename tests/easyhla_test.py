@@ -1,7 +1,6 @@
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 import numpy as np
 import pytest
@@ -479,8 +478,8 @@ class TestEasyHLA:
     def test_std_match(
         self,
         easyhla: EasyHLA,
-        sequence: List[int],
-        standard: List[int],
+        sequence: list[int],
+        standard: list[int],
         exp_result: int,
     ):
         result = easyhla.std_match(std=np.array(standard), seq=np.array(sequence))
@@ -578,9 +577,9 @@ class TestEasyHLA:
     def test_get_matching_stds(
         self,
         easyhla: EasyHLA,
-        sequence: List[int],
-        hla_stds: List[HLAStandard],
-        exp_result: List[HLAStandardMatch],
+        sequence: list[int],
+        hla_stds: list[HLAStandard],
+        exp_result: list[HLAStandardMatch],
     ):
         result = easyhla.get_matching_stds(seq=sequence, hla_stds=hla_stds)  # type: ignore
         print(result)
@@ -971,9 +970,9 @@ class TestEasyHLA:
     def test_combine_stds(
         self,
         easyhla: EasyHLA,
-        sequence: List[int],
-        matching_standards: List[HLAStandardMatch],
-        exp_result: Dict[int, List[int]],
+        sequence: list[int],
+        matching_standards: list[HLAStandardMatch],
+        exp_result: dict[int, list[int]],
     ):
         result = easyhla.combine_stds(
             matching_stds=matching_standards,

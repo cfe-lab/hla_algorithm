@@ -4,7 +4,7 @@ import re
 from collections.abc import Iterable
 from datetime import datetime
 from io import TextIOBase
-from typing import Any, Dict, Final, List, Literal, Optional, Tuple
+from typing import Any, Final, Literal, Optional
 
 import Bio.SeqIO
 import numpy as np
@@ -39,11 +39,11 @@ class EasyHLA:
     EXON3_LENGTH: Final[int] = 276
     ALLELES_MAX_REPORTABLE_STRING: Final[int] = 3900
 
-    ALLOWED_HLA_LOCI: Final[List[str]] = ["A", "B", "C"]
+    ALLOWED_HLA_LOCI: Final[list[str]] = ["A", "B", "C"]
 
     # A lookup table of translations from ambiguous nucleotides to unambiguous
     # nucleotides.
-    AMBIG: Final[Dict[str, List[str]]] = {
+    AMBIG: Final[dict[str, list[str]]] = {
         "A": ["A"],
         "C": ["C"],
         "G": ["G"],
@@ -68,10 +68,10 @@ class EasyHLA:
     # the fourth position a000 represents 'T'
     # We can then perform binary ORs, XORs, and ANDs, to check whether or not
     # a mixture contains a specific nucleotide.
-    PURENUC2BIN: Final[Dict[str, int]] = {nuc: 2**i for i, nuc in enumerate("ACGT")}
+    PURENUC2BIN: Final[dict[str, int]] = {nuc: 2**i for i, nuc in enumerate("ACGT")}
 
     # Nucleotides converted to their binary representation
-    # LISTOFNUCS: List[str] = [
+    # LISTOFNUCS: list[str] = [
     #     "A",  # => 0b0001,
     #     "C",  # => 0b0010,
     #     "G",  # => 0b0100,
@@ -88,13 +88,13 @@ class EasyHLA:
     #     "B",  # => 0b0111,
     #     "N",  # => 0b1111
     # ]
-    NUC2BIN: Final[Dict[str, int]] = {
+    NUC2BIN: Final[dict[str, int]] = {
         k: sum([{nuc: 2**i for i, nuc in enumerate("ACGT")}[nuc] for nuc in v])
         for k, v in AMBIG.items()
     }
-    BIN2NUC: Final[Dict[int, str]] = {v: k for k, v in NUC2BIN.items()}
+    BIN2NUC: Final[dict[int, str]] = {v: k for k, v in NUC2BIN.items()}
 
-    COLUMN_IDS: Final[Dict[str, int]] = {"A": 0, "B": 2, "C": 4}
+    COLUMN_IDS: Final[dict[str, int]] = {"A": 0, "B": 2, "C": 4}
 
     def __init__(
         self,
@@ -117,10 +117,10 @@ class EasyHLA:
         if locus not in ["A", "B", "C"]:
             raise ValueError("Invalid HLA locus specified; must be A, B, or C")
         self.locus: HLA_LOCI = locus
-        self.hla_stds: List[HLAStandard] = self.load_hla_stds(
+        self.hla_stds: list[HLAStandard] = self.load_hla_stds(
             hla_standards=hla_standards,
         )
-        self.hla_freqs: Dict[str, int] = self.load_hla_frequencies(
+        self.hla_freqs: dict[str, int] = self.load_hla_frequencies(
             hla_frequencies=hla_frequencies,
         )
         self.last_modified_time: datetime
@@ -133,7 +133,7 @@ class EasyHLA:
     def load_hla_frequencies(
         self,
         hla_frequencies: Optional[TextIOBase] = None,
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         """
         Load HLA frequencies from reference file.
 
@@ -149,9 +149,9 @@ class EasyHLA:
         `.split(',')` on the key.
 
         :return: Lookup table of HLA frequencies.
-        :rtype: Dict[str, int]
+        :rtype: dict[str, int]
         """
-        hla_freqs: Dict[str, int] = {}
+        hla_freqs: dict[str, int] = {}
 
         freqs_io: TextIOBase = hla_frequencies
         default_freqs_used: bool = False
@@ -351,7 +351,7 @@ class EasyHLA:
         """
         return "".join([EasyHLA.BIN2NUC.get(seq[i], "_") for i in range(len(seq))])
 
-    def calc_padding(self, std: np.ndarray, seq: np.ndarray) -> Tuple[int, int]:
+    def calc_padding(self, std: np.ndarray, seq: np.ndarray) -> tuple[int, int]:
         """
         Calculate the number of units to pad a sequence.
 
@@ -365,7 +365,7 @@ class EasyHLA:
         :type seq: np.ndarray
         :return: Returns the number of 'N's (b1111) needed to match the sequence
         to the standard.
-        :rtype: Tuple[int, int]
+        :rtype: tuple[int, int]
         """
         best = 10e10
         pad = len(std) - len(seq)
@@ -437,11 +437,11 @@ class EasyHLA:
     def get_matching_stds(
         self,
         seq: np.ndarray,
-        hla_stds: List[HLAStandard],
+        hla_stds: list[HLAStandard],
         mismatch_threshold: int = 5,
     ) -> list[HLAStandardMatch]:
         # Returns [ ["std_name", [1,2,3,4], num_mismatches], ["std_name2", [2,3,4,5], num_mismatches2]]
-        matching_stds: List[HLAStandardMatch] = []
+        matching_stds: list[HLAStandardMatch] = []
         for std in hla_stds:
             mismatches = self.std_match(std.sequence, seq)
             if mismatches < mismatch_threshold:
