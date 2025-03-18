@@ -63,11 +63,10 @@ path = "src/easyhla/__about__.py"
 [tool.hatch.build]
 include = [
   "src/easyhla/*.py",
-  "src/easyhla/*.csv",
+  "src/easyhla/default_data/*.csv",
   "src/easyhla/hla_nuc.fasta.mtime",
 ]
 exclude = [
-  "src/easyhla/check_date_modified.py",
   "tools",
   "tests/output",
   "tests/input",

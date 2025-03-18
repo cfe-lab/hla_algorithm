@@ -7,9 +7,8 @@ import numpy as np
 import pytest
 import pytz
 
-from easyhla.easyhla import DATE_FORMAT, EasyHLA
+from easyhla.easyhla import DATE_FORMAT, EXON_NAME, EasyHLA
 from easyhla.models import (
-    Alleles,
     HLACombinedStandard,
     HLAStandard,
     HLAStandardMatch,
@@ -20,7 +19,7 @@ from .conftest import compare_ref_vs_test
 
 @pytest.fixture(scope="module")
 def easyhla(request: pytest.FixtureRequest):
-    easyhla = EasyHLA(letter=request.param)
+    easyhla = EasyHLA(locus=request.param)
     return easyhla
 
 
@@ -152,16 +151,10 @@ class TestEasyHLADiscreteHLALocusA:
         self, easyhla: EasyHLA, sequence: str, name: str, exp_return: int
     ):
         if exp_return > 0:
-            result = easyhla.check_length(
-                letter=easyhla.letter, seq=sequence, name=name
-            )
-
-            assert bool(exp_return) == result
+            easyhla.check_length(seq=sequence, name=name)
         else:
             with pytest.raises(ValueError):
-                result = easyhla.check_length(
-                    letter=easyhla.letter, seq=sequence, name=name
-                )
+                easyhla.check_length(seq=sequence, name=name)
 
     # Tests for get_all_alleles.
     @pytest.mark.parametrize(
@@ -172,20 +165,20 @@ class TestEasyHLADiscreteHLALocusA:
                     HLACombinedStandard(
                         standard="",
                         discrete_allele_names=[
-                            ["A*02:01:01G", "A*03:01:01G"],
-                            ["A*02:01:52", "A*03:01:03"],
-                            ["A*02:01:02", "A*03:01:12"],
-                            ["A*02:01:36", "A*03:01:38"],
-                            ["A*02:237", "A*03:05:01"],
-                            ["A*02:26", "A*03:07"],
-                            ["A*02:34", "A*03:08"],
-                            ["A*02:90", "A*03:09"],
-                            ["A*02:24:01", "A*03:17:01"],
-                            ["A*02:195", "A*03:23:01"],
-                            ["A*02:338", "A*03:95"],
-                            ["A*02:35:01", "A*03:108"],
-                            ["A*02:86", "A*03:123"],
-                            ["A*02:20:01", "A*03:157"],
+                            ("A*02:01:01G", "A*03:01:01G"),
+                            ("A*02:01:52", "A*03:01:03"),
+                            ("A*02:01:02", "A*03:01:12"),
+                            ("A*02:01:36", "A*03:01:38"),
+                            ("A*02:237", "A*03:05:01"),
+                            ("A*02:26", "A*03:07"),
+                            ("A*02:34", "A*03:08"),
+                            ("A*02:90", "A*03:09"),
+                            ("A*02:24:01", "A*03:17:01"),
+                            ("A*02:195", "A*03:23:01"),
+                            ("A*02:338", "A*03:95"),
+                            ("A*02:35:01", "A*03:108"),
+                            ("A*02:86", "A*03:123"),
+                            ("A*02:20:01", "A*03:157"),
                         ],
                     )
                 ],
@@ -212,10 +205,10 @@ class TestEasyHLADiscreteHLALocusA:
                     HLACombinedStandard(
                         standard="",
                         discrete_allele_names=[
-                            ["A*11:01:01G", "A*26:01:01G"],
-                            ["A*11:01:07", "A*26:01:17"],
-                            ["A*11:19", "A*26:13"],
-                            ["A*11:40", "A*66:01G"],
+                            ("A*11:01:01G", "A*26:01:01G"),
+                            ("A*11:01:07", "A*26:01:17"),
+                            ("A*11:19", "A*26:13"),
+                            ("A*11:40", "A*66:01G"),
                         ],
                     )
                 ],
@@ -229,17 +222,17 @@ class TestEasyHLADiscreteHLALocusA:
             ),
         ],
     )
-    def test_get_all_alleles(
+    def test_get_all_allele_pairs(
         self,
         easyhla: EasyHLA,
-        best_matches: List[HLACombinedStandard],
+        best_matches: list[HLACombinedStandard],
         exp_ambig: bool,
-        exp_alleles: List[Tuple[str, str]],
+        exp_alleles: list[tuple[str, str]],
     ):
-        result_alleles = easyhla.get_all_alleles(best_matches=best_matches)
+        result_alleles = easyhla.get_all_allele_pairs(best_matches=best_matches)
 
         assert result_alleles.is_ambiguous() == exp_ambig
-        assert result_alleles.alleles == exp_alleles
+        assert result_alleles.allele_pairs == exp_alleles
 
 
 @pytest.mark.parametrize("easyhla", ["B"], indirect=True)
@@ -293,16 +286,10 @@ class TestEasyHLADiscreteHLALocusB:
         self, easyhla: EasyHLA, sequence: str, name: str, exp_return: int
     ):
         if exp_return > 0:
-            result = easyhla.check_length(
-                letter=easyhla.letter, seq=sequence, name=name
-            )
-
-            assert bool(exp_return) == result
+            easyhla.check_length(seq=sequence, name=name)
         else:
             with pytest.raises(ValueError):
-                result = easyhla.check_length(
-                    letter=easyhla.letter, seq=sequence, name=name
-                )
+                easyhla.check_length(seq=sequence, name=name)
 
 
 @pytest.mark.parametrize("easyhla", ["C"], indirect=True)
@@ -356,16 +343,10 @@ class TestEasyHLADiscreteHLALocus:
         self, easyhla: EasyHLA, sequence: str, name: str, exp_return: int
     ):
         if exp_return > 0:
-            result = easyhla.check_length(
-                letter=easyhla.letter, seq=sequence, name=name
-            )
-
-            assert bool(exp_return) == result
+            easyhla.check_length(seq=sequence, name=name)
         else:
             with pytest.raises(ValueError):
-                result = easyhla.check_length(
-                    letter=easyhla.letter, seq=sequence, name=name
-                )
+                easyhla.check_length(seq=sequence, name=name)
 
     @pytest.mark.integration
     def test_run(self, easyhla: EasyHLA):
@@ -378,7 +359,6 @@ class TestEasyHLADiscreteHLALocus:
         output_file = os.path.dirname(__file__) + "/output/test.csv"
 
         easyhla.run(
-            easyhla.letter,
             input_file,
             output_file,
             0,
@@ -424,11 +404,10 @@ class TestEasyHLA:
     )
     def test_check_bases(self, easyhla: EasyHLA, sequence: str, exp_result: int):
         if exp_result > 0:
-            result = easyhla.check_bases(seq=sequence, name=sequence)
-            assert exp_result == result
+            easyhla.check_bases(seq=sequence)
         else:
             with pytest.raises(ValueError):
-                result = easyhla.check_bases(seq=sequence, name=sequence)
+                easyhla.check_bases(seq=sequence)
 
     # FIXME: something with a V and something with a B
     @pytest.mark.parametrize(
@@ -615,35 +594,35 @@ class TestEasyHLA:
             )
         ]
 
-        result = easyhla.load_hla_stds(easyhla.letter)
+        result = easyhla.load_hla_stds()
         assert result == exp_result
 
     def test_load_hla_freqs(self, easyhla, hla_frequency_file, mocker):
         mocker.patch.object(os.path, "join", return_value=hla_frequency_file)
         exp_result = {"AB|CD,12|34": 1}
 
-        result = easyhla.load_hla_frequencies(easyhla.letter)
+        result = easyhla.load_hla_frequencies()
         assert result == exp_result
 
     @pytest.mark.parametrize(
-        "sequence, name, hla_std, exp_result",
+        "sequence, exon, hla_std, exp_result",
         [
             #
             (
                 "ACGT",
-                "ACGT",
+                None,
                 HLAStandard(allele="std", sequence=np.array([1, 2, 4, 8])),
                 np.array([1, 2, 4, 8]),
             ),
             (
                 "ACGT",
-                "ACGT-exon2",
+                "exon2",
                 HLAStandard(allele="std", sequence=np.array([1, 2, 4, 8])),
                 np.array([1, 2, 4, 8]),
             ),
             (
                 "ACGT",
-                "ACGT-exon3",
+                "exon3",
                 HLAStandard(allele="std", sequence=np.array([1, 2, 4, 8])),
                 np.array([1, 2, 4, 8]),
             ),
@@ -651,7 +630,7 @@ class TestEasyHLA:
             # Full test with intron
             (
                 "A" * EasyHLA.EXON2_LENGTH + "ACGT" + "A" * EasyHLA.EXON3_LENGTH,
-                "ACGT",
+                None,
                 HLAStandard(
                     allele="std",
                     sequence=np.array([1, 2, 4, 8]),
@@ -670,7 +649,7 @@ class TestEasyHLA:
             # Full test with exon2
             (
                 "A" * (EasyHLA.EXON2_LENGTH - 4) + "ACGT",
-                "ACGT-full-exon2",
+                "exon2",
                 HLAStandard(
                     allele="std",
                     sequence=np.array(
@@ -693,7 +672,7 @@ class TestEasyHLA:
             # Full test with exon3
             (
                 "ACGT" + "A" * (EasyHLA.EXON3_LENGTH - 4),
-                "ACGT-full-exon3",
+                "exon3",
                 HLAStandard(
                     allele="std",
                     sequence=np.array(
@@ -719,7 +698,7 @@ class TestEasyHLA:
                 "A" * (EasyHLA.EXON2_LENGTH)
                 + "RRRRRR"
                 + "A" * (EasyHLA.EXON3_LENGTH - 6),
-                "RRRRRR-two-options-choose-last",
+                None,
                 HLAStandard(
                     allele="std",
                     sequence=np.array(
@@ -760,12 +739,12 @@ class TestEasyHLA:
         self,
         easyhla: EasyHLA,
         sequence: str,
-        name: str,
+        exon: EXON_NAME,
         hla_std: HLAStandard,
         exp_result: np.ndarray,
     ):
         bin_list = easyhla.nuc2bin(sequence)
-        result = easyhla.pad_short(seq=bin_list, name=name, hla_std=hla_std)
+        result = easyhla.pad_short(seq=bin_list, exon=exon, hla_std=hla_std)
         # Debug code for future users
         # print(
         #     result,
@@ -798,7 +777,7 @@ class TestEasyHLA:
                     0: [
                         HLACombinedStandard(
                             standard="1-2-4-8",
-                            discrete_allele_names=[["std_allmatch", "std_allmatch"]],
+                            discrete_allele_names=[("std_allmatch", "std_allmatch")],
                         )
                     ]
                 },
@@ -816,7 +795,7 @@ class TestEasyHLA:
                     2: [
                         HLACombinedStandard(
                             standard="1-4-2-8",
-                            discrete_allele_names=[["std_allmatch", "std_allmatch"]],
+                            discrete_allele_names=[("std_allmatch", "std_allmatch")],
                         )
                     ]
                 },
@@ -840,17 +819,17 @@ class TestEasyHLA:
                     0: [
                         HLACombinedStandard(
                             standard="1-2-4-8",
-                            discrete_allele_names=[["std_allmatch", "std_allmatch"]],
+                            discrete_allele_names=[("std_allmatch", "std_allmatch")],
                         )
                     ],
                     1: [
                         HLACombinedStandard(
                             standard="1-6-4-8",
-                            discrete_allele_names=[["std_allmatch", "std_allmatch2"]],
+                            discrete_allele_names=[("std_allmatch", "std_allmatch2")],
                         ),
                         HLACombinedStandard(
                             standard="1-4-4-8",
-                            discrete_allele_names=[["std_allmatch2", "std_allmatch2"]],
+                            discrete_allele_names=[("std_allmatch2", "std_allmatch2")],
                         ),
                     ],
                 },
@@ -874,14 +853,20 @@ class TestEasyHLA:
                     1: [
                         HLACombinedStandard(
                             standard="9-6-4-12",
-                            discrete_allele_names=[["std_1mismatch2", "std_allmatch"]],
+                            discrete_allele_names=[("std_1mismatch2", "std_allmatch")],
                         )
                     ],
                     3: [
                         HLACombinedStandard(
                             standard="1-2-4-4",
-                            discrete_allele_names=[["std_allmatch", "std_allmatch"]],
-                        )
+                            discrete_allele_names=[("std_allmatch", "std_allmatch")],
+                        ),
+                        HLACombinedStandard(
+                            standard="8-4-4-8",
+                            discrete_allele_names=[
+                                ("std_1mismatch2", "std_1mismatch2")
+                            ],
+                        ),
                     ],
                 },
             ),
@@ -899,7 +884,7 @@ class TestEasyHLA:
                     1: [
                         HLACombinedStandard(
                             standard="1-2-4-4",
-                            discrete_allele_names=[["std_1mismatch", "std_1mismatch"]],
+                            discrete_allele_names=[("std_1mismatch", "std_1mismatch")],
                         )
                     ]
                 },
@@ -918,7 +903,7 @@ class TestEasyHLA:
                         HLACombinedStandard(
                             standard="8-4-2-1",
                             discrete_allele_names=[
-                                ["std_allmismatch", "std_allmismatch"]
+                                ("std_allmismatch", "std_allmismatch")
                             ],
                         )
                     ]
@@ -948,9 +933,37 @@ class TestEasyHLA:
                     0: [
                         HLACombinedStandard(
                             standard="1-2-4-8",
-                            discrete_allele_names=[["std_allmatch", "std_allmatch"]],
-                        )
-                    ]
+                            discrete_allele_names=[("std_allmatch", "std_allmatch")],
+                        ),
+                    ],
+                    1: [
+                        HLACombinedStandard(
+                            standard="1-2-4-12",
+                            discrete_allele_names=[("std_1mismatch", "std_allmatch")],
+                        ),
+                        HLACombinedStandard(
+                            standard="1-2-4-4",
+                            discrete_allele_names=[("std_1mismatch", "std_1mismatch")],
+                        ),
+                    ],
+                    4: [
+                        HLACombinedStandard(
+                            standard="9-6-6-9",
+                            discrete_allele_names=[("std_allmatch", "std_allmismatch")],
+                        ),
+                        HLACombinedStandard(
+                            standard="9-6-6-5",
+                            discrete_allele_names=[
+                                ("std_1mismatch", "std_allmismatch")
+                            ],
+                        ),
+                        HLACombinedStandard(
+                            standard="8-4-2-1",
+                            discrete_allele_names=[
+                                ("std_allmismatch", "std_allmismatch")
+                            ],
+                        ),
+                    ],
                 },
             ),
         ],
@@ -978,20 +991,20 @@ class TestEasyHLA:
                     HLACombinedStandard(
                         standard="",
                         discrete_allele_names=[
-                            ["A*02:01:01G", "A*03:01:01G"],
-                            ["A*02:01:52", "A*03:01:03"],
-                            ["A*02:01:02", "A*03:01:12"],
-                            ["A*02:01:36", "A*03:01:38"],
-                            ["A*02:237", "A*03:05:01"],
-                            ["A*02:26", "A*03:07"],
-                            ["A*02:34", "A*03:08"],
-                            ["A*02:90", "A*03:09"],
-                            ["A*02:24:01", "A*03:17:01"],
-                            ["A*02:195", "A*03:23:01"],
-                            ["A*02:338", "A*03:95"],
-                            ["A*02:35:01", "A*03:108"],
-                            ["A*02:86", "A*03:123"],
-                            ["A*02:20:01", "A*03:157"],
+                            ("A*02:01:01G", "A*03:01:01G"),
+                            ("A*02:01:52", "A*03:01:03"),
+                            ("A*02:01:02", "A*03:01:12"),
+                            ("A*02:01:36", "A*03:01:38"),
+                            ("A*02:237", "A*03:05:01"),
+                            ("A*02:26", "A*03:07"),
+                            ("A*02:34", "A*03:08"),
+                            ("A*02:90", "A*03:09"),
+                            ("A*02:24:01", "A*03:17:01"),
+                            ("A*02:195", "A*03:23:01"),
+                            ("A*02:338", "A*03:95"),
+                            ("A*02:35:01", "A*03:108"),
+                            ("A*02:86", "A*03:123"),
+                            ("A*02:20:01", "A*03:157"),
                         ],
                     )
                 ],
@@ -1012,10 +1025,10 @@ class TestEasyHLA:
                     HLACombinedStandard(
                         standard="",
                         discrete_allele_names=[
-                            ["A*11:01:01G", "A*26:01:01G"],
-                            ["A*11:01:07", "A*26:01:17"],
-                            ["A*11:19", "A*26:13"],
-                            ["A*11:40", "A*66:01G"],
+                            ("A*11:01:01G", "A*26:01:01G"),
+                            ("A*11:01:07", "A*26:01:17"),
+                            ("A*11:19", "A*26:13"),
+                            ("A*11:40", "A*66:01G"),
                         ],
                     )
                 ],
@@ -1029,14 +1042,14 @@ class TestEasyHLA:
             ),
         ],
     )
-    def test_get_all_alleles(
+    def test_is_homozygous_and_stringify(
         self,
         easyhla: EasyHLA,
-        best_matches: List[HLACombinedStandard],
+        best_matches: list[HLACombinedStandard],
         exp_homozygous: bool,
-        exp_alleles: List[List[str]],
+        exp_alleles: list[list[str]],
     ):
-        result_alleles = easyhla.get_all_alleles(best_matches=best_matches)
+        result_alleles = easyhla.get_all_allele_pairs(best_matches=best_matches)
 
         assert result_alleles.is_homozygous() == exp_homozygous
         assert result_alleles.stringify() == exp_alleles
@@ -1070,7 +1083,6 @@ class TestEasyHLA:
         print(f"Test started at {start_time.isoformat()}")
 
         easyhla.run(
-            easyhla.letter,
             input_file,
             output_file,
             0,

@@ -1,5 +1,4 @@
 import re
-from typing import Dict, List, Set, Tuple
 
 import numpy as np
 import pydantic_numpy.typing as pnd
@@ -25,7 +24,7 @@ class AllelePairs(BaseModel):
         :return: ...
         :rtype: bool
         """
-        return any(_a[0] == _a[1] for _a in self.alleles)
+        return any(_a[0] == _a[1] for _a in self.allele_pairs)
 
     def is_ambiguous(self) -> bool:
         """
@@ -39,9 +38,7 @@ class AllelePairs(BaseModel):
         :return: ...
         :rtype: bool
         """
-        if len(self.get_paired_allele_groups()) != 1:
-            return True
-        return False
+        return len(self.get_paired_allele_groups()) != 1
 
     @staticmethod
     def _allele_coordinates(
@@ -57,7 +54,7 @@ class AllelePairs(BaseModel):
         """
         clean_allele_str: str = allele
         if remove_subtype:
-            clean_allele_str = re.sub("r[^\d:]", "", allele)
+            clean_allele_str = re.sub(r"[^\d:]", "", allele)
         return clean_allele_str.strip().split(":")
 
     def get_paired_gene_coordinates(
@@ -121,10 +118,10 @@ class AllelePairs(BaseModel):
         second_group, second_protein = (int(x) for x in second_allele.split("|"))
         return (
             frequency,
-            first_group,
-            first_protein,
-            second_group,
-            second_protein,
+            -first_group,
+            -first_protein,
+            -second_group,
+            -second_protein,
         )
 
     def get_unambiguous_allele_pairs(
@@ -149,28 +146,32 @@ class AllelePairs(BaseModel):
         :param locus: ...
         :type locus: HLA_LOCI
         :return: List of alleles filtered by HLA frequency.
-        :rtype: List[Tuple[str,str]]
+        :rtype: list[tuple[str,str]]
         """
 
         collection_ambig: dict[str, int] = {}
-        for k in self.get_proteins_as_strings():
-            for freq in frequencies:
-                if freq.startswith(k):
-                    collection_ambig[k] = frequencies.get(freq, 0)
+        for proteins in self.get_proteins_as_strings():
+            collection_ambig[proteins] = frequencies.get(proteins, 0)
 
-        max_allele = sorted(
+        preferred_allele_pairs = sorted(
             collection_ambig.items(),
             key=lambda item: self.sort_allele_tuple(item[0], item[1]),
             reverse=True,
         )
+        top_allele: str
+        count: int
+        top_allele, count = preferred_allele_pairs[0]
 
-        # Entries in max_allele look like ("12|34,90|32", 55).
-        a1 = max_allele[0][0].split(",")[0].split("|")[0]
-        a2 = max_allele[0][0].split(",")[1].split("|")[0]
+        # top_allele looks like "12|34,90|32".
+        allele_1_str: str
+        allele_2_str: str
+        allele_1_str, allele_2_str = top_allele.split(",")
+        a1 = allele_1_str.split("|")[0]
+        a2 = allele_2_str.split("|")[0]
         regex_str_a1 = f"^[ABCabc]\\*({a1}):([^\\s])+"
         regex_str_a2 = f"^[ABCabc]\\*({a2}):([^\\s])+"
         reduced_set: list[tuple[str, str]] = []
-        for allele_1, allele_2 in self.alleles:
+        for allele_1, allele_2 in self.allele_pairs:
             if re.match(regex_str_a1, allele_1) and re.match(regex_str_a2, allele_2):
                 reduced_set.append((allele_1, allele_2))
 
@@ -198,14 +199,15 @@ class AllelePairs(BaseModel):
         # Starting with an unambiguous set assures that we will definitely get
         # a result.
         unambiguous_set: AllelePairs = AllelePairs(
-            self.get_unambiguous_allele_pairs(frequencies)
+            allele_pairs=self.get_unambiguous_allele_pairs(frequencies)
         )
 
-        clean_allele: List[str] = []
+        clean_allele: list[str] = []
         for n in [0, 1]:
             for i in [4, 3, 2, 1]:
                 all_leading_coordinates = {
-                    ":".join(a[n][0:i]) for a in unambiguous_set.get_paired_gene_coordinates()
+                    ":".join(a[n][0:i])
+                    for a in unambiguous_set.get_paired_gene_coordinates()
                 }
                 if len(all_leading_coordinates) == 1:
                     best_common_coords = all_leading_coordinates.pop()
@@ -213,7 +215,7 @@ class AllelePairs(BaseModel):
                         re.sub(
                             r"[A-Z]$",
                             "",
-                            ":".join(best_common_coords),
+                            best_common_coords,
                         )
                     )
                     break
@@ -281,7 +283,7 @@ class HLAStandardMatch(HLAStandard):
 
 class HLACombinedStandard(BaseModel):
     standard: str
-    discrete_allele_names: List[List[str]]
+    discrete_allele_names: list[tuple[str, str]]
 
 
 class HLAResultRow(BaseModel):
@@ -296,7 +298,7 @@ class HLAResultRow(BaseModel):
     intron: str = ""
     exon3: str = ""
 
-    def get_result(self) -> List[str]:
+    def get_result(self) -> list[str]:
         return [
             self.samp,
             self.clean_allele_str,

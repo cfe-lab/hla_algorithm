@@ -20,7 +20,6 @@ from .models import (
     HLAStandardMatch,
 )
 
-
 DATE_FORMAT = "%a %b %d %H:%M:%S %Z %Y"
 
 HLA_LOCI = Literal["A", "B", "C"]
@@ -124,8 +123,10 @@ class EasyHLA:
         self.hla_freqs: Dict[str, int] = self.load_hla_frequencies(
             hla_frequencies=hla_frequencies,
         )
-        self.last_modified_time: datetime = last_modified_time
-        if last_modified_time is None:
+        self.last_modified_time: datetime
+        if last_modified_time is not None:
+            self.last_modified_time = last_modified_time
+        else:
             self.last_modified_time = self.load_allele_definitions_last_modified_time()
         self.log = logger or logging.Logger(__name__, logging.ERROR)
 
@@ -157,7 +158,11 @@ class EasyHLA:
         try:
             if hla_frequencies is None:
                 freqs_io = open(
-                    os.path.join(os.path.dirname(__file__), "hla_frequencies.csv"),
+                    os.path.join(
+                        os.path.dirname(__file__),
+                        "default_data",
+                        "hla_frequencies.csv",
+                    ),
                     "r",
                     encoding="utf-8",
                 )
@@ -181,7 +186,7 @@ class EasyHLA:
     # as a list.
     def load_hla_stds(
         self,
-        hla_standards: Optional[TextIOBase],
+        hla_standards: Optional[TextIOBase] = None,
     ) -> list[HLAStandard]:
         """
         Load HLA Standards from reference file.
@@ -198,6 +203,7 @@ class EasyHLA:
                 standards_io = open(
                     os.path.join(
                         os.path.dirname(__file__),
+                        "default_data",
                         f"hla_{self.locus.lower()}_std_reduced.csv",
                     ),
                     "r",
@@ -222,7 +228,11 @@ class EasyHLA:
         :return: Date representing time when references were last updated.
         :rtype: datetime
         """
-        filename = os.path.join(os.path.dirname(__file__), "hla_nuc.fasta.mtime")
+        filename = os.path.join(
+            os.path.dirname(__file__),
+            "default_data",
+            "hla_nuc.fasta.mtime",
+        )
         with open(filename, "r", encoding="utf-8") as f:
             last_mod_date = "".join(f.readlines()).strip()
         return datetime.strptime(last_mod_date, DATE_FORMAT)
@@ -310,7 +320,7 @@ class EasyHLA:
         :rtype: bool
         """
         if not re.match(r"^[ATGCRYKMSWNBDHV]+$", seq):
-            raise ValueError(f"Sequence has invalid characters")
+            raise ValueError("Sequence has invalid characters")
 
     def nuc2bin(self, seq: str) -> np.ndarray:
         """
@@ -425,13 +435,16 @@ class EasyHLA:
         return mismatches
 
     def get_matching_stds(
-        self, seq: np.ndarray, hla_stds: List[HLAStandard]
+        self,
+        seq: np.ndarray,
+        hla_stds: List[HLAStandard],
+        mismatch_threshold: int = 5,
     ) -> list[HLAStandardMatch]:
         # Returns [ ["std_name", [1,2,3,4], num_mismatches], ["std_name2", [2,3,4,5], num_mismatches2]]
         matching_stds: List[HLAStandardMatch] = []
         for std in hla_stds:
             mismatches = self.std_match(std.sequence, seq)
-            if mismatches < 5:
+            if mismatches < mismatch_threshold:
                 matching_stds.append(
                     HLAStandardMatch(
                         allele=std.allele, sequence=std.sequence, mismatch=mismatches
@@ -457,7 +470,7 @@ class EasyHLA:
         are already "decent" matches for our sequence, to reduce running time)
         and "mush" them together to produce potential matches for our sequence.
         """
-        combos: dict[int, dict[str, list[list[str]]]] = {}
+        combos: dict[int, dict[str, list[tuple[str, str]]]] = {}
 
         for std_ai, std_a in enumerate(matching_stds):
             for std_bi, std_b in enumerate(matching_stds):
@@ -466,49 +479,50 @@ class EasyHLA:
 
                 # "Mush" the two standards together to produce something
                 # that looks like what you get when you sequence HLA.
-                std = std_b.sequence | std_a.sequence
-                seq_mask = np.full_like(std, fill_value=15)
-                mismatches: int = np.count_nonzero((std ^ seq) & seq_mask != 0)
+                std_bin = std_b.sequence | std_a.sequence
+                seq_mask = np.full_like(std_bin, fill_value=15)
+                mismatches: int = np.count_nonzero((std_bin ^ seq) & seq_mask != 0)
 
                 # This looks like 1-4-9-16-2-... where each number comes from
                 # the binary representation of the base, i.e. from NUC2BIN.
-                combined_std_name = "-".join([str(s) for s in std])
+                # There could be more than one combined standard with the
+                # same sequence!
+                combined_std = "-".join([str(s) for s in std_bin])
                 if mismatches not in combos:
                     combos[mismatches] = {}
-                if combined_std_name not in combos[mismatches]:
-                    combos[mismatches][combined_std_name] = []
-                stds = [std_a.allele, std_b.allele]
-                stds.sort()
-                combos[mismatches][combined_std_name].append(stds)
+                if combined_std not in combos[mismatches]:
+                    combos[mismatches][combined_std] = []
+                allele_pair = sorted((std_a.allele, std_b.allele))
+                combos[mismatches][combined_std].append(allele_pair)
 
         result: dict[int, list[HLACombinedStandard]] = {}
         for mismatch, matching_combos_dict in combos.items():
             cur_combo: list[HLACombinedStandard] = []
-            for std, allele_list in matching_combos_dict.items():
+            for std, allele_pair_list in matching_combos_dict.items():
                 cur_combo.append(
                     HLACombinedStandard(
-                        standard=std, discrete_allele_names=allele_list
+                        standard=std, discrete_allele_names=allele_pair_list
                     )
                 )
             result[mismatch] = cur_combo
 
         return result
 
-    def get_all_allele_pairs(self, best_matches: list[HLACombinedStandard]) -> AllelePairs:
+    @staticmethod
+    def get_all_allele_pairs(best_matches: list[HLACombinedStandard]) -> AllelePairs:
         """
-        Get all allele pairs that best match our sequence.
+        Get all allele pairs in the specified list of combined standards.
 
         :param best_matches: ...
-        :type best_matches: List[HLACombinedStandard]
+        :type best_matches: list[HLACombinedStandard]
         :return: ...
-        :rtype: Alleles
+        :rtype: AllelePairs
         """
-        alleles_all: list[tuple[str, str]] = []
+        all_allele_pairs: list[tuple[str, str]] = []
         for combined_std in best_matches:
-            for _allele in combined_std.discrete_allele_names:
-                alleles_all.append((_allele[0], _allele[1]))
-        alleles_all.sort()
-        return AllelePairs(allele_pairs=alleles_all)
+            all_allele_pairs.extend(combined_std.discrete_allele_names)
+        all_allele_pairs.sort()
+        return AllelePairs(allele_pairs=all_allele_pairs)
 
     def pair_exons(
         self,
@@ -588,15 +602,16 @@ class EasyHLA:
                 matched_sequences.append(
                     HLASequence(
                         two=exon2,
+                        intron="",
                         three=exon3,
-                        seq=np.concatenate((exon2_bin, exon3_bin)),
+                        sequence=np.concatenate((exon2_bin, exon3_bin)),
                         name=samp,
                         num_sequences_used=2,
                     )
                 )
             else:
                 seq = self.pad_short(
-                    self.nuc2bin(entry.seq),  # type: ignore
+                    self.nuc2bin(sr.seq),  # type: ignore
                     None,
                     hla_std=self.hla_stds[0],
                 )
@@ -608,7 +623,7 @@ class EasyHLA:
                         two=exon2,
                         intron=intron,
                         three=exon3,
-                        seq=np.concatenate(
+                        sequence=np.concatenate(
                             (seq[: EasyHLA.EXON2_LENGTH], seq[-EasyHLA.EXON3_LENGTH :])
                         ),
                         name=samp,
@@ -743,7 +758,9 @@ class EasyHLA:
         correct_bases_at_pos: dict[int, list[int]] = {}
 
         for combined_std in combined_standards:
-            std_bin_seq = np.array([int(nuc) for nuc in combined_std.standard.split("-")])
+            std_bin_seq = np.array(
+                [int(nuc) for nuc in combined_std.standard.split("-")]
+            )
             for idx in np.flatnonzero(std_bin_seq ^ seq):
                 if idx not in correct_bases_at_pos:
                     correct_bases_at_pos[idx] = []
@@ -798,9 +815,7 @@ class EasyHLA:
         unmatched: dict[EXON_NAME, dict[str, Bio.SeqIO.SeqRecord]]
 
         with open(filename, "r", encoding="utf-8") as f:
-            matched_sequences, unmatched = self.pair_exons(
-                Bio.SeqIO.parse(f, "fasta")
-            )
+            matched_sequences, unmatched = self.pair_exons(Bio.SeqIO.parse(f, "fasta"))
 
         for hla_sequence in matched_sequences:
             result: Optional[HLAResult] = self.interpret(
