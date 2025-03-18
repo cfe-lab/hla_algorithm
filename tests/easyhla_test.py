@@ -292,7 +292,7 @@ class TestEasyHLADiscreteHLALocusB:
 
 
 @pytest.mark.parametrize("easyhla", ["C"], indirect=True)
-class TestEasyHLADiscreteHLALocus:
+class TestEasyHLADiscreteHLALocusC:
     """
     Testing EasyHLA where tests require HLA-C.
     """
@@ -1062,15 +1062,14 @@ class TestEasyHLA:
         """
 
         input_file = (
-            os.path.dirname(__file__)
-            + f"/input/hla-{easyhla.letter.lower()}-seqs.fasta"
+            os.path.dirname(__file__) + f"/input/hla-{easyhla.locus.lower()}-seqs.fasta"
         )
         ref_output_file = (
             os.path.dirname(__file__)
-            + f"/output/hla-{easyhla.letter.lower()}-output-ref.csv"
+            + f"/output/hla-{easyhla.locus.lower()}-output-ref.csv"
         )
         output_file = (
-            os.path.dirname(__file__) + f"/output/hla-{easyhla.letter.lower()}-test.csv"
+            os.path.dirname(__file__) + f"/output/hla-{easyhla.locus.lower()}-test.csv"
         )
 
         if not os.path.exists(input_file):

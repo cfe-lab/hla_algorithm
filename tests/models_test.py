@@ -7,6 +7,37 @@ from easyhla.models import (
 
 class TestModels:
     @pytest.mark.parametrize(
+        "raw_alleles, exp_result",
+        [
+            ([("A*11:01", "A*26:01")], False),
+            ([("C*12:34:56:78B", "C*12:34:56:78B")], True),
+            (
+                [
+                    ("B*57:01", "B*57:08"),
+                    ("B*57:10", "B*57:13:224"),
+                    ("B*58:55:22", "B*58"),
+                ],
+                False,
+            ),
+            (
+                [
+                    ("A*11:01", "A*26:01"),
+                    ("A*13:13:13:13", "A*13:13:13:13"),
+                    ("A*17:223", "A*17:222"),
+                ],
+                True,
+            ),
+        ],
+    )
+    def test_is_homozygous(
+        self,
+        raw_alleles: list[tuple[str, str]],
+        exp_result: bool,
+    ):
+        ap: AllelePairs = AllelePairs(allele_pairs=raw_alleles)
+        assert ap.is_homozygous() == exp_result
+
+    @pytest.mark.parametrize(
         "raw_alleles, frequencies, exp_result",
         [
             (
