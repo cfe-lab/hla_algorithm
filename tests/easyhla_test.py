@@ -163,7 +163,7 @@ class TestEasyHLADiscreteHLALocusA:
                 [
                     HLACombinedStandard(
                         standard="",
-                        discrete_allele_names=[
+                        discrete_allele_names=(
                             ("A*02:01:01G", "A*03:01:01G"),
                             ("A*02:01:52", "A*03:01:03"),
                             ("A*02:01:02", "A*03:01:12"),
@@ -178,7 +178,7 @@ class TestEasyHLADiscreteHLALocusA:
                             ("A*02:35:01", "A*03:108"),
                             ("A*02:86", "A*03:123"),
                             ("A*02:20:01", "A*03:157"),
-                        ],
+                        ),
                     )
                 ],
                 False,
@@ -203,12 +203,12 @@ class TestEasyHLADiscreteHLALocusA:
                 [
                     HLACombinedStandard(
                         standard="",
-                        discrete_allele_names=[
+                        discrete_allele_names=(
                             ("A*11:01:01G", "A*26:01:01G"),
                             ("A*11:01:07", "A*26:01:17"),
                             ("A*11:19", "A*26:13"),
                             ("A*11:40", "A*66:01G"),
-                        ],
+                        ),
                     )
                 ],
                 True,
@@ -776,7 +776,7 @@ class TestEasyHLA:
                     0: [
                         HLACombinedStandard(
                             standard="1-2-4-8",
-                            discrete_allele_names=[("std_allmatch", "std_allmatch")],
+                            discrete_allele_names=(("std_allmatch", "std_allmatch"),),
                         )
                     ]
                 },
@@ -794,7 +794,7 @@ class TestEasyHLA:
                     2: [
                         HLACombinedStandard(
                             standard="1-4-2-8",
-                            discrete_allele_names=[("std_allmatch", "std_allmatch")],
+                            discrete_allele_names=(("std_allmatch", "std_allmatch"),),
                         )
                     ]
                 },
@@ -818,17 +818,17 @@ class TestEasyHLA:
                     0: [
                         HLACombinedStandard(
                             standard="1-2-4-8",
-                            discrete_allele_names=[("std_allmatch", "std_allmatch")],
+                            discrete_allele_names=(("std_allmatch", "std_allmatch"),),
                         )
                     ],
                     1: [
                         HLACombinedStandard(
                             standard="1-6-4-8",
-                            discrete_allele_names=[("std_allmatch", "std_allmatch2")],
+                            discrete_allele_names=(("std_allmatch", "std_allmatch2"),),
                         ),
                         HLACombinedStandard(
                             standard="1-4-4-8",
-                            discrete_allele_names=[("std_allmatch2", "std_allmatch2")],
+                            discrete_allele_names=(("std_allmatch2", "std_allmatch2"),),
                         ),
                     ],
                 },
@@ -852,19 +852,19 @@ class TestEasyHLA:
                     1: [
                         HLACombinedStandard(
                             standard="9-6-4-12",
-                            discrete_allele_names=[("std_1mismatch2", "std_allmatch")],
+                            discrete_allele_names=(("std_1mismatch2", "std_allmatch"),),
                         )
                     ],
                     3: [
                         HLACombinedStandard(
                             standard="1-2-4-4",
-                            discrete_allele_names=[("std_allmatch", "std_allmatch")],
+                            discrete_allele_names=(("std_allmatch", "std_allmatch"),),
                         ),
                         HLACombinedStandard(
                             standard="8-4-4-8",
-                            discrete_allele_names=[
-                                ("std_1mismatch2", "std_1mismatch2")
-                            ],
+                            discrete_allele_names=(
+                                ("std_1mismatch2", "std_1mismatch2"),
+                            ),
                         ),
                     ],
                 },
@@ -883,7 +883,7 @@ class TestEasyHLA:
                     1: [
                         HLACombinedStandard(
                             standard="1-2-4-4",
-                            discrete_allele_names=[("std_1mismatch", "std_1mismatch")],
+                            discrete_allele_names=(("std_1mismatch", "std_1mismatch"),),
                         )
                     ]
                 },
@@ -901,9 +901,9 @@ class TestEasyHLA:
                     4: [
                         HLACombinedStandard(
                             standard="8-4-2-1",
-                            discrete_allele_names=[
-                                ("std_allmismatch", "std_allmismatch")
-                            ],
+                            discrete_allele_names=(
+                                ("std_allmismatch", "std_allmismatch"),
+                            ),
                         )
                     ]
                 },
@@ -932,49 +932,49 @@ class TestEasyHLA:
                     0: [
                         HLACombinedStandard(
                             standard="1-2-4-8",
-                            discrete_allele_names=[("std_allmatch", "std_allmatch")],
+                            discrete_allele_names=(("std_allmatch", "std_allmatch"),),
                         ),
                     ],
                     1: [
                         HLACombinedStandard(
                             standard="1-2-4-12",
-                            discrete_allele_names=[("std_1mismatch", "std_allmatch")],
+                            discrete_allele_names=(("std_1mismatch", "std_allmatch"),),
                         ),
                         HLACombinedStandard(
                             standard="1-2-4-4",
-                            discrete_allele_names=[("std_1mismatch", "std_1mismatch")],
+                            discrete_allele_names=(("std_1mismatch", "std_1mismatch"),),
                         ),
                     ],
                     4: [
                         HLACombinedStandard(
                             standard="9-6-6-9",
-                            discrete_allele_names=[("std_allmatch", "std_allmismatch")],
+                            discrete_allele_names=(("std_allmatch", "std_allmismatch"),),
                         ),
                         HLACombinedStandard(
                             standard="9-6-6-5",
-                            discrete_allele_names=[
-                                ("std_1mismatch", "std_allmismatch")
-                            ],
+                            discrete_allele_names=(
+                                ("std_1mismatch", "std_allmismatch"),
+                            ),
                         ),
                         HLACombinedStandard(
                             standard="8-4-2-1",
-                            discrete_allele_names=[
-                                ("std_allmismatch", "std_allmismatch")
-                            ],
+                            discrete_allele_names=(
+                                ("std_allmismatch", "std_allmismatch"),
+                            ),
                         ),
                     ],
                 },
             ),
         ],
     )
-    def test_combine_stds(
+    def test_combine_standards(
         self,
         easyhla: EasyHLA,
         sequence: list[int],
         matching_standards: list[HLAStandardMatch],
         exp_result: dict[int, list[int]],
     ):
-        result = easyhla.combine_stds(
+        result = easyhla.combine_standards(
             matching_stds=matching_standards,
             seq=sequence,
         )
@@ -989,7 +989,7 @@ class TestEasyHLA:
                 [
                     HLACombinedStandard(
                         standard="",
-                        discrete_allele_names=[
+                        discrete_allele_names=(
                             ("A*02:01:01G", "A*03:01:01G"),
                             ("A*02:01:52", "A*03:01:03"),
                             ("A*02:01:02", "A*03:01:12"),
@@ -1004,7 +1004,7 @@ class TestEasyHLA:
                             ("A*02:35:01", "A*03:108"),
                             ("A*02:86", "A*03:123"),
                             ("A*02:20:01", "A*03:157"),
-                        ],
+                        ),
                     )
                 ],
                 False,
@@ -1023,12 +1023,12 @@ class TestEasyHLA:
                 [
                     HLACombinedStandard(
                         standard="",
-                        discrete_allele_names=[
+                        discrete_allele_names=(
                             ("A*11:01:01G", "A*26:01:01G"),
                             ("A*11:01:07", "A*26:01:17"),
                             ("A*11:19", "A*26:13"),
                             ("A*11:40", "A*66:01G"),
-                        ],
+                        ),
                     )
                 ],
                 False,

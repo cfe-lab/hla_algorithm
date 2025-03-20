@@ -2,7 +2,7 @@ import re
 
 import numpy as np
 import pydantic_numpy.typing as pnd
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from pydantic_numpy.model import NumpyModel
 
 ALLELES_MAX_REPORTABLE_STRING: int = 3900
@@ -24,7 +24,7 @@ class AllelePairs(BaseModel):
         :return: ...
         :rtype: bool
         """
-        return any(_a[0] == _a[1] for _a in self.allele_pairs)
+        return any(a1 == a2 for a1, a2 in self.allele_pairs)
 
     def is_ambiguous(self) -> bool:
         """
@@ -38,7 +38,11 @@ class AllelePairs(BaseModel):
         :return: ...
         :rtype: bool
         """
-        return len(self.get_paired_allele_groups()) != 1
+        paired_allele_groups: set[tuple[str, str]] = {
+            (first[0], second[0])
+            for first, second in self.get_paired_gene_coordinates(True)
+        }
+        return len(paired_allele_groups) != 1
 
     @staticmethod
     def _allele_coordinates(
@@ -75,12 +79,6 @@ class AllelePairs(BaseModel):
             )
             for allele_pair in self.allele_pairs
         ]
-
-    def get_paired_allele_groups(self) -> set[str]:
-        return {
-            f"{first[0]}, {second[0]}"
-            for first, second in self.get_paired_gene_coordinates(remove_subtype=True)
-        }
 
     def get_proteins_as_strings(self) -> set[str]:
         """
@@ -131,7 +129,8 @@ class AllelePairs(BaseModel):
         """
         Filter the allele pairs to an unambiguous set.
 
-        The "top" allele pair is determined by the following tiebreaks:
+        The "top" allele pair is determined by the following criteria, in
+        descending order of precedence:
 
         1) its frequency, according to the specified dict;
         2) lowest "first coordinate" of the first allele;
@@ -282,8 +281,10 @@ class HLAStandardMatch(HLAStandard):
 
 
 class HLACombinedStandard(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     standard: str
-    discrete_allele_names: list[tuple[str, str]]
+    discrete_allele_names: tuple[tuple[str, str], ...]
 
 
 class HLAResultRow(BaseModel):

@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from datetime import datetime
 from io import TextIOBase
 from typing import Any, Final, Literal, Optional
+from operator import itemgetter
 
 import Bio.SeqIO
 import numpy as np
@@ -452,11 +453,12 @@ class EasyHLA:
                 )
         return matching_stds
 
-    def combine_stds(
+    def combine_standards(
         self,
         matching_stds: list[HLAStandardMatch],
         seq: list[int],
-    ) -> dict[int, list[HLACombinedStandard]]:
+        mismatch_threshold: Optional[int] = None,
+    ) -> list[tuple[int, set[HLACombinedStandard]]]:
         """
         Find the combinations of standards that match the given sequence.
 
@@ -469,13 +471,36 @@ class EasyHLA:
         In order to find matches, we take allele sequences (reduced to ones that
         are already "decent" matches for our sequence, to reduce running time)
         and "mush" them together to produce potential matches for our sequence.
+
+        PRECONDITION: matching_stds should contain no duplicates.
+
+        Returns an ordered list of 2-tuples where each entry contains:
+        - the mismatch count of the combined standard(s); and
+        - a set of combined standards.
+        This list is sorted by mismatch count.
+
+        If mismatch_threshold is None, then the result contains only the
+        best-matching combined standard(s); otherwise, the result contains all
+        combined standards with mismatch counts up to and including the
+        threshold.
         """
         combos: dict[int, dict[str, list[tuple[str, str]]]] = {}
 
+        if mismatch_threshold is None:
+            # We only care about the best match, so we set this threshold
+            # so that it never forces the rejection threshold to stay above
+            # the current best match.
+            mismatch_threshold = 0
+
+        current_rejection_threshold: int = float("inf")
         for std_ai, std_a in enumerate(matching_stds):
+            if std_a.mismatch > current_rejection_threshold:
+                continue
             for std_bi, std_b in enumerate(matching_stds):
                 if std_ai < std_bi:
                     break
+                if std_b.mismatch > current_rejection_threshold:
+                    continue
 
                 # "Mush" the two standards together to produce something
                 # that looks like what you get when you sequence HLA.
@@ -483,28 +508,51 @@ class EasyHLA:
                 seq_mask = np.full_like(std_bin, fill_value=15)
                 mismatches: int = np.count_nonzero((std_bin ^ seq) & seq_mask != 0)
 
-                # This looks like 1-4-9-16-2-... where each number comes from
-                # the binary representation of the base, i.e. from NUC2BIN.
-                # There could be more than one combined standard with the
-                # same sequence!
-                combined_std = "-".join([str(s) for s in std_bin])
-                if mismatches not in combos:
-                    combos[mismatches] = {}
-                if combined_std not in combos[mismatches]:
-                    combos[mismatches][combined_std] = []
-                allele_pair = sorted((std_a.allele, std_b.allele))
-                combos[mismatches][combined_std].append(allele_pair)
+                if mismatches <= current_rejection_threshold:
+                    # This looks like 1-4-9-16-2-... where each number comes from
+                    # the binary representation of the base, i.e. from NUC2BIN.
+                    # There could be more than one combined standard with the
+                    # same sequence!
+                    combined_std = "-".join([str(s) for s in std_bin])
 
-        result: dict[int, list[HLACombinedStandard]] = {}
-        for mismatch, matching_combos_dict in combos.items():
-            cur_combo: list[HLACombinedStandard] = []
-            for std, allele_pair_list in matching_combos_dict.items():
-                cur_combo.append(
+                    if mismatches < current_rejection_threshold:
+                        current_rejection_threshold = max(
+                            mismatches, mismatch_threshold
+                        )
+
+                    if mismatches not in combos:
+                        combos[mismatches] = {}
+                    if combined_std not in combos[mismatches]:
+                        combos[mismatches][combined_std] = []
+                    allele_pair = sorted((std_a.allele, std_b.allele))
+                    combos[mismatches][combined_std].append(allele_pair)
+
+        result: list[tuple[int, set[HLACombinedStandard]]] = []
+
+        num_mismatches_seen: list[int] = sorted(combos.keys())
+        if len(num_mismatches_seen) == 0:
+            return []
+
+        # Add the best match (i.e. the entry with the lowest number of
+        # mismatches) for sure; add any other entries below the threshold if
+        # applicable.
+        mismatch_counts_to_include: list[int] = [num_mismatches_seen[0]]
+        for curr_mismatch_count in num_mismatches_seen[1:]:
+            if curr_mismatch_count <= mismatch_threshold:
+                mismatch_counts_to_include.append(curr_mismatch_count)
+            else:
+                break
+
+        for mismatch_count in mismatch_counts_to_include:
+            combos_with_mismatches: dict[str, list[tuple[str, str]]] = combos[mismatch_count]
+            cur_combos: set[HLACombinedStandard] = set()
+            for std, allele_pair_list in combos_with_mismatches.items():
+                cur_combos.add(
                     HLACombinedStandard(
-                        standard=std, discrete_allele_names=allele_pair_list
+                        standard=std, discrete_allele_names=tuple(allele_pair_list)
                     )
                 )
-            result[mismatch] = cur_combo
+            result.append((mismatch_count, cur_combos))
 
         return result
 
@@ -669,12 +717,16 @@ class EasyHLA:
 
         # Now, combine all the stds (pick up that can citizen!)
         # DR 2023-02-24: To whomever made this comment, great shoutout!
-        all_combos = self.combine_stds(matching_stds, seq)
-        counts_and_combined_standards = sorted(all_combos.items())
+        all_combos: list[tuple[int, set[HLACombinedStandard]]]
+        all_combos = self.combine_standards(
+            matching_stds,
+            seq,
+            mismatch_threshold=threshold,
+        )
 
-        best_matches: list[HLACombinedStandard]
+        best_matches: set[HLACombinedStandard]
         mismatch_count: int
-        mismatch_count, best_matches = counts_and_combined_standards[0]
+        mismatch_count, best_matches = all_combos[0]
 
         best_match_mismatches = self.get_mismatches(
             combined_standards=best_matches,
@@ -685,7 +737,7 @@ class EasyHLA:
         all_mismatches[mismatch_count] = best_match_mismatches
 
         if threshold is not None:
-            for curr_mismatch_count, combos in counts_and_combined_standards[1:]:
+            for curr_mismatch_count, combos in all_combos[1:]:
                 if curr_mismatch_count > threshold:
                     break
                 all_mismatches[curr_mismatch_count] = self.get_mismatches(
@@ -739,17 +791,21 @@ class EasyHLA:
 
     def get_mismatches(
         self,
-        combined_standards: list[HLACombinedStandard],
+        standard_string: str,
         seq: np.ndarray,
-    ) -> list[str]:
+    ) -> list[tuple[int, str, list[str]]]:
         """
-        Report mismatched bases and their location versus a standard reference.
+        Report mismatched bases and their location versus a standard.
+
+        The standard should look like "1-4-9-14-2-...", where each position
+        is represented as a 4-bit integer and positions are separated with
+        hyphens.
 
         The output looks like "$LOC:$SEQ_BASE->$STANDARD_BASE", if multiple
         mismatches are present, they will be delimited with `;`'s.
 
-        :param combined_standards: List of the combined standards we wish to compare to the sequence.
-        :type combined_standards: list[HLACombinedStandard]
+        :param standard_string: the standard to compare the sequence to
+        :type combined_standards: str
         :param seq: The sequence being interpreted.
         :type seq: np.ndarray
         :return: A string-concatenated list of locations containing mismatches.
@@ -757,31 +813,31 @@ class EasyHLA:
         """
         correct_bases_at_pos: dict[int, list[int]] = {}
 
-        for combined_std in combined_standards:
-            std_bin_seq = np.array(
-                [int(nuc) for nuc in combined_std.standard.split("-")]
-            )
-            for idx in np.flatnonzero(std_bin_seq ^ seq):
-                if idx not in correct_bases_at_pos:
-                    correct_bases_at_pos[idx] = []
-                if std_bin_seq[idx] not in correct_bases_at_pos[idx]:
-                    correct_bases_at_pos[idx].append(std_bin_seq[idx])
+        std_bin_seq = np.array(
+            [int(nuc) for nuc in standard_string.split("-")]
+        )
+        for idx in np.flatnonzero(std_bin_seq ^ seq):
+            if idx not in correct_bases_at_pos:
+                correct_bases_at_pos[idx] = []
+            if std_bin_seq[idx] not in correct_bases_at_pos[idx]:
+                correct_bases_at_pos[idx].append(std_bin_seq[idx])
 
-        mislist: list[str] = []
+        mislist: list[tuple[int, str, list[str]]] = []
 
-        for index, correct_bases in correct_bases_at_pos.items():
+        for index, correct_bases_bin in correct_bases_at_pos.items():
             if self.locus == "A" and index > 270:
                 dex = index + 242
             else:
                 dex = index + 1
 
             base = EasyHLA.BIN2NUC[seq[index]]
-            _correct_bases = "/".join(
-                [EasyHLA.BIN2NUC[correct_bin] for correct_bin in correct_bases]
-            )
-            mislist.append(f"{dex}:{base}->{_correct_bases}")
+            correct_bases_str = [
+                EasyHLA.BIN2NUC[correct_base_bin]
+                for correct_base_bin in correct_bases_bin
+            ]
+            mislist.append((dex, base, correct_bases_str))
 
-        mislist.sort(key=lambda item: item.split(":")[0])
+        mislist.sort(key=itemgetter(0))
         return mislist
 
     def run(
