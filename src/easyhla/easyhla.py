@@ -1,11 +1,11 @@
 import logging
 import os
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from datetime import datetime
 from io import TextIOBase
+from operator import attrgetter
 from typing import Any, Final, Literal, Optional
-from operator import itemgetter
 
 import Bio.SeqIO
 import numpy as np
@@ -14,6 +14,7 @@ import pydantic_numpy.typing as pnd
 from .models import (
     AllelePairs,
     HLACombinedStandard,
+    HLAMismatch,
     HLAResult,
     HLAResultRow,
     HLASequence,
@@ -453,38 +454,26 @@ class EasyHLA:
                 )
         return matching_stds
 
-    def combine_standards(
+    def combine_standards_helper(
         self,
-        matching_stds: list[HLAStandardMatch],
+        matching_stds: Sequence[HLAStandardMatch],
         seq: list[int],
         mismatch_threshold: Optional[int] = None,
-    ) -> list[tuple[int, set[HLACombinedStandard]]]:
+    ) -> dict[str, tuple[int, list[tuple[str, str]]]]:
         """
-        Find the combinations of standards that match the given sequence.
+        Helper to identify "good" combined standards for the specified sequence.
 
-        Humans have two copies of their HLA genes, so when we use Sanger
-        sequencing to sequence a person's HLA, we get a single sequence with
-        potentially many mixtures.  That is, at any position that the two genes
-        don't match, we see a nucleotide mixture consisting of the two
-        corresponding bases.
+        Returns a mapping:
+        sequence string -|-> (mismatch count, allele pair list)
 
-        In order to find matches, we take allele sequences (reduced to ones that
-        are already "decent" matches for our sequence, to reduce running time)
-        and "mush" them together to produce potential matches for our sequence.
-
-        PRECONDITION: matching_stds should contain no duplicates.
-
-        Returns an ordered list of 2-tuples where each entry contains:
-        - the mismatch count of the combined standard(s); and
-        - a set of combined standards.
-        This list is sorted by mismatch count.
-
-        If mismatch_threshold is None, then the result contains only the
-        best-matching combined standard(s); otherwise, the result contains all
-        combined standards with mismatch counts up to and including the
-        threshold.
+        This mapping will contain "good" combined standards: it will definitely
+        contain the best-matching combined standard(s), and if
+        mismatch_threshold is an integer, it will also contain any combined
+        standards which have fewer mismatches than the threshold.  It may also
+        contain other combined standards, which will be winnowed out by the
+        calling function.
         """
-        combos: dict[int, dict[str, list[tuple[str, str]]]] = {}
+        combos: dict[str, tuple[int, list[tuple[str, str]]]] = {}
 
         if mismatch_threshold is None:
             # We only care about the best match, so we set this threshold
@@ -508,69 +497,156 @@ class EasyHLA:
                 seq_mask = np.full_like(std_bin, fill_value=15)
                 mismatches: int = np.count_nonzero((std_bin ^ seq) & seq_mask != 0)
 
-                if mismatches <= current_rejection_threshold:
-                    # This looks like 1-4-9-16-2-... where each number comes from
-                    # the binary representation of the base, i.e. from NUC2BIN.
-                    # There could be more than one combined standard with the
-                    # same sequence!
-                    combined_std = "-".join([str(s) for s in std_bin])
+                if mismatches > current_rejection_threshold:
+                    continue
 
-                    if mismatches < current_rejection_threshold:
-                        current_rejection_threshold = max(
-                            mismatches, mismatch_threshold
-                        )
+                # This looks like 1-4-9-16-2-... where each number comes from
+                # the binary representation of the base, i.e. from NUC2BIN.
+                # There could be more than one combined standard with the
+                # same sequence!
+                combined_std_str = "-".join([str(s) for s in std_bin])
 
-                    if mismatches not in combos:
-                        combos[mismatches] = {}
-                    if combined_std not in combos[mismatches]:
-                        combos[mismatches][combined_std] = []
-                    allele_pair = sorted((std_a.allele, std_b.allele))
-                    combos[mismatches][combined_std].append(allele_pair)
+                if mismatches < current_rejection_threshold:
+                    current_rejection_threshold = max(mismatches, mismatch_threshold)
 
-        result: list[tuple[int, set[HLACombinedStandard]]] = []
+                if combined_std_str not in combos:
+                    combos[combined_std_str] = (mismatches, [])
+                combos[combined_std_str][1].append(sorted((std_a.allele, std_b.allele)))
+        return combos
 
-        num_mismatches_seen: list[int] = sorted(combos.keys())
-        if len(num_mismatches_seen) == 0:
-            return []
+    def combine_standards(
+        self,
+        matching_stds: Sequence[HLAStandardMatch],
+        seq: list[int],
+        mismatch_threshold: Optional[int] = None,
+    ) -> dict[HLACombinedStandard, int]:
+        """
+        Find the combinations of standards that match the given sequence.
 
-        # Add the best match (i.e. the entry with the lowest number of
-        # mismatches) for sure; add any other entries below the threshold if
-        # applicable.
-        mismatch_counts_to_include: list[int] = [num_mismatches_seen[0]]
-        for curr_mismatch_count in num_mismatches_seen[1:]:
-            if curr_mismatch_count <= mismatch_threshold:
-                mismatch_counts_to_include.append(curr_mismatch_count)
-            else:
-                break
+        Humans have two copies of their HLA genes, so when we use Sanger
+        sequencing to sequence a person's HLA, we get a single sequence with
+        potentially many mixtures.  That is, at any position that the two genes
+        don't match, we see a nucleotide mixture consisting of the two
+        corresponding bases.
 
-        for mismatch_count in mismatch_counts_to_include:
-            combos_with_mismatches: dict[str, list[tuple[str, str]]] = combos[mismatch_count]
-            cur_combos: set[HLACombinedStandard] = set()
-            for std, allele_pair_list in combos_with_mismatches.items():
-                cur_combos.add(
-                    HLACombinedStandard(
-                        standard=std, discrete_allele_names=tuple(allele_pair_list)
-                    )
+        In order to find matches, we take allele sequences (reduced to ones that
+        are already "decent" matches for our sequence, to reduce running time)
+        and "mush" them together to produce potential matches for our sequence.
+
+        PRECONDITION: matching_stds should contain no duplicates.
+
+        Returns a dictionary mapping HLACombinedStandards to their mismatch
+        counts.  If mismatch_threshold is None, then the result contains only
+        the best-matching combined standard(s); otherwise, the result contains
+        all combined standards with mismatch counts up to and including the
+        threshold.
+        """
+        combos: dict[str, tuple[int, list[tuple[str, str]]]] = (
+            self.combine_standards_helper(
+                matching_stds,
+                seq,
+                mismatch_threshold,
+            )
+        )
+
+        # Winnow out any extraneous combined standards that don't match our
+        # criteria.
+        result: dict[HLACombinedStandard, int] = {}
+
+        fewest_mismatches: int = min([x[0] for x in combos.values()])
+        cutoff: int = max(fewest_mismatches, mismatch_threshold)
+
+        for combined_std_str, mismatch_count_and_pair_list in combos.items():
+            mismatch_count: int
+            pair_list: list[tuple[str, str]]
+            mismatch_count, pair_list = mismatch_count_and_pair_list
+
+            if mismatch_count <= cutoff:
+                combined_std: HLACombinedStandard = HLACombinedStandard(
+                    standard=combined_std_str,
+                    discrete_allele_names=tuple(pair_list),
                 )
-            result.append((mismatch_count, cur_combos))
+                result[combined_std] = mismatch_count
 
         return result
 
     @staticmethod
-    def get_all_allele_pairs(best_matches: list[HLACombinedStandard]) -> AllelePairs:
+    def get_all_allele_pairs(
+        combined_standards: Iterable[HLACombinedStandard],
+    ) -> AllelePairs:
         """
-        Get all allele pairs in the specified list of combined standards.
+        Get all allele pairs in the specified combined standards.
 
         :param best_matches: ...
-        :type best_matches: list[HLACombinedStandard]
+        :type best_matches: Iterable[HLACombinedStandard]
         :return: ...
         :rtype: AllelePairs
         """
         all_allele_pairs: list[tuple[str, str]] = []
-        for combined_std in best_matches:
+        for combined_std in combined_standards:
             all_allele_pairs.extend(combined_std.discrete_allele_names)
         all_allele_pairs.sort()
         return AllelePairs(allele_pairs=all_allele_pairs)
+
+    def pair_exons_helper(
+        self,
+        sequence_record: Bio.SeqIO.SeqRecord,
+        unmatched: dict[EXON_NAME, dict[str, Bio.SeqIO.SeqRecord]],
+    ) -> Optional[tuple[str, bool, bool, str, str]]:
+        """
+        Helper that attempts to match the given sequence with a "partner" exon.
+
+        `sequence_record` represents a sequence that may be an exon2 or exon3
+        sequence (or neither).  It determines which of these cases it is by
+        examining its description string; then it either finds a partner for it
+        from `unmatched`, or adds it to `unmatched`.
+
+        Returns None if it cannot find a match; otherwise, it returns a tuple
+        containing:
+        - identifier
+        - is exon?  (True/False)
+        - did we find a match?  (True/False)
+        - exon2 sequence
+        - exon3 sequence
+        """
+        # The description field is expected to hold the sample name.
+        samp: str = sequence_record.description
+        is_exon: bool = False
+        matched: bool = False
+        exon2: str = ""
+        exon3: str = ""
+        identifier: str = samp
+
+        # Check if the sequence is an exon2 or exon3. If so, try to match it
+        # with an existing other exon.
+        for exon, other_exon in EXON_AND_OTHER_EXON:
+            if exon in samp.lower():
+                is_exon = True
+                identifier = samp.split("_")[0]
+                for other_desc, other_sr in unmatched[other_exon].items():
+                    if identifier.lower() in other_desc.lower():
+                        matched = True
+                        if exon == "exon2":
+                            exon2 = str(sequence_record.seq)
+                            exon3 = str(other_sr.seq)
+                        else:
+                            exon2 = str(other_sr.seq)
+                            exon3 = str(sequence_record.seq)
+
+                        unmatched[other_exon].pop(other_desc)
+                        break
+                # If we can't match the exon, put the entry in the list we
+                # weren't looking in.
+                if not matched:
+                    unmatched[exon][samp] = sequence_record
+
+        return (
+            identifier,
+            is_exon,
+            matched,
+            exon2,
+            exon3,
+        )
 
     def pair_exons(
         self,
@@ -592,47 +668,25 @@ class EasyHLA:
         }
 
         for sr in sequence_records:
-            # The description field is expected to hold the sample name.
-            samp: str = sr.description
-
             # Skip over any sequences that aren't the right length or contain
             # bad bases.
             try:
-                self.check_length(str(sr.seq), samp)
+                self.check_length(str(sr.seq), sr.description)
                 self.check_bases(str(sr.seq))
             except ValueError:
                 continue
 
             is_exon: bool = False
-            matched = False
-            exon2 = ""
-            intron = ""
-            exon3 = ""
+            matched: bool = False
+            exon2: str = ""
+            intron: str = ""
+            exon3: str = ""
+            identifier: str = ""
 
-            # Check if the sequence is an exon2 or exon3. If so, try to match it
-            # with an existing other exon.
-            for exon, other_exon in EXON_AND_OTHER_EXON:
-                if exon in samp.lower():
-                    is_exon = True
-                    identifier = samp.split("_")[0]
-                    for other_desc, other_sr in unmatched[other_exon].items():
-                        if identifier.lower() in other_desc.lower():
-                            matched = True
-                            intron = ""
-                            if exon == "exon2":
-                                exon2 = str(sr.seq)
-                                exon3 = str(other_sr.seq)
-                            else:
-                                exon2 = str(other_sr.seq)
-                                exon3 = str(sr.seq)
-
-                            unmatched[other_exon].pop(other_desc)
-                            samp = identifier
-                            break
-                    # If we can't match the exon, put the entry in the list we
-                    # weren't looking in.
-                    if not matched:
-                        unmatched[exon][samp] = sr
+            identifier, is_exon, matched, exon2, exon3 = self.pair_exons_helper(
+                sr,
+                unmatched,
+            )
 
             # If it was an exon2 or 3 but didn't have a pair, keep going.
             if is_exon and not matched:
@@ -653,7 +707,7 @@ class EasyHLA:
                         intron="",
                         three=exon3,
                         sequence=np.concatenate((exon2_bin, exon3_bin)),
-                        name=samp,
+                        name=identifier,
                         num_sequences_used=2,
                     )
                 )
@@ -674,7 +728,7 @@ class EasyHLA:
                         sequence=np.concatenate(
                             (seq[: EasyHLA.EXON2_LENGTH], seq[-EasyHLA.EXON3_LENGTH :])
                         ),
-                        name=samp,
+                        name=identifier,
                         num_sequences_used=1,
                     )
                 )
@@ -717,35 +771,35 @@ class EasyHLA:
 
         # Now, combine all the stds (pick up that can citizen!)
         # DR 2023-02-24: To whomever made this comment, great shoutout!
-        all_combos: list[tuple[int, set[HLACombinedStandard]]]
-        all_combos = self.combine_standards(
+        all_combos: dict[HLACombinedStandard, int] = self.combine_standards(
             matching_stds,
             seq,
             mismatch_threshold=threshold,
         )
 
-        best_matches: set[HLACombinedStandard]
-        mismatch_count: int
-        mismatch_count, best_matches = all_combos[0]
+        all_mismatches: dict[HLACombinedStandard, tuple[int, list[HLAMismatch]]] = {
+            combined_std: (
+                mismatch_count,
+                self.get_mismatches(combined_std.standard, seq),
+            )
+            for combined_std, mismatch_count in all_combos.items()
+        }
 
-        best_match_mismatches = self.get_mismatches(
-            combined_standards=best_matches,
-            seq=seq,
-        )
+        lowest_mismatch_count: int = min(all_combos.values())
+        best_matches: set[HLACombinedStandard] = {
+            combined_std
+            for combined_std, mismatch_count in all_combos.items()
+            if mismatch_count == lowest_mismatch_count
+        }
 
-        all_mismatches: dict[int, list[str]] = {}
-        all_mismatches[mismatch_count] = best_match_mismatches
+        # FIXME: currently we include all mismatches from all possible best
+        # matches; we should perhaps pick a "very best" of these matches and
+        # only include those mismatches.
+        best_match_mismatches: list[str] = []
+        for best_match in best_matches:
+            best_match_mismatches.extend([str(x) for x in all_mismatches[best_match]])
 
-        if threshold is not None:
-            for curr_mismatch_count, combos in all_combos[1:]:
-                if curr_mismatch_count > threshold:
-                    break
-                all_mismatches[curr_mismatch_count] = self.get_mismatches(
-                    combined_standards=combos,
-                    seq=seq,
-                )
-
-        alleles = self.get_all_allele_pairs(best_matches=best_matches)
+        alleles = self.get_all_allele_pairs(best_matches)
         ambig = alleles.is_ambiguous()
         homozygous = alleles.is_homozygous()
         alleles_all_str = alleles.stringify()
@@ -757,7 +811,7 @@ class EasyHLA:
             alleles_all_str=alleles_all_str,
             ambig=int(ambig),
             homozygous=int(homozygous),
-            mismatch_count=mismatch_count,
+            mismatch_count=lowest_mismatch_count,
             mismatches=";".join(best_match_mismatches),
             exon2=hla_sequence.two.upper(),
             intron=hla_sequence.intron.upper(),
@@ -765,7 +819,7 @@ class EasyHLA:
         )
         return HLAResult(
             result_row=row,
-            mismatches_by_count=all_mismatches,
+            all_mismatches=all_mismatches,
             num_seqs=hla_sequence.num_sequences_used,
         )
 
@@ -793,7 +847,7 @@ class EasyHLA:
         self,
         standard_string: str,
         seq: np.ndarray,
-    ) -> list[tuple[int, str, list[str]]]:
+    ) -> list[HLAMismatch]:
         """
         Report mismatched bases and their location versus a standard.
 
@@ -808,21 +862,19 @@ class EasyHLA:
         :type combined_standards: str
         :param seq: The sequence being interpreted.
         :type seq: np.ndarray
-        :return: A string-concatenated list of locations containing mismatches.
-        :rtype: str
+        :return: A list of HLAMismatches, sorted by their indices.
+        :rtype: list[HLAMismatch]
         """
         correct_bases_at_pos: dict[int, list[int]] = {}
 
-        std_bin_seq = np.array(
-            [int(nuc) for nuc in standard_string.split("-")]
-        )
+        std_bin_seq = np.array([int(nuc) for nuc in standard_string.split("-")])
         for idx in np.flatnonzero(std_bin_seq ^ seq):
             if idx not in correct_bases_at_pos:
                 correct_bases_at_pos[idx] = []
             if std_bin_seq[idx] not in correct_bases_at_pos[idx]:
                 correct_bases_at_pos[idx].append(std_bin_seq[idx])
 
-        mislist: list[tuple[int, str, list[str]]] = []
+        mislist: list[HLAMismatch] = []
 
         for index, correct_bases_bin in correct_bases_at_pos.items():
             if self.locus == "A" and index > 270:
@@ -835,11 +887,12 @@ class EasyHLA:
                 EasyHLA.BIN2NUC[correct_base_bin]
                 for correct_base_bin in correct_bases_bin
             ]
-            mislist.append((dex, base, correct_bases_str))
+            mislist.append(HLAMismatch(dex, base, correct_bases_str))
 
-        mislist.sort(key=itemgetter(0))
+        mislist.sort(key=attrgetter("index"))
         return mislist
 
+    # FIXME update this method next!
     def run(
         self,
         filename: str,

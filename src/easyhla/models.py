@@ -287,6 +287,15 @@ class HLACombinedStandard(BaseModel):
     discrete_allele_names: tuple[tuple[str, str], ...]
 
 
+class HLAMismatch(BaseModel):
+    index: int
+    observed_base: str
+    expected_bases: list[str]
+
+    def __str__(self):
+        return f"{self.index}:{self.observed_base}->{'/'.join(self.expected_bases)}"
+
+
 class HLAResultRow(BaseModel):
     samp: str = ""
     clean_allele_str: str = ""
@@ -319,5 +328,5 @@ class HLAResultRow(BaseModel):
 
 class HLAResult(BaseModel):
     result_row: HLAResultRow
-    mismatches_by_count: dict[int, list[str]]
+    all_mismatches: dict[HLACombinedStandard, tuple[int, list[HLAMismatch]]]
     num_seqs: int = 1
