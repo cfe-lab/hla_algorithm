@@ -1,11 +1,111 @@
 import re
+from collections.abc import Iterable
+from operator import itemgetter
 
 import numpy as np
 import pydantic_numpy.typing as pnd
 from pydantic import BaseModel, ConfigDict
 from pydantic_numpy.model import NumpyModel
+from typing import Self
 
 ALLELES_MAX_REPORTABLE_STRING: int = 3900
+
+
+class HLASequence(NumpyModel):
+    two: str
+    intron: str = ""
+    three: str
+    sequence: pnd.NpNDArray
+    name: str
+    num_sequences_used: int = 1
+
+
+class HLAStandard(NumpyModel):
+    allele: str
+    sequence: pnd.NpNDArray
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            raise TypeError(f"Cannot compare against {type(other)}")
+        return all(
+            [self.allele == other.allele, np.array_equal(self.sequence, other.sequence)]
+        )
+
+
+class HLAStandardMatch(HLAStandard):
+    mismatch: int
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            raise TypeError(f"Cannot compare against {type(other)}")
+        return all(
+            [
+                self.allele == other.allele,
+                np.array_equal(self.sequence, other.sequence),
+                self.mismatch == other.mismatch,
+            ]
+        )
+
+
+class HLACombinedStandard(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    standard: str
+    discrete_allele_names: tuple[tuple[str, str], ...]
+
+    def get_allele_pair_str(self):
+        pair_strings: list[str] = [" - ".join(pair) for pair in self.discrete_allele_names]
+        return "|".join(pair_strings)
+
+
+class HLAMismatch(BaseModel):
+    index: int
+    observed_base: str
+    expected_bases: list[str]
+
+    def __str__(self):
+        return f"{self.index}:{self.observed_base}->{'/'.join(self.expected_bases)}"
+
+
+class HLAResultRow(BaseModel):
+    samp: str = ""
+    clean_allele_str: str = ""
+    alleles_all_str: str = ""
+    ambig: int = 0
+    homozygous: int = 0
+    mismatch_count: int = 0
+    mismatches: str = ""
+    exon2: str = ""
+    intron: str = ""
+    exon3: str = ""
+
+    def get_result(self) -> list[str]:
+        return [
+            self.samp,
+            self.clean_allele_str,
+            self.alleles_all_str,
+            f"{self.ambig}",
+            f"{self.homozygous}",
+            f"{self.mismatch_count}",
+            self.mismatches,
+            self.exon2.upper(),
+            self.intron.upper(),
+            self.exon3.upper(),
+        ]
+
+    def get_result_as_str(self) -> str:
+        return ",".join(el for el in self.get_result())
+
+
+class HLAResult(BaseModel):
+    result_row: HLAResultRow
+    all_mismatches: dict[HLACombinedStandard, tuple[int, list[HLAMismatch]]]
+    num_seqs: int = 1
+
+
+class HLAMatchDetails(BaseModel):
+    mismatch_count: int
+    mismatches: list[HLAMismatch]
 
 
 class AllelePairs(BaseModel):
@@ -243,90 +343,85 @@ class AllelePairs(BaseModel):
 
         return summary_str
 
+    @classmethod
+    def get_allele_pairs(
+        cls,
+        combined_standards: Iterable[HLACombinedStandard],
+    ) -> Self:
+        """
+        Get all allele pairs in the specified combined standards.
 
-class HLASequence(NumpyModel):
-    two: str
-    intron: str = ""
-    three: str
-    sequence: pnd.NpNDArray
-    name: str
-    num_sequences_used: int = 1
+        :param best_matches: ...
+        :type best_matches: Iterable[HLACombinedStandard]
+        :return: ...
+        :rtype: AllelePairs
+        """
+        all_allele_pairs: list[tuple[str, str]] = []
+        for combined_std in combined_standards:
+            all_allele_pairs.extend(combined_std.discrete_allele_names)
+        all_allele_pairs.sort()
+        return cls(allele_pairs=all_allele_pairs)
 
 
-class HLAStandard(NumpyModel):
-    allele: str
-    sequence: pnd.NpNDArray
+class HLAInterpretation(BaseModel):
+    hla_sequence: HLASequence
+    matches: dict[HLACombinedStandard, HLAMatchDetails]
 
-    def __eq__(self, other):
-        if not isinstance(other, self.__class__):
-            raise TypeError(f"Cannot compare against {type(other)}")
-        return all(
-            [self.allele == other.allele, np.array_equal(self.sequence, other.sequence)]
+    def lowest_mismatch_count(self) -> int:
+        return min([x.mismatch_count for x in self.matches.values()])
+
+    def best_matches(self) -> set[HLACombinedStandard]:
+        best_mismatch_count: int = self.lowest_mismatch_count()
+        return {
+            combined_std
+            for combined_std, match_details in self.matches.items()
+            if match_details.mismatch_count == best_mismatch_count
+        }
+
+    def best_matching_allele_pairs(self) -> AllelePairs:
+        return AllelePairs.get_allele_pairs(self.best_matches())
+
+    # FIXME should we move this to a "presentation layer"?
+    def summary_row(self, hla_frequencies: dict[str, int]) -> HLAResultRow:
+        best_match_mismatches: list[str] = []
+        for best_match in self.best_matches():
+            best_match_mismatches.extend([str(x) for x in self.matches[best_match].mismatches])
+
+        allele_pairs: AllelePairs = self.best_matching_allele_pairs()
+        alleles_all_str = allele_pairs.stringify()
+        clean_allele_str = allele_pairs.best_common_allele_pair_str(hla_frequencies)
+
+        return HLAResultRow(
+            samp=self.hla_sequence.name,
+            clean_allele_str=clean_allele_str,
+            alleles_all_str=alleles_all_str,
+            ambig=int(allele_pairs.is_ambiguous()),
+            homozygous=int(allele_pairs.is_homozygous()),
+            mismatch_count=self.lowest_mismatch_count(),
+            mismatches=";".join(best_match_mismatches),
+            exon2=self.hla_sequence.two.upper(),
+            intron=self.hla_sequence.intron.upper(),
+            exon3=self.hla_sequence.three.upper(),
         )
 
-
-class HLAStandardMatch(HLAStandard):
-    mismatch: int
-
-    def __eq__(self, other):
-        if not isinstance(other, self.__class__):
-            raise TypeError(f"Cannot compare against {type(other)}")
-        return all(
+    def mismatch_rows(self) -> list[str]:
+        matches_by_count: list[tuple[int, HLACombinedStandard, list[HLAMismatch]]] = sorted(
             [
-                self.allele == other.allele,
-                np.array_equal(self.sequence, other.sequence),
-                self.mismatch == other.mismatch,
-            ]
+                (details.mismatch_count, cs, details.mismatches)
+                for cs, details in self.matches.items()
+            ],
+            key=itemgetter(0)
         )
 
+        row_strs: list[str] = []
+        for _, combined_std, mismatches in matches_by_count:
+            curr_row: list[str] = [
+                combined_std.get_allele_pair_str(),
+                ";".join([str(x) for x in mismatches]),
+                self.hla_sequence.two.upper(),
+                self.hla_sequence.intron.upper(),
+                self.hla_sequence.three.upper(),
+            ]
+            row_strs.append(",".join(curr_row))
 
-class HLACombinedStandard(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    standard: str
-    discrete_allele_names: tuple[tuple[str, str], ...]
-
-
-class HLAMismatch(BaseModel):
-    index: int
-    observed_base: str
-    expected_bases: list[str]
-
-    def __str__(self):
-        return f"{self.index}:{self.observed_base}->{'/'.join(self.expected_bases)}"
-
-
-class HLAResultRow(BaseModel):
-    samp: str = ""
-    clean_allele_str: str = ""
-    alleles_all_str: str = ""
-    ambig: int = 0
-    homozygous: int = 0
-    mismatch_count: int = 0
-    mismatches: str = ""
-    exon2: str = ""
-    intron: str = ""
-    exon3: str = ""
-
-    def get_result(self) -> list[str]:
-        return [
-            self.samp,
-            self.clean_allele_str,
-            self.alleles_all_str,
-            f"{self.ambig}",
-            f"{self.homozygous}",
-            f"{self.mismatch_count}",
-            self.mismatches,
-            self.exon2.upper(),
-            self.intron.upper(),
-            self.exon3.upper(),
-        ]
-
-    def get_result_as_str(self) -> str:
-        return ",".join(el for el in self.get_result())
-
-
-class HLAResult(BaseModel):
-    result_row: HLAResultRow
-    all_mismatches: dict[HLACombinedStandard, tuple[int, list[HLAMismatch]]]
-    num_seqs: int = 1
+        return row_strs
