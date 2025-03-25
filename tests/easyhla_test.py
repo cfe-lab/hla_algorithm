@@ -155,6 +155,7 @@ class TestEasyHLADiscreteHLALocusA:
             with pytest.raises(ValueError):
                 easyhla.check_length(seq=sequence, name=name)
 
+    # FIXME HLACombinedStandard has changed; update these tests!
     # Tests for get_all_alleles.
     @pytest.mark.parametrize(
         "best_matches, exp_ambig, exp_alleles",
@@ -948,7 +949,9 @@ class TestEasyHLA:
                     4: [
                         HLACombinedStandard(
                             standard="9-6-6-9",
-                            discrete_allele_names=(("std_allmatch", "std_allmismatch"),),
+                            discrete_allele_names=(
+                                ("std_allmatch", "std_allmismatch"),
+                            ),
                         ),
                         HLACombinedStandard(
                             standard="9-6-6-5",
