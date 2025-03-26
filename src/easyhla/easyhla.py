@@ -219,7 +219,8 @@ class EasyHLA:
 
         return hla_stds
 
-    def load_allele_definitions_last_modified_time(self) -> datetime:
+    @staticmethod
+    def load_allele_definitions_last_modified_time() -> datetime:
         """
         Load a datetime object describing when standard definitions were last updated.
 
@@ -300,7 +301,8 @@ class EasyHLA:
         if not re.match(r"^[ATGCRYKMSWNBDHV]+$", seq):
             raise ValueError("Sequence has invalid characters")
 
-    def nuc2bin(self, seq: str) -> np.ndarray:
+    @staticmethod
+    def nuc2bin(seq: str) -> np.ndarray:
         """
         Convert a string sequence to a numpy array.
 
@@ -316,7 +318,8 @@ class EasyHLA:
             [EasyHLA.NUC2BIN.get(seq[i], 0) for i in range(len(seq))], dtype="int8"
         )
 
-    def bin2nuc(self, seq: np.ndarray) -> str:
+    @staticmethod
+    def bin2nuc(seq: np.ndarray) -> str:
         """
         Convert an array of numbers to a string sequence.
 
@@ -329,7 +332,8 @@ class EasyHLA:
         """
         return "".join([EasyHLA.BIN2NUC.get(seq[i], "_") for i in range(len(seq))])
 
-    def calc_padding(self, std: np.ndarray, seq: np.ndarray) -> tuple[int, int]:
+    @staticmethod
+    def calc_padding(std: np.ndarray, seq: np.ndarray) -> tuple[int, int]:
         """
         Calculate the number of units to pad a sequence.
 
@@ -350,22 +354,21 @@ class EasyHLA:
         left_pad = 0
         for i in range(pad):
             pseq = np.concatenate(
-                (self.nuc2bin("N" * i), seq, self.nuc2bin("N" * (pad - i)))
+                (EasyHLA.nuc2bin("N" * i), seq, EasyHLA.nuc2bin("N" * (pad - i)))
             )
-            mismatches = self.std_match(std, pseq)
+            mismatches = EasyHLA.std_match(std, pseq)
             if mismatches < best:
                 best = mismatches
                 left_pad = i
 
         return left_pad, pad - left_pad
 
+    @staticmethod
     def pad_short(
-        self,
         seq: np.ndarray,
         exon: Optional[EXON_NAME],
         hla_std: HLAStandard,
     ) -> np.ndarray:
-        # hla_stds expects [ ["label0", [1,2,3,4]], ["label1", [2,3,4,5]] ]
         std = None
         has_intron = False
         if exon == "exon2":
@@ -377,23 +380,28 @@ class EasyHLA:
             std = hla_std.sequence
 
         if has_intron:
-            left_pad, _ = self.calc_padding(
+            left_pad, _ = EasyHLA.calc_padding(
                 std[: EasyHLA.EXON2_LENGTH], seq[: int(EasyHLA.EXON2_LENGTH / 2)]
             )
-            _, right_pad = self.calc_padding(
+            _, right_pad = EasyHLA.calc_padding(
                 std[-int(EasyHLA.EXON3_LENGTH / 2) :],
                 seq[-int(EasyHLA.EXON3_LENGTH / 2) :],
             )
 
         else:
-            left_pad, right_pad = self.calc_padding(std, seq)
+            left_pad, right_pad = EasyHLA.calc_padding(std, seq)
 
         short_padded_array = np.concatenate(
-            (self.nuc2bin("N" * left_pad), seq, self.nuc2bin("N" * right_pad))
+            (
+                EasyHLA.nuc2bin("N" * left_pad),
+                seq,
+                EasyHLA.nuc2bin("N" * right_pad),
+            )
         )
         return short_padded_array
 
-    def std_match(self, std: np.ndarray, seq: np.ndarray) -> int:
+    @staticmethod
+    def std_match(std: np.ndarray, seq: np.ndarray) -> int:
         """
         Compare an HLA standard against an incoming sequence.
 
@@ -412,8 +420,8 @@ class EasyHLA:
         mismatches = np.count_nonzero(masked_array == 0)
         return mismatches
 
+    @staticmethod
     def get_matching_stds(
-        self,
         seq: np.ndarray,
         hla_stds: list[HLAStandard],
         mismatch_threshold: int = 5,
@@ -421,7 +429,7 @@ class EasyHLA:
         # Returns [ ["std_name", [1,2,3,4], num_mismatches], ["std_name2", [2,3,4,5], num_mismatches2]]
         matching_stds: list[HLAStandardMatch] = []
         for std in hla_stds:
-            mismatches = self.std_match(std.sequence, seq)
+            mismatches = EasyHLA.std_match(std.sequence, seq)
             if mismatches < mismatch_threshold:
                 matching_stds.append(
                     HLAStandardMatch(
@@ -430,11 +438,11 @@ class EasyHLA:
                 )
         return matching_stds
 
+    @staticmethod
     def combine_standards_helper(
-        self,
         matching_stds: Sequence[HLAStandardMatch],
         seq: list[int],
-        mismatch_threshold: Optional[int] = None,
+        mismatch_threshold: int = 0,
     ) -> dict[tuple[int, ...], tuple[int, list[tuple[str, str]]]]:
         """
         Helper to identify "good" combined standards for the specified sequence.
@@ -442,20 +450,16 @@ class EasyHLA:
         Returns a mapping:
         binary sequence tuple -|-> (mismatch count, allele pair list)
 
-        This mapping will contain "good" combined standards: it will definitely
-        contain the best-matching combined standard(s), and if
-        mismatch_threshold is an integer, it will also contain any combined
-        standards which have fewer mismatches than the threshold.  It may also
-        contain other combined standards, which will be winnowed out by the
-        calling function.
+        This mapping will contain "good" combined standards.  It will always
+        contain the best-matching combined standard(s).  If mismatch_threshold
+        is 0, then we only care about the best match; if mismatch_threshold is a
+        positive integer, it will also contain any combined standards which have
+        fewer mismatches than the threshold.
+
+        The result may also contain other combined standards, which will be
+        winnowed out by the calling function.
         """
         combos: dict[tuple[int, ...], tuple[int, list[tuple[str, str]]]] = {}
-
-        if mismatch_threshold is None:
-            # We only care about the best match, so we set this threshold
-            # so that it never forces the rejection threshold to stay above
-            # the current best match.
-            mismatch_threshold = 0
 
         current_rejection_threshold: int = float("inf")
         for std_ai, std_a in enumerate(matching_stds):
@@ -487,8 +491,8 @@ class EasyHLA:
                     current_rejection_threshold = max(mismatches, mismatch_threshold)
         return combos
 
+    @staticmethod
     def combine_standards(
-        self,
         matching_stds: Sequence[HLAStandardMatch],
         seq: list[int],
         mismatch_threshold: Optional[int] = None,
@@ -514,8 +518,14 @@ class EasyHLA:
         all combined standards with mismatch counts up to and including the
         threshold.
         """
+        if mismatch_threshold is None:
+            # We only care about the best match, so we set this threshold
+            # so that it never forces the rejection threshold to stay above
+            # the current best match.
+            mismatch_threshold = 0
+
         combos: dict[tuple[int, ...], tuple[int, list[tuple[str, str]]]] = (
-            self.combine_standards_helper(
+            EasyHLA.combine_standards_helper(
                 matching_stds,
                 seq,
                 mismatch_threshold,
@@ -536,15 +546,15 @@ class EasyHLA:
 
             if mismatch_count <= cutoff:
                 combined_std: HLACombinedStandard = HLACombinedStandard(
-                    standard=combined_std_bin,
+                    standard_bin=combined_std_bin,
                     possible_allele_pairs=tuple(pair_list),
                 )
                 result[combined_std] = mismatch_count
 
         return result
 
+    @staticmethod
     def pair_exons_helper(
-        self,
         sequence_record: Bio.SeqIO.SeqRecord,
         unmatched: dict[EXON_NAME, dict[str, Bio.SeqIO.SeqRecord]],
     ) -> Optional[tuple[str, bool, bool, str, str]]:

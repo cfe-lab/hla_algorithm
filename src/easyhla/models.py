@@ -121,35 +121,35 @@ class AllelePairs(BaseModel):
     @staticmethod
     def _allele_coordinates(
         allele: str,
-        remove_subtype: bool = False,
+        digits_only: bool = False,
     ) -> list[str]:
         """
         Convert an allele string into a list of coordinates.
 
-        For example, allele "A*01:23:45" gets converted to
-        ["A*01", "23", "45"] or ["01", "23", "45] depending on the value of
-        remove_subtype.
+        For example, allele "A*01:23:45N" gets converted to
+        ["A*01", "23", "45N"] or ["01", "23", "45] depending on the value of
+        digits_only.
         """
         clean_allele_str: str = allele
-        if remove_subtype:
+        if digits_only:
             clean_allele_str = re.sub(r"[^\d:]", "", allele)
         return clean_allele_str.strip().split(":")
 
     def get_paired_gene_coordinates(
-        self, remove_subtype: bool = False
+        self, digits_only: bool = False
     ) -> list[tuple[list[str], list[str]]]:
         """
-        Retrieve a list of gene coordinates for all alleles in the collection.
+        Retrieve paired lists of gene coordinates for all allele pairs in the collection.
 
         For example, if the allele were "A*01:23:45 - A*98:76", this
-        would be converted to (["A*01", "23", "45"], ["A*98", "76"]).
-        If remove_subtype is True, then "A*01" would simply be "01",
-        and "A*98" would be "98".
+        would be converted to (["A*01", "23", "45"], ["A*98", "76N"]).
+        If digits_only is True, then "A*01" would simply be "01",
+        "A*98" would be "98", and "76N" would be "76".
         """
         return [
             (
-                self._allele_coordinates(allele_pair[0], remove_subtype),
-                self._allele_coordinates(allele_pair[1], remove_subtype),
+                self._allele_coordinates(allele_pair[0], digits_only),
+                self._allele_coordinates(allele_pair[1], digits_only),
             )
             for allele_pair in self.allele_pairs
         ]
@@ -166,7 +166,7 @@ class AllelePairs(BaseModel):
         """
         return {
             f"{'|'.join(e[0][0:2])},{'|'.join(e[1][0:2])}"
-            for e in self.get_paired_gene_coordinates(remove_subtype=True)
+            for e in self.get_paired_gene_coordinates(True)
         }
 
     @staticmethod
