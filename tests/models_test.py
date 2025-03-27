@@ -5,92 +5,6 @@ from easyhla.models import AllelePairs, HLACombinedStandard, HLAMismatch, HLAPro
 
 class TestModels:
     @pytest.mark.parametrize(
-        "raw_alleles, frequencies, exp_result",
-        [
-            (
-                [
-                    ("A*11:01", "A*26:01"),
-                    ("A*11:01", "A*26:01"),
-                    ("A*11:19", "A*26:13"),
-                ],
-                {},
-                [
-                    ("A*11:01", "A*26:01"),
-                    ("A*11:01", "A*26:01"),
-                    ("A*11:19", "A*26:13"),
-                ],
-            ),
-            (
-                [
-                    ("A*11:01", "A*26:01"),
-                    ("A*11:40", "A*23:01"),
-                ],
-                {},
-                [("A*11:01", "A*26:01")],
-            ),
-            (
-                [
-                    ("A*11:01", "A*12:01"),
-                    ("A*11:01", "A*12:01"),
-                    ("A*11:40", "A*13:01"),
-                ],
-                {
-                    HLAProteinPair(
-                        first_field_1="11",
-                        first_field_2="40",
-                        second_field_1="13",
-                        second_field_2="01",
-                    ): 4,
-                    HLAProteinPair(
-                        first_field_1="11",
-                        first_field_2="01",
-                        second_field_1="12",
-                        second_field_2="01",
-                    ): 2,
-                },
-                [("A*11:40", "A*13:01")],
-            ),
-            (
-                [
-                    ("A*11:01", "A*12:01"),
-                    ("A*13:01", "A*12:44"),
-                    ("A*13:40", "A*12:01"),
-                ],
-                {
-                    HLAProteinPair(
-                        first_field_1="11",
-                        first_field_2="01",
-                        second_field_1="12",
-                        second_field_2="01",
-                    ): 1,
-                    HLAProteinPair(
-                        first_field_1="13",
-                        first_field_2="01",
-                        second_field_1="12",
-                        second_field_2="44",
-                    ): 0,
-                    HLAProteinPair(
-                        first_field_1="13",
-                        first_field_2="40",
-                        second_field_1="12",
-                        second_field_2="01",
-                    ): 10,
-                },
-                [("A*13:01", "A*12:44"), ("A*13:40", "A*12:01")],
-            ),
-        ],
-    )
-    def test_get_unambiguous_allele_set(
-        self,
-        raw_alleles: list[tuple[str, str]],
-        frequencies: dict[HLAProteinPair, int],
-        exp_result: list[tuple[str, str]],
-    ):
-        allele_pairs = AllelePairs(allele_pairs=raw_alleles)
-        result = allele_pairs.get_unambiguous_allele_pairs(frequencies)
-        assert result == exp_result
-
-    @pytest.mark.parametrize(
         "allele_pairs, frequencies, exp_result_clean, exp_homozygous, exp_ambiguous, exp_proteins_as_strings, exp_gene_coordinates",
         [
             (
@@ -542,6 +456,92 @@ class TestAllelePairs:
     ):
         ap: AllelePairs = AllelePairs(allele_pairs=raw_allele_pairs)
         assert ap.is_ambiguous() == expected_result
+
+    @pytest.mark.parametrize(
+        "raw_alleles, frequencies, exp_result",
+        [
+            (
+                [
+                    ("A*11:01", "A*26:01"),
+                    ("A*11:01", "A*26:01"),
+                    ("A*11:19", "A*26:13"),
+                ],
+                {},
+                [
+                    ("A*11:01", "A*26:01"),
+                    ("A*11:01", "A*26:01"),
+                    ("A*11:19", "A*26:13"),
+                ],
+            ),
+            (
+                [
+                    ("A*11:01", "A*26:01"),
+                    ("A*11:40", "A*23:01"),
+                ],
+                {},
+                [("A*11:01", "A*26:01")],
+            ),
+            (
+                [
+                    ("A*11:01", "A*12:01"),
+                    ("A*11:01", "A*12:01"),
+                    ("A*11:40", "A*13:01"),
+                ],
+                {
+                    HLAProteinPair(
+                        first_field_1="11",
+                        first_field_2="40",
+                        second_field_1="13",
+                        second_field_2="01",
+                    ): 4,
+                    HLAProteinPair(
+                        first_field_1="11",
+                        first_field_2="01",
+                        second_field_1="12",
+                        second_field_2="01",
+                    ): 2,
+                },
+                [("A*11:40", "A*13:01")],
+            ),
+            (
+                [
+                    ("A*11:01", "A*12:01"),
+                    ("A*13:01", "A*12:44"),
+                    ("A*13:40", "A*12:01"),
+                ],
+                {
+                    HLAProteinPair(
+                        first_field_1="11",
+                        first_field_2="01",
+                        second_field_1="12",
+                        second_field_2="01",
+                    ): 1,
+                    HLAProteinPair(
+                        first_field_1="13",
+                        first_field_2="01",
+                        second_field_1="12",
+                        second_field_2="44",
+                    ): 0,
+                    HLAProteinPair(
+                        first_field_1="13",
+                        first_field_2="40",
+                        second_field_1="12",
+                        second_field_2="01",
+                    ): 10,
+                },
+                [("A*13:01", "A*12:44"), ("A*13:40", "A*12:01")],
+            ),
+        ],
+    )
+    def test_get_unambiguous_allele_pairs(
+        self,
+        raw_alleles: list[tuple[str, str]],
+        frequencies: dict[HLAProteinPair, int],
+        exp_result: list[tuple[str, str]],
+    ):
+        allele_pairs = AllelePairs(allele_pairs=raw_alleles)
+        result = allele_pairs.get_unambiguous_allele_pairs(frequencies)
+        assert result == exp_result
 
     @pytest.mark.parametrize(
         "combined_standards, exp_ambig, exp_alleles",
