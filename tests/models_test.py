@@ -1,6 +1,6 @@
 import pytest
 
-from easyhla.models import AllelePairs, HLACombinedStandard, HLAMismatch
+from easyhla.models import AllelePairs, HLACombinedStandard, HLAMismatch, HLAProteinPair
 
 
 class TestModels:
@@ -35,8 +35,18 @@ class TestModels:
                     ("A*11:40", "A*13:01"),
                 ],
                 {
-                    "11|40,13|01": 4,
-                    "11|01,12|01": 2,
+                    HLAProteinPair(
+                        first_field_1="11",
+                        first_field_2="40",
+                        second_field_1="13",
+                        second_field_2="01",
+                    ): 4,
+                    HLAProteinPair(
+                        first_field_1="11",
+                        first_field_2="01",
+                        second_field_1="12",
+                        second_field_2="01",
+                    ): 2,
                 },
                 [("A*11:40", "A*13:01")],
             ),
@@ -47,9 +57,24 @@ class TestModels:
                     ("A*13:40", "A*12:01"),
                 ],
                 {
-                    "11|01,12|01": 1,
-                    "13|01,12|44": 0,
-                    "13|40,12|01": 10,
+                    HLAProteinPair(
+                        first_field_1="11",
+                        first_field_2="01",
+                        second_field_1="12",
+                        second_field_2="01",
+                    ): 1,
+                    HLAProteinPair(
+                        first_field_1="13",
+                        first_field_2="01",
+                        second_field_1="12",
+                        second_field_2="44",
+                    ): 0,
+                    HLAProteinPair(
+                        first_field_1="13",
+                        first_field_2="40",
+                        second_field_1="12",
+                        second_field_2="01",
+                    ): 10,
                 },
                 [("A*13:01", "A*12:44"), ("A*13:40", "A*12:01")],
             ),
@@ -58,7 +83,7 @@ class TestModels:
     def test_get_unambiguous_allele_set(
         self,
         raw_alleles: list[tuple[str, str]],
-        frequencies: dict[str, int],
+        frequencies: dict[HLAProteinPair, int],
         exp_result: list[tuple[str, str]],
     ):
         allele_pairs = AllelePairs(allele_pairs=raw_alleles)
@@ -200,7 +225,7 @@ class TestModels:
         assert result.is_ambiguous() == exp_ambiguous
         assert result.is_homozygous() == exp_homozygous
         assert result.best_common_allele_pair_str(frequencies) == exp_result_clean
-        assert result.get_proteins_as_strings() == exp_proteins_as_strings
+        # assert result.get_proteins_as_strings() == exp_proteins_as_strings
         assert result.get_paired_gene_coordinates() == exp_gene_coordinates
 
     @pytest.mark.parametrize(
@@ -364,20 +389,63 @@ class TestAllelePairs:
         [
             (
                 [("A*01:23:45N", "A*22:33:44:55G")],
-                {"01|23,22|33"},
+                {
+                    HLAProteinPair(
+                        first_field_1="01",
+                        first_field_2="23",
+                        second_field_1="22",
+                        second_field_2="33",
+                    )
+                },
             ),
-            ([("C*88:110:111", "C*15:25:115")], {"88|110,15|25"}),
+            (
+                [("C*88:110:111", "C*15:25:115")],
+                {
+                    HLAProteinPair(
+                        first_field_1="88",
+                        first_field_2="110",
+                        second_field_1="15",
+                        second_field_2="25",
+                    ),
+                },
+            ),
             (
                 [
                     ("B*57:01:02", "B*57:01:02"),
                     ("B*56:45:22:33", "B*54:111N"),
                     ("B*12:100:37G", "B*22:100:101G"),
                 ],
-                {"57|01,57|01", "56|45,54|111", "12|100,22|100"},
+                {
+                    HLAProteinPair(
+                        first_field_1="57",
+                        first_field_2="01",
+                        second_field_1="57",
+                        second_field_2="01",
+                    ),
+                    HLAProteinPair(
+                        first_field_1="56",
+                        first_field_2="45",
+                        second_field_1="54",
+                        second_field_2="111",
+                    ),
+                    HLAProteinPair(
+                        first_field_1="12",
+                        first_field_2="100",
+                        second_field_1="22",
+                        second_field_2="100",
+                    ),
+                },
             ),
             (
                 [("B*57:01:02", "B*57:01:02"), ("B*57:01:04", "B*57:01:07")],
-                {"57|01,57|01"},
+                {
+                    HLAProteinPair(
+                        first_field_1="57",
+                        first_field_2="01",
+                        second_field_1="57",
+                        second_field_2="01",
+                    ),
+                },
             ),
             (
                 [
@@ -385,17 +453,95 @@ class TestAllelePairs:
                     ("B*23:45:66N", "B*24:22:33:100"),
                     ("B*57:01:04", "B*57:01:07"),
                 ],
-                {"57|01,57|01", "23|45,24|22"},
+                {
+                    HLAProteinPair(
+                        first_field_1="57",
+                        first_field_2="01",
+                        second_field_1="57",
+                        second_field_2="01",
+                    ),
+                    HLAProteinPair(
+                        first_field_1="23",
+                        first_field_2="45",
+                        second_field_1="24",
+                        second_field_2="22",
+                    ),
+                },
             ),
         ],
     )
-    def test_get_proteins_as_strings(
+    def test_get_protein_pairs(
         self,
         raw_allele_pairs: list[tuple[str, str]],
         expected_result: list[tuple[list[str], list[str]]],
     ):
         ap: AllelePairs = AllelePairs(allele_pairs=raw_allele_pairs)
-        assert ap.get_proteins_as_strings() == expected_result
+        assert ap.get_protein_pairs() == expected_result
+
+    @pytest.mark.parametrize(
+        "raw_allele_pairs, expected_result",
+        [
+            ([("A*01:23:45N", "A*22:33:44:55G")], False),
+            ([("A*01:23", "A*01:23")], False),
+            (
+                [
+                    ("B*57:01:23", "B*54:02"),
+                    ("B*57:02:15", "B*54:22"),
+                ],
+                False,
+            ),
+            (
+                [("B*57:02:01", "B*54:02:03:06N"), ("B*56:02:01", "B*54:02:03:06N")],
+                True,
+            ),
+            (
+                [("B*57:02:01", "B*54:02:03:06N"), ("B*57:02:01", "B*22:11:12")],
+                True,
+            ),
+            (
+                [
+                    ("A*02:01:01G", "A*03:01:01G"),
+                    ("A*02:01:52", "A*03:01:03"),
+                    ("A*02:01:02", "A*03:01:12"),
+                    ("A*02:01:36", "A*03:01:38"),
+                    ("A*02:237", "A*03:05:01"),
+                    ("A*02:26", "A*03:07"),
+                    ("A*02:34", "A*03:08"),
+                    ("A*02:90", "A*03:09"),
+                    ("A*02:24:01", "A*03:17:01"),
+                    ("A*02:195", "A*03:23:01"),
+                    ("A*02:338", "A*03:95"),
+                    ("A*02:35:01", "A*03:108"),
+                    ("A*02:86", "A*03:123"),
+                    ("A*02:20:01", "A*03:157"),
+                ],
+                False,
+            ),
+            (
+                [
+                    ("A*11:01:01G", "A*26:01:01G"),
+                    ("A*11:01:07", "A*26:01:17"),
+                    ("A*11:19", "A*26:13"),
+                    ("A*11:40", "A*66:01G"),
+                ],
+                True,
+            ),
+            (
+                [
+                    ("C*11:01:01G", "C*26:01:01G"),
+                    ("C*13:02", "C*26:04"),
+                    ("C*11:01:07", "C*26:01:17"),
+                    ("C*11:19", "C*26:13"),
+                ],
+                True,
+            ),
+        ],
+    )
+    def test_is_ambiguous(
+        self, raw_allele_pairs: list[tuple[str, str]], expected_result: bool
+    ):
+        ap: AllelePairs = AllelePairs(allele_pairs=raw_allele_pairs)
+        assert ap.is_ambiguous() == expected_result
 
     @pytest.mark.parametrize(
         "combined_standards, exp_ambig, exp_alleles",

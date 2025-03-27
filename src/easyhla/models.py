@@ -1,5 +1,6 @@
 import re
 from collections.abc import Iterable
+from operator import itemgetter
 
 import numpy as np
 import pydantic_numpy.typing as pnd
@@ -82,6 +83,31 @@ class HLAMatchDetails(BaseModel):
     mismatches: list[HLAMismatch]
 
 
+class HLAProteinPair(BaseModel):
+    # Allows this to be hashable:
+    model_config = ConfigDict(frozen=True)
+
+    first_field_1: str
+    first_field_2: str
+    second_field_1: str
+    second_field_2: str
+
+    def __lt__(self, other: "HLAProteinPair") -> bool:
+        me_tuple: tuple[int, int, int, int] = (
+            self.first_field_1,
+            self.first_field_2,
+            self.second_field_1,
+            self.second_field_2,
+        )
+        other_tuple: tuple[int, int, int, int] = (
+            other.first_field_1,
+            other.first_field_2,
+            other.second_field_1,
+            other.second_field_2,
+        )
+        return me_tuple < other_tuple
+
+
 class AllelePairs(BaseModel):
     allele_pairs: list[tuple[str, str]]
 
@@ -154,51 +180,29 @@ class AllelePairs(BaseModel):
             for allele_pair in self.allele_pairs
         ]
 
-    def get_proteins_as_strings(self) -> set[str]:
+    def get_protein_pairs(self) -> set[HLAProteinPair]:
         """
         Gets the allele groups and proteins of each pair of alleles.
 
-        For example, the allele pair "A*01:23:45 - A*98:76" becomes
-        "01|23,98|76".
+        For example, the allele pair "A*01:23:45 - A*98:76" would be
+        represented by 01:23 and 98:76.
 
         :return: _description_
         :rtype: set[str, int]
         """
         return {
-            f"{'|'.join(e[0][0:2])},{'|'.join(e[1][0:2])}"
+            HLAProteinPair(
+                first_field_1=e[0][0],
+                first_field_2=e[0][1],
+                second_field_1=e[1][0],
+                second_field_2=e[1][1],
+            )
             for e in self.get_paired_gene_coordinates(True)
         }
 
-    @staticmethod
-    def sort_allele_tuple(
-        allele_pair: str,
-        frequency: int,
-    ) -> tuple[int, int, int, int, int]:
-        """
-        Produce a tuple from an allele pair and frequency to allow sorting.
-        """
-        first_allele: str
-        second_allele: str
-        first_allele, second_allele = allele_pair.split(",")
-
-        first_group: int
-        first_protein: int
-        first_group, first_protein = (int(x) for x in first_allele.split("|"))
-
-        second_group: int
-        second_protein: int
-        second_group, second_protein = (int(x) for x in second_allele.split("|"))
-        return (
-            frequency,
-            -first_group,
-            -first_protein,
-            -second_group,
-            -second_protein,
-        )
-
     def get_unambiguous_allele_pairs(
         self,
-        frequencies: dict[str, int],
+        frequencies: dict[HLAProteinPair, int],
     ) -> list[tuple[str, str]]:
         """
         Filter the allele pairs to an unambiguous set.
@@ -222,27 +226,19 @@ class AllelePairs(BaseModel):
         :rtype: list[tuple[str,str]]
         """
 
-        collection_ambig: dict[str, int] = {}
-        for proteins in self.get_proteins_as_strings():
-            collection_ambig[proteins] = frequencies.get(proteins, 0)
+        protein_pairs_and_frequencies: list[tuple[HLAProteinPair, int]] = []
+        for protein_pair in self.get_protein_pairs():
+            protein_pairs_and_frequencies.append(
+                (protein_pair, frequencies.get(protein_pair, 0))
+            )
+        # First, sort by protein pair, ascending:
+        protein_pairs_and_frequencies.sort(key=itemgetter(0))
+        # Then, sort by frequency, descending:
+        protein_pairs_and_frequencies.sort(key=itemgetter(1), reverse=True)
+        best_pair: HLAProteinPair = protein_pairs_and_frequencies[0][0]
 
-        preferred_allele_pairs = sorted(
-            collection_ambig.items(),
-            key=lambda item: self.sort_allele_tuple(item[0], item[1]),
-            reverse=True,
-        )
-        top_allele: str
-        count: int
-        top_allele, count = preferred_allele_pairs[0]
-
-        # top_allele looks like "12|34,90|32".
-        allele_1_str: str
-        allele_2_str: str
-        allele_1_str, allele_2_str = top_allele.split(",")
-        a1 = allele_1_str.split("|")[0]
-        a2 = allele_2_str.split("|")[0]
-        regex_str_a1 = f"^[ABCabc]\\*({a1}):([^\\s])+"
-        regex_str_a2 = f"^[ABCabc]\\*({a2}):([^\\s])+"
+        regex_str_a1 = f"^[ABCabc]\\*({best_pair.first_field_1}):([^\\s])+"
+        regex_str_a2 = f"^[ABCabc]\\*({best_pair.second_field_1}):([^\\s])+"
         reduced_set: list[tuple[str, str]] = []
         for allele_1, allele_2 in self.allele_pairs:
             if re.match(regex_str_a1, allele_1) and re.match(regex_str_a2, allele_2):
@@ -252,7 +248,7 @@ class AllelePairs(BaseModel):
 
     def best_common_allele_pair_str(
         self,
-        frequencies: dict[str, int],
+        frequencies: dict[HLAProteinPair, int],
     ) -> str:
         """
         Produce a string representation of the "best common allele pair".

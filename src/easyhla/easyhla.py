@@ -15,6 +15,7 @@ from .models import (
     HLAInterpretation,
     HLAMatchDetails,
     HLAMismatch,
+    HLAProteinPair,
     HLASequence,
     HLAStandard,
     HLAStandardMatch,
@@ -119,7 +120,7 @@ class EasyHLA:
         self.hla_stds: list[HLAStandard] = self.load_hla_stds(
             hla_standards=hla_standards,
         )
-        self.hla_freqs: dict[str, int] = self.load_hla_frequencies(
+        self.hla_freqs: dict[HLAProteinPair, int] = self.load_hla_frequencies(
             hla_frequencies=hla_frequencies,
         )
         self.last_modified_time: datetime
@@ -131,7 +132,7 @@ class EasyHLA:
     def load_hla_frequencies(
         self,
         hla_frequencies: Optional[TextIOBase] = None,
-    ) -> dict[str, int]:
+    ) -> dict[HLAProteinPair, int]:
         """
         Load HLA frequencies from reference file.
 
@@ -140,16 +141,10 @@ class EasyHLA:
         "AA|BB,CC|DD", we then count the number of times this key appears in our
         columns.
 
-        Implementation Note: This will eventually be consumed by a regex
-        function! In the original ruby script we would output a hash similar to
-        `{ ["AA|BB", "CC|DD"] => 0 }`, but Python does not support lists as keys
-        in dict objects. If using this dict for regex you will need to perform a
-        `.split(',')` on the key.
-
         :return: Lookup table of HLA frequencies.
-        :rtype: dict[str, int]
+        :rtype: dict[HLAProteinPair, int]
         """
-        hla_freqs: dict[str, int] = {}
+        hla_freqs: dict[HLAProteinPair, int] = {}
 
         freqs_io: TextIOBase = hla_frequencies
         default_freqs_used: bool = False
@@ -169,10 +164,16 @@ class EasyHLA:
             for line in freqs_io.readlines():
                 column_id = EasyHLA.COLUMN_IDS[self.locus]
                 line_array = line.strip().split(",")[column_id : column_id + 2]
-                elements = ",".join([f"{a[:2]}|{a[-2:]}" for a in line_array])
-                if hla_freqs.get(elements, None) is None:
-                    hla_freqs[elements] = 0
-                hla_freqs[elements] += 1
+
+                protein_pair: HLAProteinPair = HLAProteinPair(
+                    first_field_1=line_array[0][0:2],
+                    first_field_2=line_array[0][2:4],
+                    second_field_1=line_array[1][0:2],
+                    second_field_2=line_array[1][2:4],
+                )
+                if hla_freqs.get(protein_pair, None) is None:
+                    hla_freqs[protein_pair] = 0
+                hla_freqs[protein_pair] += 1
         finally:
             if default_freqs_used:
                 freqs_io.close()

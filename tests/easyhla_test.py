@@ -9,6 +9,7 @@ import pytz
 from easyhla.easyhla import DATE_FORMAT, EXON_NAME, EasyHLA
 from easyhla.models import (
     HLACombinedStandard,
+    HLAProteinPair,
     HLAStandard,
     HLAStandardMatch,
 )
@@ -39,7 +40,7 @@ def hla_frequency_file(tmp_path: Path):
     d = tmp_path / "hla_std"
     d.mkdir()
     p = d / "hla_freq.csv"
-    p.write_text("ABCD,1234,ABCD,1234,ABCD,1234")
+    p.write_text("2233,1423,5701,5703,4043,2529")
 
     return str(p)
 
@@ -464,6 +465,19 @@ class TestEasyHLADiscreteHLALocusA:
             with pytest.raises(ValueError):
                 easyhla.check_length(seq=sequence, name=name)
 
+    def test_load_hla_freqs(self, easyhla, hla_frequency_file, mocker):
+        mocker.patch.object(os.path, "join", return_value=hla_frequency_file)
+        exp_result = {
+            HLAProteinPair(
+                first_field_1="22",
+                first_field_2="33",
+                second_field_1="14",
+                second_field_2="23",
+            ): 1,
+        }
+        result = easyhla.load_hla_frequencies()
+        assert result == exp_result
+
 
 @pytest.mark.parametrize("easyhla", ["B"], indirect=True)
 class TestEasyHLADiscreteHLALocusB:
@@ -521,6 +535,19 @@ class TestEasyHLADiscreteHLALocusB:
             with pytest.raises(ValueError):
                 easyhla.check_length(seq=sequence, name=name)
 
+    def test_load_hla_freqs(self, easyhla, hla_frequency_file, mocker):
+        mocker.patch.object(os.path, "join", return_value=hla_frequency_file)
+        exp_result = {
+            HLAProteinPair(
+                first_field_1="57",
+                first_field_2="01",
+                second_field_1="57",
+                second_field_2="03",
+            ): 1,
+        }
+        result = easyhla.load_hla_frequencies()
+        assert result == exp_result
+
 
 @pytest.mark.parametrize("easyhla", ["C"], indirect=True)
 class TestEasyHLADiscreteHLALocusC:
@@ -577,6 +604,19 @@ class TestEasyHLADiscreteHLALocusC:
         else:
             with pytest.raises(ValueError):
                 easyhla.check_length(seq=sequence, name=name)
+
+    def test_load_hla_freqs(self, easyhla, hla_frequency_file, mocker):
+        mocker.patch.object(os.path, "join", return_value=hla_frequency_file)
+        exp_result = {
+            HLAProteinPair(
+                first_field_1="40",
+                first_field_2="43",
+                second_field_1="25",
+                second_field_2="29",
+            ): 1,
+        }
+        result = easyhla.load_hla_frequencies()
+        assert result == exp_result
 
     # @pytest.mark.integration
     # def test_run(self, easyhla: EasyHLA):
@@ -825,13 +865,6 @@ class TestEasyHLA:
         ]
 
         result = easyhla.load_hla_stds()
-        assert result == exp_result
-
-    def test_load_hla_freqs(self, easyhla, hla_frequency_file, mocker):
-        mocker.patch.object(os.path, "join", return_value=hla_frequency_file)
-        exp_result = {"AB|CD,12|34": 1}
-
-        result = easyhla.load_hla_frequencies()
         assert result == exp_result
 
     @pytest.mark.parametrize(
