@@ -7,8 +7,6 @@ import pydantic_numpy.typing as pnd
 from pydantic import BaseModel, ConfigDict
 from pydantic_numpy.model import NumpyModel
 
-ALLELES_MAX_REPORTABLE_STRING: int = 3900
-
 
 class HLASequence(NumpyModel):
     two: str
@@ -253,14 +251,18 @@ class AllelePairs(BaseModel):
         """
         Produce a string representation of the "best common allele pair".
 
-        Example:
+        The allele pairs are filtered to an unambiguous set (using the specified
+        frequencies to determine which ones to retain).  Then, the "best common
+        coordinates" for all the remaining allele allele pairs are used to build
+        a string representation of the set.
+
+        Example: if, after filtering, the allele pairs remaining are:
         ```
         [   [A*11:02:01, A*12:01],
             [A*11:02:02, A*12:02],
             [A*11:02:03, A*12:03]   ]
         ```
-
-        We expect to get `A*11:02 - A*12`
+        we expect to get `A*11:02 - A*12`.
 
         :return: A string representing the best common allele pair.
         :rtype: str
@@ -292,25 +294,23 @@ class AllelePairs(BaseModel):
         clean_allele_pair_str: str = " - ".join(clean_allele)
         return clean_allele_pair_str
 
-    def stringify(self) -> str:
+    def stringify(self, max_length: int = 3900) -> str:
         """
         Produce a final outputtable string.
 
-        If the string exceeds EasyHLA.ALLELES_MAX_REPORTABLE_STRING, it will be
+        If the string exceeds max_length, it will be
         truncated.
 
         :return: ...
         :rtype: str
         """
-        summary_str = ";".join([f"{_a[0]} - {_a[1]}" for _a in self.allele_pairs])
-
-        if len(summary_str) > ALLELES_MAX_REPORTABLE_STRING:
+        summary_str: str = ";".join([f"{_a[0]} - {_a[1]}" for _a in self.allele_pairs])
+        if len(summary_str) > max_length:
             summary_str = re.sub(
                 r";[^;]+$",
                 ";...TRUNCATED",
-                summary_str[: ALLELES_MAX_REPORTABLE_STRING + 20],
+                summary_str[: max_length + 20],
             )
-
         return summary_str
 
     @classmethod

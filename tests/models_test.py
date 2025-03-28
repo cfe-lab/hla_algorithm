@@ -1,169 +1,15 @@
+import numpy
 import pytest
 
-from easyhla.models import AllelePairs, HLACombinedStandard, HLAMismatch, HLAProteinPair
-
-
-class TestModels:
-    @pytest.mark.parametrize(
-        "allele_pairs, frequencies, exp_result_clean, exp_homozygous, exp_ambiguous, exp_proteins_as_strings, exp_gene_coordinates",
-        [
-            (
-                [
-                    ("A*02:01", "A*03:01"),
-                    ("A*02:01", "A*03:01"),
-                    ("A*02:01", "A*03:01"),
-                    ("A*02:01", "A*03:01"),
-                    ("A*02:237", "A*03:05"),
-                    ("A*02:26", "A*03:07"),
-                    ("A*02:34", "A*03:08"),
-                    ("A*02:90", "A*03:09"),
-                    ("A*02:24", "A*03:17"),
-                    ("A*02:195", "A*03:23"),
-                    ("A*02:338", "A*03:95"),
-                    ("A*02:35", "A*03:108"),
-                    ("A*02:86", "A*03:123"),
-                    ("A*02:20", "A*03:157"),
-                ],
-                {},
-                "A*02 - A*03",
-                False,
-                False,
-                {
-                    "02|01,03|01",
-                    "02|237,03|05",
-                    "02|26,03|07",
-                    "02|34,03|08",
-                    "02|90,03|09",
-                    "02|24,03|17",
-                    "02|195,03|23",
-                    "02|338,03|95",
-                    "02|35,03|108",
-                    "02|86,03|123",
-                    "02|20,03|157",
-                },
-                [
-                    (["A*02", "01"], ["A*03", "01"]),
-                    (["A*02", "01"], ["A*03", "01"]),
-                    (["A*02", "01"], ["A*03", "01"]),
-                    (["A*02", "01"], ["A*03", "01"]),
-                    (["A*02", "237"], ["A*03", "05"]),
-                    (["A*02", "26"], ["A*03", "07"]),
-                    (["A*02", "34"], ["A*03", "08"]),
-                    (["A*02", "90"], ["A*03", "09"]),
-                    (["A*02", "24"], ["A*03", "17"]),
-                    (["A*02", "195"], ["A*03", "23"]),
-                    (["A*02", "338"], ["A*03", "95"]),
-                    (["A*02", "35"], ["A*03", "108"]),
-                    (["A*02", "86"], ["A*03", "123"]),
-                    (["A*02", "20"], ["A*03", "157"]),
-                ],
-            ),
-            (
-                [
-                    ("A*11:01", "A*26:01"),
-                    ("A*11:01", "A*26:01"),
-                    ("A*11:19", "A*26:13"),
-                ],
-                {},
-                "A*11 - A*26",
-                False,
-                False,
-                {"11|01,26|01", "11|19,26|13"},
-                [
-                    (["A*11", "01"], ["A*26", "01"]),
-                    (["A*11", "01"], ["A*26", "01"]),
-                    (["A*11", "19"], ["A*26", "13"]),
-                ],
-            ),
-            (
-                [
-                    ("A*11:01", "A*26:01"),
-                    ("A*11:40", "A*26:01G"),
-                ],
-                {},
-                "A*11 - A*26",
-                False,
-                False,
-                {"11|01,26|01", "11|40,26|01"},
-                [
-                    (["A*11", "01"], ["A*26", "01"]),
-                    (["A*11", "40"], ["A*26", "01G"]),
-                ],
-            ),
-            (
-                [
-                    ("A*11:01", "A*11:01"),
-                    ("A*11:40", "A*11:01G"),
-                ],
-                {},
-                "A*11 - A*11",
-                True,
-                False,
-                {"11|01,11|01", "11|40,11|01"},
-                [
-                    (["A*11", "01"], ["A*11", "01"]),
-                    (["A*11", "40"], ["A*11", "01G"]),
-                ],
-            ),
-            (
-                [
-                    ("A*11:01", "A*12:01"),
-                    ("A*11:01", "A*12:01"),
-                    ("A*11:40", "A*13:01"),
-                ],
-                {"11|01,12|01": 15},
-                "A*11:01 - A*12:01",
-                False,
-                True,
-                {"11|01,12|01", "11|40,13|01"},
-                [
-                    (["A*11", "01"], ["A*12", "01"]),
-                    (["A*11", "01"], ["A*12", "01"]),
-                    (["A*11", "40"], ["A*13", "01"]),
-                ],
-            ),
-        ],
-    )
-    def test_alleles(
-        self,
-        allele_pairs: list[tuple[str, str]],
-        frequencies: dict[str, int],
-        exp_result_clean: list[str],
-        exp_homozygous: bool,
-        exp_ambiguous: bool,
-        exp_proteins_as_strings: set[str],
-        exp_gene_coordinates: list[tuple[list[str], list[str]]],
-    ):
-        result = AllelePairs(allele_pairs=allele_pairs)
-
-        assert result.is_ambiguous() == exp_ambiguous
-        assert result.is_homozygous() == exp_homozygous
-        assert result.best_common_allele_pair_str(frequencies) == exp_result_clean
-        # assert result.get_proteins_as_strings() == exp_proteins_as_strings
-        assert result.get_paired_gene_coordinates() == exp_gene_coordinates
-
-    @pytest.mark.parametrize(
-        "allele_pairs, exp_result",
-        [
-            (
-                [(f"A*{i:04}:02", f"B*{i:04}:01") for i in range(1000)],
-                (
-                    ";".join([f"A*{i:04}:02 - B*{i:04}:01" for i in range(178)])
-                    + ";...TRUNCATED"
-                ),
-            ),
-            (
-                [(f"A*{i:04}:02", f"B*{i:04}:01") for i in range(100)],
-                ";".join([f"A*{i:04}:02 - B*{i:04}:01" for i in range(100)]),
-            ),
-        ],
-        ids=["Truncated Result", "Non-truncated Result"],
-    )
-    def test_alleles_stringify(
-        self, allele_pairs: list[tuple[str, str]], exp_result: str
-    ):
-        result = AllelePairs(allele_pairs=allele_pairs)
-        assert result.stringify() == exp_result
+from easyhla.models import (
+    AllelePairs,
+    HLACombinedStandard,
+    HLAInterpretation,
+    HLAMatchDetails,
+    HLAMismatch,
+    HLAProteinPair,
+    HLASequence,
+)
 
 
 class TestHLACombinedStandard:
@@ -544,7 +390,210 @@ class TestAllelePairs:
         assert result == exp_result
 
     @pytest.mark.parametrize(
-        "combined_standards, exp_ambig, exp_alleles",
+        "raw_allele_pairs, frequencies, expected_result",
+        [
+            ([("B*57:01", "B*59:03")], {}, "B*57:01 - B*59:03"),
+            ([("C*01:02:03", "C*03:04:05")], {}, "C*01:02:03 - C*03:04:05"),
+            ([("C*01:02:03", "C*03:04")], {}, "C*01:02:03 - C*03:04"),
+            ([("C*01:02", "C*03:04:05:06")], {}, "C*01:02 - C*03:04:05:06"),
+            ([("C*01:02:03:04", "C*03:04:05:06")], {}, "C*01:02:03:04 - C*03:04:05:06"),
+            (
+                [("A*01:02:03:04N", "A*11:22:33:44G")],
+                {},
+                "A*01:02:03:04 - A*11:22:33:44",
+            ),
+            (
+                [("B*57:02:03:04N", "B*59:01:03"), ("B*56:01:01", "B*58:03:03:03N")],
+                {},
+                "B*56:01:01 - B*58:03:03:03",
+            ),
+            (
+                [("B*57:02:03:04N", "B*59:01:03"), ("B*56:01:01", "B*58:03:03:03N")],
+                {
+                    HLAProteinPair(
+                        first_field_1="57",
+                        first_field_2="02",
+                        second_field_1="59",
+                        second_field_2="01",
+                    ): 15,
+                    HLAProteinPair(
+                        first_field_1="56",
+                        first_field_2="01",
+                        second_field_1="58",
+                        second_field_2="03",
+                    ): 150,
+                },
+                "B*56:01:01 - B*58:03:03:03",
+            ),
+            (
+                [("B*57:02:03:04N", "B*59:01:03"), ("B*56:01:01", "B*58:03:03:03N")],
+                {
+                    HLAProteinPair(
+                        first_field_1="57",
+                        first_field_2="02",
+                        second_field_1="59",
+                        second_field_2="01",
+                    ): 150,
+                    HLAProteinPair(
+                        first_field_1="56",
+                        first_field_2="01",
+                        second_field_1="58",
+                        second_field_2="03",
+                    ): 15,
+                },
+                "B*57:02:03:04 - B*59:01:03",
+            ),
+            (  # with no frequencies
+                [
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:237", "A*03:05"),
+                    ("A*02:26", "A*03:07"),
+                    ("A*02:34", "A*03:08"),
+                    ("A*02:90", "A*03:09"),
+                    ("A*02:24", "A*03:17"),
+                    ("A*02:195", "A*03:23"),
+                    ("A*02:338", "A*03:95"),
+                    ("A*02:35", "A*03:108"),
+                    ("A*02:86", "A*03:123"),
+                    ("A*02:20", "A*03:157"),
+                ],
+                {},
+                "A*02 - A*03",
+            ),
+            (  # has frequencies, but they don't cover the alleles we see
+                [
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:237", "A*03:05"),
+                    ("A*02:26", "A*03:07"),
+                    ("A*02:34", "A*03:08"),
+                    ("A*02:90", "A*03:09"),
+                    ("A*02:24", "A*03:17"),
+                    ("A*02:195", "A*03:23"),
+                    ("A*02:338", "A*03:95"),
+                    ("A*02:35", "A*03:108"),
+                    ("A*02:86", "A*03:123"),
+                    ("A*02:20", "A*03:157"),
+                ],
+                {
+                    HLAProteinPair(
+                        first_field_1="01",
+                        first_field_2="02",
+                        second_field_1="09",
+                        second_field_2="10",
+                    ): 150,
+                },
+                "A*02 - A*03",
+            ),
+            (  # has frequencies but they don't affect the decision
+                [
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:237", "A*03:05"),
+                    ("A*02:26", "A*03:07"),
+                    ("A*02:34", "A*03:08"),
+                    ("A*02:90", "A*03:09"),
+                    ("A*02:24", "A*03:17"),
+                    ("A*02:195", "A*03:23"),
+                    ("A*02:338", "A*03:95"),
+                    ("A*02:35", "A*03:108"),
+                    ("A*02:86", "A*03:123"),
+                    ("A*02:20", "A*03:157"),
+                ],
+                {
+                    HLAProteinPair(
+                        first_field_1="02",
+                        first_field_2="237",
+                        second_field_1="03",
+                        second_field_2="05",
+                    ): 150,
+                },
+                "A*02 - A*03",
+            ),
+            (  # ambiguous set, no frequencies
+                [
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:237", "A*03:05"),
+                    ("A*02:26", "A*03:07"),
+                    ("A*02:34", "A*03:08"),
+                    ("A*02:86", "A*03:123"),
+                    ("A*02:20", "A*03:157"),
+                    ("A*04:123", "A*22:33"),
+                    ("A*04:123:22", "A*22:33:45:66N"),
+                ],
+                {
+                    HLAProteinPair(
+                        first_field_1="02",
+                        first_field_2="237",
+                        second_field_1="03",
+                        second_field_2="05",
+                    ): 150,
+                },
+                "A*02 - A*03",
+            ),
+            (  # ambiguous set, has frequencies which happen to coincide with the lowest-numbering
+                [
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:237", "A*03:05"),
+                    ("A*02:26", "A*03:07"),
+                    ("A*02:34", "A*03:08"),
+                    ("A*02:86", "A*03:123"),
+                    ("A*02:20", "A*03:157"),
+                    ("A*04:123", "A*22:33"),
+                    ("A*04:123:22", "A*22:33:45:66N"),
+                ],
+                {
+                    HLAProteinPair(
+                        first_field_1="02",
+                        first_field_2="237",
+                        second_field_1="03",
+                        second_field_2="05",
+                    ): 150,
+                },
+                "A*02 - A*03",
+            ),
+            (  # ambiguous set, has frequencies which dictate the "best allele" choice
+                [
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:237", "A*03:05"),
+                    ("A*02:26", "A*03:07"),
+                    ("A*02:34", "A*03:08"),
+                    ("A*02:86", "A*03:123"),
+                    ("A*02:20", "A*03:157"),
+                    ("A*04:123", "A*22:33"),
+                    ("A*04:123:22", "A*22:33:45:66N"),
+                ],
+                {
+                    HLAProteinPair(
+                        first_field_1="04",
+                        first_field_2="123",
+                        second_field_1="22",
+                        second_field_2="33",
+                    ): 150,
+                },
+                "A*04:123 - A*22:33",
+            ),
+        ],
+    )
+    def test_best_common_allele_pair(
+        self,
+        raw_allele_pairs: list[tuple[str, str]],
+        frequencies: dict[HLAProteinPair, int],
+        expected_result: str,
+    ):
+        ap: AllelePairs = AllelePairs(allele_pairs=raw_allele_pairs)
+        result = ap.best_common_allele_pair_str(frequencies)
+        assert result == expected_result
+
+    @pytest.mark.parametrize(
+        "combined_standards, exp_alleles",
         [
             (
                 [
@@ -568,7 +617,6 @@ class TestAllelePairs:
                         ),
                     )
                 ],
-                False,
                 [
                     ("A*02:01:01G", "A*03:01:01G"),
                     ("A*02:01:02", "A*03:01:12"),
@@ -598,7 +646,6 @@ class TestAllelePairs:
                         ),
                     )
                 ],
-                True,
                 [
                     ("A*11:01:01G", "A*26:01:01G"),
                     ("A*11:01:07", "A*26:01:17"),
@@ -606,69 +653,93 @@ class TestAllelePairs:
                     ("A*11:40", "A*66:01G"),
                 ],
             ),
-        ],
-    )
-    def test_get_allele_pairs(
-        self,
-        combined_standards: list[HLACombinedStandard],
-        exp_ambig: bool,
-        exp_alleles: list[tuple[str, str]],
-    ):
-        result_alleles = AllelePairs.get_allele_pairs(combined_standards)
-
-        assert result_alleles.is_ambiguous() == exp_ambig
-        assert result_alleles.allele_pairs == exp_alleles
-
-    @pytest.mark.parametrize(
-        "combined_standards, exp_homozygous, exp_alleles",
-        [
             (
                 [
                     HLACombinedStandard(
-                        standard_bin=(1, 1, 1, 1),
-                        possible_allele_pairs=(
-                            ("A*02:01:01G", "A*03:01:01G"),
-                            ("A*02:01:52", "A*03:01:03"),
-                            ("A*02:01:02", "A*03:01:12"),
-                            ("A*02:01:36", "A*03:01:38"),
-                            ("A*02:237", "A*03:05:01"),
-                            ("A*02:26", "A*03:07"),
-                            ("A*02:34", "A*03:08"),
-                            ("A*02:90", "A*03:09"),
-                            ("A*02:24:01", "A*03:17:01"),
-                            ("A*02:195", "A*03:23:01"),
-                            ("A*02:338", "A*03:95"),
-                            ("A*02:35:01", "A*03:108"),
-                            ("A*02:86", "A*03:123"),
-                            ("A*02:20:01", "A*03:157"),
-                        ),
-                    )
-                ],
-                False,
-                # NOTE: This is one string concatenated together
-                (
-                    "A*02:01:01G - A*03:01:01G;A*02:01:02 - A*03:01:12;"
-                    "A*02:01:36 - A*03:01:38;A*02:01:52 - A*03:01:03;"
-                    "A*02:195 - A*03:23:01;A*02:20:01 - A*03:157;"
-                    "A*02:237 - A*03:05:01;A*02:24:01 - A*03:17:01;"
-                    "A*02:26 - A*03:07;A*02:338 - A*03:95;"
-                    "A*02:34 - A*03:08;A*02:35:01 - A*03:108;"
-                    "A*02:86 - A*03:123;A*02:90 - A*03:09"
-                ),
-            ),
-            (
-                [
-                    HLACombinedStandard(
-                        standard_bin=(1, 1, 1, 1, 1),
+                        standard_bin=(1, 4, 5, 9),
                         possible_allele_pairs=(
                             ("A*11:01:01G", "A*26:01:01G"),
                             ("A*11:01:07", "A*26:01:17"),
                             ("A*11:19", "A*26:13"),
                             ("A*11:40", "A*66:01G"),
                         ),
-                    )
+                    ),
+                    HLACombinedStandard(
+                        standard_bin=(1, 4, 5, 9),
+                        possible_allele_pairs=(
+                            ("A*22:33:44:55G", "A*01:02:03"),
+                            ("A*24:25:26", "A*27:28:32"),
+                            ("A*32:42", "A*113:110:02:13N"),
+                        ),
+                    ),
                 ],
-                False,
+                [
+                    ("A*11:01:01G", "A*26:01:01G"),
+                    ("A*11:01:07", "A*26:01:17"),
+                    ("A*11:19", "A*26:13"),
+                    ("A*11:40", "A*66:01G"),
+                    ("A*22:33:44:55G", "A*01:02:03"),
+                    ("A*24:25:26", "A*27:28:32"),
+                    ("A*32:42", "A*113:110:02:13N"),
+                ],
+            ),
+        ],
+    )
+    def test_get_allele_pairs(
+        self,
+        combined_standards: list[HLACombinedStandard],
+        exp_alleles: list[tuple[str, str]],
+    ):
+        result_alleles = AllelePairs.get_allele_pairs(combined_standards)
+        assert result_alleles.allele_pairs == exp_alleles
+
+    @pytest.mark.parametrize(
+        "raw_allele_pairs, max_length, exp_stringification",
+        [
+            (
+                [
+                    ("A*02:01:01G", "A*03:01:01G"),
+                    ("A*02:01:52", "A*03:01:03"),
+                    ("A*02:01:02", "A*03:01:12"),
+                    ("A*02:01:36", "A*03:01:38"),
+                    ("A*02:237", "A*03:05:01"),
+                    ("A*02:26", "A*03:07"),
+                    ("A*02:34", "A*03:08"),
+                    ("A*02:90", "A*03:09"),
+                    ("A*02:24:01", "A*03:17:01"),
+                    ("A*02:195", "A*03:23:01"),
+                    ("A*02:338", "A*03:95"),
+                    ("A*02:35:01", "A*03:108"),
+                    ("A*02:86", "A*03:123"),
+                    ("A*02:20:01", "A*03:157"),
+                ],
+                3900,
+                # NOTE: This is one string concatenated together
+                (
+                    "A*02:01:01G - A*03:01:01G;"
+                    "A*02:01:52 - A*03:01:03;"
+                    "A*02:01:02 - A*03:01:12;"
+                    "A*02:01:36 - A*03:01:38;"
+                    "A*02:237 - A*03:05:01;"
+                    "A*02:26 - A*03:07;"
+                    "A*02:34 - A*03:08;"
+                    "A*02:90 - A*03:09;"
+                    "A*02:24:01 - A*03:17:01;"
+                    "A*02:195 - A*03:23:01;"
+                    "A*02:338 - A*03:95;"
+                    "A*02:35:01 - A*03:108;"
+                    "A*02:86 - A*03:123;"
+                    "A*02:20:01 - A*03:157"
+                ),
+            ),
+            (
+                [
+                    ("A*11:01:01G", "A*26:01:01G"),
+                    ("A*11:01:07", "A*26:01:17"),
+                    ("A*11:19", "A*26:13"),
+                    ("A*11:40", "A*66:01G"),
+                ],
+                3900,
                 (
                     "A*11:01:01G - A*26:01:01G;"
                     "A*11:01:07 - A*26:01:17;"
@@ -676,15 +747,152 @@ class TestAllelePairs:
                     "A*11:40 - A*66:01G"
                 ),
             ),
+            (
+                [
+                    ("A*11:01:01G", "A*26:01:01G"),
+                    ("A*11:01:07", "A*26:01:17"),
+                    ("A*11:19", "A*26:13"),
+                    ("A*11:40", "A*66:01G"),
+                ],
+                60,
+                (
+                    "A*11:01:01G - A*26:01:01G;"
+                    "A*11:01:07 - A*26:01:17;"
+                    "A*11:19 - A*26:13;"
+                    "...TRUNCATED"
+                ),
+            ),
+            (
+                [
+                    ("A*11:01:01G", "A*26:01:01G"),
+                    ("A*11:01:07", "A*26:01:17"),
+                    ("A*11:19", "A*26:13"),
+                    ("A*11:40", "A*66:01G"),
+                ],
+                25,
+                "A*11:01:01G - A*26:01:01G;...TRUNCATED",
+            ),
         ],
     )
-    def test_is_homozygous_and_stringify(
+    def test_stringify(
         self,
-        combined_standards: list[HLACombinedStandard],
-        exp_homozygous: bool,
-        exp_alleles: list[list[str]],
+        raw_allele_pairs: list[tuple[str, str]],
+        max_length: int,
+        exp_stringification: str,
     ):
-        result_alleles = AllelePairs.get_allele_pairs(combined_standards)
+        ap: AllelePairs = AllelePairs(allele_pairs=raw_allele_pairs)
+        assert ap.stringify(max_length) == exp_stringification
 
-        assert result_alleles.is_homozygous() == exp_homozygous
-        assert result_alleles.stringify() == exp_alleles
+
+@pytest.fixture
+def hla_sequence() -> HLASequence:
+    return HLASequence(
+        two="CCTC",
+        intron="",
+        three="AGGCT",
+        sequence=numpy.array([1, 4, 2, 4, 8]),
+        name="dummy_seq",
+        num_sequences_used=1,
+    )
+
+
+class TestHLAInterpretation:
+    @pytest.mark.parametrize(
+        "raw_matches, expected_mismatch_count, expected_best_matches, expected_allele_pairs",
+        [
+            (
+                {
+                    HLACombinedStandard(
+                        standard_bin=(1, 4, 9, 4),
+                        possible_allele_pairs=(("A*01:01:01", "A*02:02:02"),),
+                    ): HLAMatchDetails(mismatch_count=5, mismatches=[]),
+                },
+                5,
+                {
+                    HLACombinedStandard(
+                        standard_bin=(1, 4, 9, 4),
+                        possible_allele_pairs=(("A*01:01:01", "A*02:02:02"),),
+                    )
+                },
+                {("A*01:01:01", "A*02:02:02")},
+            ),
+            (
+                {
+                    HLACombinedStandard(
+                        standard_bin=(1, 4, 9, 4),
+                        possible_allele_pairs=(("A*01:01:01", "A*02:02:02"),),
+                    ): HLAMatchDetails(mismatch_count=5, mismatches=[]),
+                    HLACombinedStandard(
+                        standard_bin=(1, 4, 9, 2),
+                        possible_allele_pairs=(("A*10:01:01", "A*20:02:02"),),
+                    ): HLAMatchDetails(mismatch_count=2, mismatches=[]),
+                },
+                2,
+                {
+                    HLACombinedStandard(
+                        standard_bin=(1, 4, 9, 2),
+                        possible_allele_pairs=(("A*10:01:01", "A*20:02:02"),),
+                    )
+                },
+                {("A*10:01:01", "A*20:02:02")},
+            ),
+            (
+                {
+                    HLACombinedStandard(
+                        standard_bin=(1, 4, 9, 4),
+                        possible_allele_pairs=(("A*01:01:01", "A*02:02:02"),),
+                    ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
+                    HLACombinedStandard(
+                        standard_bin=(1, 4, 9, 2),
+                        possible_allele_pairs=(("A*10:01:01", "A*20:02:02"),),
+                    ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
+                    HLACombinedStandard(
+                        standard_bin=(2, 4, 9, 2),
+                        possible_allele_pairs=(("A*10:01:01", "A*20:02:02"),),
+                    ): HLAMatchDetails(mismatch_count=3, mismatches=[]),
+                    HLACombinedStandard(
+                        standard_bin=(2, 4, 10, 2),
+                        possible_allele_pairs=(("A*10:01:01", "A*20:02:02"),),
+                    ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
+                },
+                1,
+                {
+                    HLACombinedStandard(
+                        standard_bin=(1, 4, 9, 4),
+                        possible_allele_pairs=(("A*01:01:01", "A*02:02:02"),),
+                    ),
+                    HLACombinedStandard(
+                        standard_bin=(1, 4, 9, 2),
+                        possible_allele_pairs=(("A*10:01:01", "A*20:02:02"),),
+                    ),
+                    HLACombinedStandard(
+                        standard_bin=(2, 4, 10, 2),
+                        possible_allele_pairs=(("A*10:01:01", "A*20:02:02"),),
+                    ),
+                },
+                {
+                    ("A*01:01:01", "A*02:02:02"),
+                    ("A*10:01:01", "A*20:02:02"),
+                    ("A*10:01:01", "A*20:02:02"),
+                },
+            ),
+        ],
+    )
+    def test_best_matches(
+        self,
+        hla_sequence: HLASequence,
+        raw_matches: dict[HLACombinedStandard, HLAMatchDetails],
+        expected_mismatch_count: int,
+        expected_best_matches: set[HLACombinedStandard],
+        expected_allele_pairs: set[tuple[str, str]],
+    ):
+        interp: HLAInterpretation = HLAInterpretation(
+            hla_sequence=hla_sequence,
+            matches=raw_matches,
+        )
+        assert interp.lowest_mismatch_count() == expected_mismatch_count
+        assert interp.best_matches() == expected_best_matches
+        assert (
+            set(interp.best_matching_allele_pairs().allele_pairs)
+            == expected_allele_pairs
+        )

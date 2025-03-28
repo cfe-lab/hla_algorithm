@@ -38,7 +38,6 @@ class EasyHLA:
     MAX_HLA_BC_LENGTH: Final[int] = 796
     EXON2_LENGTH: Final[int] = 270
     EXON3_LENGTH: Final[int] = 276
-    ALLELES_MAX_REPORTABLE_STRING: Final[int] = 3900
 
     ALLOWED_HLA_LOCI: Final[list[str]] = ["A", "B", "C"]
 
