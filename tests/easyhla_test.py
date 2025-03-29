@@ -1,4 +1,5 @@
 import os
+from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
 
@@ -386,9 +387,8 @@ class TestEasyHLAMisc:
         with pytest.raises(ValueError):
             _ = EasyHLA("a")  # type: ignore[arg-type]
 
-    @pytest.mark.parametrize("easyhla", ["A"], indirect=True)
     def test_load_allele_definitions_last_modified_time(
-        self, easyhla, hla_last_modified_file, timestamp, mocker
+        self, hla_last_modified_file, timestamp, mocker
     ):
         """
         Assert we can load our mtime and that it is represented correctly.
@@ -406,8 +406,273 @@ class TestEasyHLAMisc:
             timestamp.second,
         )
 
-        result = easyhla.load_allele_definitions_last_modified_time()
+        result = EasyHLA.load_allele_definitions_last_modified_time()
         assert result == expected_time
+
+    @pytest.mark.parametrize(
+        "sequence, exp_good",
+        [
+            ("A", True),
+            ("C", True),
+            ("G", True),
+            ("T", True),
+            ("R", True),
+            ("Y", True),
+            ("K", True),
+            ("M", True),
+            ("S", True),
+            ("W", True),
+            ("V", True),
+            ("H", True),
+            ("D", True),
+            ("B", True),
+            ("N", True),
+            ("Z", False),
+            ("a", False),
+            ("k", False),
+            ("AZ", False),
+            ("aZ", False),
+            ("CZ", False),
+            ("cZ", False),
+            ("GZ", False),
+            ("gZ", False),
+            ("TZ", False),
+            ("tZ", False),
+            ("ZGR", False),
+            ("CYMSWANDB", True),
+            ("CYMsWANdB", False),
+            ("ZYMSWANDB", False),
+            ("CYMSWANDBZ", False),
+        ],
+    )
+    def test_check_bases(self, sequence: str, exp_good: bool):
+        if exp_good:
+            EasyHLA.check_bases(seq=sequence)
+        else:
+            with pytest.raises(ValueError):
+                EasyHLA.check_bases(seq=sequence)
+
+    @pytest.mark.parametrize(
+        "sequence_str, sequence_list",
+        [
+            ("ACGT", np.array([1, 2, 4, 8])),
+            ("YANK", np.array([10, 1, 15, 12])),
+            ("TARDY", np.array([8, 1, 5, 11, 10])),
+            ("MRMAN", np.array([3, 5, 3, 1, 15])),
+            ("MYSWARD", np.array([3, 10, 6, 9, 1, 5, 11])),
+            # This is where I pull out scrabblewordfinder.org
+            ("GANTRY", np.array([4, 1, 15, 8, 5, 10])),
+            ("SKYWATCH", np.array([6, 12, 10, 9, 1, 8, 2, 13])),
+            ("THWACK", np.array([8, 13, 9, 1, 2, 12])),
+            ("VAN", np.array([14, 1, 15])),
+            ("ABRA", np.array([1, 7, 5, 1])),
+        ],
+    )
+    def test_nuc2bin_bin2nuc_good_cases(
+        self, sequence_str: str, sequence_list: np.ndarray
+    ):
+        """
+        Test that we can convert back and forth between a list of binary values
+        and strings.
+        """
+        result_str = EasyHLA.bin2nuc(sequence_list)
+        assert result_str == sequence_str
+        result_list = EasyHLA.nuc2bin(sequence_str)
+        assert np.array_equal(result_list, sequence_list)
+
+    @pytest.mark.parametrize(
+        "sequence_str, sequence_list",
+        [
+            ("E", np.array([0])),
+            ("a", np.array([0])),
+            ("123", np.array([0, 0, 0])),
+            ("AC_TT_G", np.array([1, 2, 0, 8, 8, 0, 4])),
+        ],
+    )
+    def test_nuc2bin_bad_characters(self, sequence_str: str, sequence_list: np.ndarray):
+        """
+        Translating characters that aren't in the mapping turns them into 0s.
+        """
+        result_list = EasyHLA.nuc2bin(sequence_str)
+        assert np.array_equal(result_list, sequence_list)
+
+    @pytest.mark.parametrize(
+        "sequence_list, sequence_str",
+        [
+            (np.array([0]), "_"),
+            (np.array([16]), "_"),
+            (np.array([17]), "_"),
+            (np.array([250]), "_"),
+            (np.array([1, 2, 0, 8, 8, 0, 4]), "AC_TT_G"),
+            (np.array([1, 7, 2, 100, 8, 17, 4]), "ABC_T_G"),
+        ],
+    )
+    def test_bin2nuc_bad_indices(self, sequence_list: np.ndarray, sequence_str: str):
+        """
+        Indices not in our mapping become underscores.
+        """
+        result_str = EasyHLA.bin2nuc(sequence_list)
+        assert np.array_equal(result_str, sequence_str)
+
+    @pytest.mark.parametrize(
+        "hla_standard, sequence, exp_left_pad, exp_right_pad",
+        [
+            # NOTE: It breaks my mind less if I hand it letters
+            ("ACGT", "ACGT", 0, 0),
+            ("ACGTTTT", "ACGT", 0, 3),
+            ("TTACGTTTT", "ACGT", 2, 3),
+            ("TTACGTTGT", "ATCGT", 1, 3),
+            ("TTACGTTTG", "ATTCGT", 0, 3),
+            ("TTACGTTTTTACGTTTT", "ACGT", 2, 11),  # 10 and 3 is an equally good answer
+            ("TTAATATTTTAAAAT", "AAAA", 10, 1),
+            ("TAATATTTTTATAA", "AAAA", 1, 9),  # 10, 0 is equally good
+        ],
+    )
+    def test_calc_padding(
+        self,
+        hla_standard: str,
+        sequence: str,
+        exp_left_pad: int,
+        exp_right_pad: int,
+    ):
+        std = EasyHLA.nuc2bin(hla_standard)
+        seq = EasyHLA.nuc2bin(sequence)
+        left_pad, right_pad = EasyHLA.calc_padding(std, seq)
+        assert left_pad == exp_left_pad
+        assert right_pad == exp_right_pad
+
+    @pytest.mark.parametrize(
+        "sequence, exon, raw_hla_std_bin, exp_raw_result",
+        [
+            #
+            (
+                "ACGT",
+                None,
+                [1, 2, 4, 8],
+                [1, 2, 4, 8],
+            ),
+            (
+                "ACGT",
+                "exon2",
+                [1, 2, 4, 8],
+                [1, 2, 4, 8],
+            ),
+            (
+                "ACGT",
+                "exon3",
+                [1, 2, 4, 8],
+                [1, 2, 4, 8],
+            ),
+            # This is going to be an absolute nightmare to test
+            # Full test with intron
+            (
+                "A" * EasyHLA.EXON2_LENGTH + "ACGT" + "A" * EasyHLA.EXON3_LENGTH,
+                None,
+                [1, 2, 4, 8],
+                [
+                    *([1] * EasyHLA.EXON2_LENGTH),
+                    1,
+                    2,
+                    4,
+                    8,
+                    *([1] * EasyHLA.EXON3_LENGTH),
+                ],
+            ),
+            # Full test with exon2
+            (
+                "A" * (EasyHLA.EXON2_LENGTH - 4) + "ACGT",
+                "exon2",
+                [
+                    *([1] * EasyHLA.EXON2_LENGTH),
+                    *([1] * EasyHLA.EXON3_LENGTH),
+                ],
+                [
+                    *([1] * int(EasyHLA.EXON2_LENGTH - 4)),
+                    1,
+                    2,
+                    4,
+                    8,
+                ],
+            ),
+            # Full test with exon3
+            (
+                "ACGT" + "A" * (EasyHLA.EXON3_LENGTH - 4),
+                "exon3",
+                [
+                    *([1] * EasyHLA.EXON2_LENGTH),
+                    *([1] * EasyHLA.EXON3_LENGTH),
+                ],
+                [
+                    1,
+                    2,
+                    4,
+                    8,
+                    *([1] * int(EasyHLA.EXON3_LENGTH - 4)),
+                ],
+            ),
+            # Full test two possible choices, should select the best match which
+            # is the second string of 5s
+            (
+                "A" * (EasyHLA.EXON2_LENGTH)
+                + "RRRRRR"
+                + "A" * (EasyHLA.EXON3_LENGTH - 6),
+                None,
+                [
+                    *([4] * (int(EasyHLA.EXON2_LENGTH / 2) - 2)),
+                    5,
+                    4,
+                    5,
+                    5,
+                    *([4] * (int(EasyHLA.EXON2_LENGTH / 2) - 2)),
+                    5,
+                    5,
+                    5,
+                    5,
+                    5,
+                    *([4] * (EasyHLA.EXON3_LENGTH - 5)),
+                ],
+                [
+                    *([15] * 2),
+                    *([1] * int(EasyHLA.EXON2_LENGTH)),
+                    5,
+                    5,
+                    5,
+                    5,
+                    5,
+                    5,
+                    1,
+                    *([1] * int(EasyHLA.EXON3_LENGTH - 7)),
+                ],
+            ),
+        ],
+    )
+    def test_pad_short(
+        self,
+        sequence: str,
+        exon: EXON_NAME,
+        raw_hla_std_bin: Iterable[int],
+        exp_raw_result: Iterable[int],
+    ):
+        bin_list = EasyHLA.nuc2bin(sequence)
+        hla_std: HLAStandard = HLAStandard(
+            allele="std",
+            sequence=np.array(raw_hla_std_bin),
+        )
+        result = EasyHLA.pad_short(seq=bin_list, exon=exon, hla_std=hla_std)
+        # Debug code for future users
+        # print(
+        #     result,
+        #     sum([1 for a in result if a == 1]),
+        #     sum([1 for a in result if a == 15]),
+        #     len(result),
+        # )
+        # print(
+        #     exp_result,
+        #     sum([1 for a in exp_result if a == 1]),
+        #     sum([1 for a in exp_result if a == 15]),
+        #     len(exp_result),
+        # )
+        assert np.array_equal(result, np.array(exp_raw_result))
 
 
 @pytest.mark.parametrize("easyhla", ["A"], indirect=True)
@@ -643,96 +908,6 @@ class TestEasyHLADiscreteHLALocusC:
 
 @pytest.mark.parametrize("easyhla", ["A", "B", "C"], indirect=True)
 class TestEasyHLA:
-    @pytest.mark.parametrize(
-        "sequence, exp_result",
-        [
-            ("A", 1),
-            ("C", 1),
-            ("G", 1),
-            ("T", 1),
-            ("R", 1),
-            ("Y", 1),
-            ("K", 1),
-            ("M", 1),
-            ("S", 1),
-            ("W", 1),
-            ("V", 1),
-            ("H", 1),
-            ("D", 1),
-            ("B", 1),
-            ("N", 1),
-            ("Z", -1),
-            ("AZ", -1),
-            ("aZ", -1),
-            ("CZ", -1),
-            ("cZ", -1),
-            ("GZ", -1),
-            ("gZ", -1),
-            ("TZ", -1),
-            ("tZ", -1),
-        ],
-    )
-    def test_check_bases(self, easyhla: EasyHLA, sequence: str, exp_result: int):
-        if exp_result > 0:
-            easyhla.check_bases(seq=sequence)
-        else:
-            with pytest.raises(ValueError):
-                easyhla.check_bases(seq=sequence)
-
-    # FIXME: something with a V and something with a B
-    @pytest.mark.parametrize(
-        "sequence_str, sequence_list",
-        [
-            ("ACGT", np.array([1, 2, 4, 8])),
-            ("YANK", np.array([10, 1, 15, 12])),
-            ("TARDY", np.array([8, 1, 5, 11, 10])),
-            ("MRMAN", np.array([3, 5, 3, 1, 15])),
-            ("MYSWARD", np.array([3, 10, 6, 9, 1, 5, 11])),
-            # This is where I pull out scrabblewordfinder.org
-            ("GANTRY", np.array([4, 1, 15, 8, 5, 10])),
-            ("SKYWATCH", np.array([6, 12, 10, 9, 1, 8, 2, 13])),
-            ("THWACK", np.array([8, 13, 9, 1, 2, 12])),
-        ],
-    )
-    def test_nuc2bin_bin2nuc(
-        self, easyhla: EasyHLA, sequence_str: str, sequence_list: np.ndarray
-    ):
-        """
-        Test that we can convert back and forth between a list of binary values
-        and strings
-        """
-        result_str = easyhla.bin2nuc(sequence_list)
-        assert result_str == sequence_str
-        result_list = easyhla.nuc2bin(sequence_str)
-        assert np.array_equal(result_list, sequence_list)
-
-    # FIXME: add some tests when there are ties
-    @pytest.mark.parametrize(
-        "hla_standard, sequence, exp_left_pad, exp_right_pad",
-        [
-            # NOTE: It breaks my mind less if I hand it letters
-            ("ACGT", "ACGT", 0, 0),
-            ("ACGTTTT", "ACGT", 0, 3),
-            ("TTACGTTTT", "ACGT", 2, 3),
-            ("TTACGTTGT", "ATCGT", 1, 3),
-            ("TTACGTTTG", "ATTCGT", 0, 3),
-        ],
-    )
-    def test_calc_padding(
-        self,
-        easyhla: EasyHLA,
-        hla_standard: str,
-        sequence: str,
-        exp_left_pad: int,
-        exp_right_pad: int,
-    ):
-        std = easyhla.nuc2bin(hla_standard)
-        seq = easyhla.nuc2bin(sequence)
-        left_pad, right_pad = easyhla.calc_padding(std, seq)
-        print(left_pad, right_pad)
-        assert left_pad == exp_left_pad
-        assert right_pad == exp_right_pad
-
     # FIXME: add some tests for mixtures
     @pytest.mark.parametrize(
         "sequence, standard, exp_result",
@@ -866,162 +1041,6 @@ class TestEasyHLA:
 
         result = easyhla.load_hla_stds()
         assert result == exp_result
-
-    @pytest.mark.parametrize(
-        "sequence, exon, hla_std, exp_result",
-        [
-            #
-            (
-                "ACGT",
-                None,
-                HLAStandard(allele="std", sequence=np.array([1, 2, 4, 8])),
-                np.array([1, 2, 4, 8]),
-            ),
-            (
-                "ACGT",
-                "exon2",
-                HLAStandard(allele="std", sequence=np.array([1, 2, 4, 8])),
-                np.array([1, 2, 4, 8]),
-            ),
-            (
-                "ACGT",
-                "exon3",
-                HLAStandard(allele="std", sequence=np.array([1, 2, 4, 8])),
-                np.array([1, 2, 4, 8]),
-            ),
-            # This is going to be an absolute nightmare to test
-            # Full test with intron
-            (
-                "A" * EasyHLA.EXON2_LENGTH + "ACGT" + "A" * EasyHLA.EXON3_LENGTH,
-                None,
-                HLAStandard(
-                    allele="std",
-                    sequence=np.array([1, 2, 4, 8]),
-                ),
-                np.array(
-                    [
-                        *([1] * EasyHLA.EXON2_LENGTH),
-                        1,
-                        2,
-                        4,
-                        8,
-                        *([1] * EasyHLA.EXON3_LENGTH),
-                    ]
-                ),
-            ),
-            # Full test with exon2
-            (
-                "A" * (EasyHLA.EXON2_LENGTH - 4) + "ACGT",
-                "exon2",
-                HLAStandard(
-                    allele="std",
-                    sequence=np.array(
-                        [
-                            *([1] * EasyHLA.EXON2_LENGTH),
-                            *([1] * EasyHLA.EXON3_LENGTH),
-                        ]
-                    ),
-                ),
-                np.array(
-                    [
-                        *([1] * int(EasyHLA.EXON2_LENGTH - 4)),
-                        1,
-                        2,
-                        4,
-                        8,
-                    ]
-                ),
-            ),
-            # Full test with exon3
-            (
-                "ACGT" + "A" * (EasyHLA.EXON3_LENGTH - 4),
-                "exon3",
-                HLAStandard(
-                    allele="std",
-                    sequence=np.array(
-                        [
-                            *([1] * EasyHLA.EXON2_LENGTH),
-                            *([1] * EasyHLA.EXON3_LENGTH),
-                        ]
-                    ),
-                ),
-                np.array(
-                    [
-                        1,
-                        2,
-                        4,
-                        8,
-                        *([1] * int(EasyHLA.EXON3_LENGTH - 4)),
-                    ]
-                ),
-            ),
-            # Full test two possible choices, should select the best match which
-            # is the second string of 5s
-            (
-                "A" * (EasyHLA.EXON2_LENGTH)
-                + "RRRRRR"
-                + "A" * (EasyHLA.EXON3_LENGTH - 6),
-                None,
-                HLAStandard(
-                    allele="std",
-                    sequence=np.array(
-                        [
-                            *([4] * (int(EasyHLA.EXON2_LENGTH / 2) - 2)),
-                            5,
-                            4,
-                            5,
-                            5,
-                            *([4] * (int(EasyHLA.EXON2_LENGTH / 2) - 2)),
-                            5,
-                            5,
-                            5,
-                            5,
-                            5,
-                            *([4] * (EasyHLA.EXON3_LENGTH - 5)),
-                        ]
-                    ),
-                ),
-                np.array(
-                    [
-                        *([15] * 2),
-                        *([1] * int(EasyHLA.EXON2_LENGTH)),
-                        5,
-                        5,
-                        5,
-                        5,
-                        5,
-                        5,
-                        1,
-                        *([1] * int(EasyHLA.EXON3_LENGTH - 7)),
-                    ]
-                ),
-            ),
-        ],
-    )
-    def test_pad_short(
-        self,
-        easyhla: EasyHLA,
-        sequence: str,
-        exon: EXON_NAME,
-        hla_std: HLAStandard,
-        exp_result: np.ndarray,
-    ):
-        bin_list = easyhla.nuc2bin(sequence)
-        result = easyhla.pad_short(seq=bin_list, exon=exon, hla_std=hla_std)
-        # Debug code for future users
-        # print(
-        #     result,
-        #     sum([1 for a in result if a == 1]),
-        #     sum([1 for a in result if a == 15]),
-        #     len(result),
-        # )
-        # print(
-        #     exp_result,
-        #     sum([1 for a in exp_result if a == 1]),
-        #     sum([1 for a in exp_result if a == 15]),
-        #     len(exp_result),
-        # )
-        assert np.array_equal(result, exp_result)
 
     @pytest.mark.integration
     @pytest.mark.slow

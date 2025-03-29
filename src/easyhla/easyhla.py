@@ -384,7 +384,7 @@ class EasyHLA:
                 std[: EasyHLA.EXON2_LENGTH], seq[: int(EasyHLA.EXON2_LENGTH / 2)]
             )
             _, right_pad = EasyHLA.calc_padding(
-                std[-int(EasyHLA.EXON3_LENGTH / 2) :],
+                std[-int(EasyHLA.EXON3_LENGTH) :],
                 seq[-int(EasyHLA.EXON3_LENGTH / 2) :],
             )
 
