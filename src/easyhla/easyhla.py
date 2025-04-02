@@ -423,7 +423,7 @@ class EasyHLA:
     @staticmethod
     def get_matching_stds(
         seq: np.ndarray,
-        hla_stds: list[HLAStandard],
+        hla_stds: Iterable[HLAStandard],
         mismatch_threshold: int = 5,
     ) -> list[HLAStandardMatch]:
         # Returns [ ["std_name", [1,2,3,4], num_mismatches], ["std_name2", [2,3,4,5], num_mismatches2]]

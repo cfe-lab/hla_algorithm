@@ -748,6 +748,103 @@ class TestEasyHLAMisc:
         )
         assert np.array_equal(result, np.array(exp_raw_result))
 
+    # FIXME: some mixtures here too? and maybe some ties?
+    # FIXME continue from here
+    @pytest.mark.parametrize(
+        "sequence, hla_stds, exp_result",
+        [
+            #
+            pytest.param(
+                np.array([1, 2, 4, 8]),
+                [
+                    HLAStandard(
+                        allele="std_allmismatch", sequence=np.array([1, 2, 4, 8])
+                    )
+                ],
+                [
+                    HLAStandardMatch(
+                        allele="std_allmismatch",
+                        sequence=np.array([1, 2, 4, 8]),
+                        mismatch=0,
+                    )
+                ],
+                id="one_standard_no_mismatches",
+            ),
+            pytest.param(
+                np.array([1, 2, 4, 8]),
+                [
+                    HLAStandard(
+                        allele="std_allmismatch", sequence=np.array([1, 2, 4, 4])
+                    )
+                ],
+                [
+                    HLAStandardMatch(
+                        allele="std_allmismatch",
+                        sequence=np.array([1, 2, 4, 4]),
+                        mismatch=1,
+                    )
+                ],
+                id="one_standard_one_mismatch",
+            ),
+            pytest.param(
+                np.array([1, 2, 4, 8]),
+                [
+                    HLAStandard(
+                        allele="std_allmismatch", sequence=np.array([8, 4, 2, 1])
+                    )
+                ],
+                [
+                    HLAStandardMatch(
+                        allele="std_allmismatch",
+                        sequence=np.array([8, 4, 2, 1]),
+                        mismatch=4,
+                    )
+                ],
+                id="one_standard_all_mismatch",
+            ),
+            #
+            pytest.param(
+                np.array([1, 2, 4, 8]),
+                [
+                    HLAStandard(allele="std_allmatch", sequence=np.array([1, 2, 4, 8])),
+                    HLAStandard(
+                        allele="std_1mismatch", sequence=np.array([1, 2, 4, 4])
+                    ),
+                    HLAStandard(
+                        allele="std_allmismatch", sequence=np.array([8, 4, 2, 1])
+                    ),
+                ],
+                [
+                    HLAStandardMatch(
+                        allele="std_allmatch",
+                        sequence=np.array([1, 2, 4, 8]),
+                        mismatch=0,
+                    ),
+                    HLAStandardMatch(
+                        allele="std_1mismatch",
+                        sequence=np.array([1, 2, 4, 4]),
+                        mismatch=1,
+                    ),
+                    HLAStandardMatch(
+                        allele="std_allmismatch",
+                        sequence=np.array([8, 4, 2, 1]),
+                        mismatch=4,
+                    ),
+                ],
+                id="several_standards",
+            ),
+        ],
+    )
+    def test_get_matching_stds(
+        self,
+        sequence: np.ndarray,
+        hla_stds: Iterable[HLAStandard],
+        exp_result: Iterable[HLAStandardMatch],
+    ):
+        result = EasyHLA.get_matching_stds(seq=sequence, hla_stds=hla_stds)  # type: ignore
+        print(result)
+        assert result == exp_result
+
 
 @pytest.mark.parametrize("easyhla", ["A"], indirect=True)
 class TestEasyHLADiscreteHLALocusA:
@@ -982,105 +1079,6 @@ class TestEasyHLADiscreteHLALocusC:
 
 @pytest.mark.parametrize("easyhla", ["A", "B", "C"], indirect=True)
 class TestEasyHLA:
-    # FIXME: some mixtures here too? and maybe some ties?
-    @pytest.mark.parametrize(
-        "sequence, hla_stds, exp_result",
-        [
-            #
-            (
-                np.array([1, 2, 4, 8]),
-                [
-                    HLAStandard(
-                        allele="std_allmismatch", sequence=np.array([1, 2, 4, 8])
-                    )
-                ],
-                [
-                    HLAStandardMatch(
-                        allele="std_allmismatch",
-                        sequence=np.array([1, 2, 4, 8]),
-                        mismatch=0,
-                    )
-                ],
-            ),
-            (
-                np.array([1, 2, 4, 8]),
-                [
-                    HLAStandard(
-                        allele="std_allmismatch", sequence=np.array([1, 2, 4, 4])
-                    )
-                ],
-                [
-                    HLAStandardMatch(
-                        allele="std_allmismatch",
-                        sequence=np.array([1, 2, 4, 4]),
-                        mismatch=1,
-                    )
-                ],
-            ),
-            (
-                np.array([1, 2, 4, 8]),
-                [
-                    HLAStandard(
-                        allele="std_allmismatch", sequence=np.array([8, 4, 2, 1])
-                    )
-                ],
-                [
-                    HLAStandardMatch(
-                        allele="std_allmismatch",
-                        sequence=np.array([8, 4, 2, 1]),
-                        mismatch=4,
-                    )
-                ],
-            ),
-            #
-            (
-                np.array([1, 2, 4, 8]),
-                [
-                    HLAStandard(allele="std_allmatch", sequence=np.array([1, 2, 4, 8])),
-                    HLAStandard(
-                        allele="std_1mismatch", sequence=np.array([1, 2, 4, 4])
-                    ),
-                    HLAStandard(
-                        allele="std_allmismatch", sequence=np.array([8, 4, 2, 1])
-                    ),
-                ],
-                [
-                    HLAStandardMatch(
-                        allele="std_allmatch",
-                        sequence=np.array([1, 2, 4, 8]),
-                        mismatch=0,
-                    ),
-                    HLAStandardMatch(
-                        allele="std_1mismatch",
-                        sequence=np.array([1, 2, 4, 4]),
-                        mismatch=1,
-                    ),
-                    HLAStandardMatch(
-                        allele="std_allmismatch",
-                        sequence=np.array([8, 4, 2, 1]),
-                        mismatch=4,
-                    ),
-                ],
-            ),
-        ],
-        ids=[
-            "std_allmatch",
-            "std_1mismatch",
-            "std_allmismatch",
-            "multi_stdmatchmismatch",
-        ],
-    )
-    def test_get_matching_stds(
-        self,
-        easyhla: EasyHLA,
-        sequence: list[int],
-        hla_stds: list[HLAStandard],
-        exp_result: list[HLAStandardMatch],
-    ):
-        result = easyhla.get_matching_stds(seq=sequence, hla_stds=hla_stds)  # type: ignore
-        print(result)
-        assert result == exp_result
-
     def test_load_hla_stds(self, easyhla, hla_standard_file, mocker):
         mocker.patch.object(os.path, "join", return_value=hla_standard_file)
         exp_result = [
