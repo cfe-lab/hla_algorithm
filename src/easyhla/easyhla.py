@@ -54,10 +54,10 @@ class EasyHLA:
         "M": ["A", "C"],
         "S": ["C", "G"],
         "W": ["A", "T"],
-        "V": ["C", "G", "T"],
-        "H": ["A", "G", "T"],
-        "D": ["A", "C", "T"],
-        "B": ["A", "C", "G"],
+        "B": ["C", "G", "T"],
+        "D": ["A", "G", "T"],
+        "H": ["A", "C", "T"],
+        "V": ["A", "C", "G"],
         "N": ["A", "C", "G", "T"],
     }
 
@@ -82,10 +82,10 @@ class EasyHLA:
     #     "S",  # => 0b0110,
     #     "Y",  # => 0b1010,
     #     "K",  # => 0b1100,
-    #     "V",  # => 0b1110,
-    #     "H",  # => 0b1101,
-    #     "D",  # => 0b1011,
-    #     "B",  # => 0b0111,
+    #     "B",  # => 0b1110,
+    #     "D",  # => 0b1101,
+    #     "H",  # => 0b1011,
+    #     "V",  # => 0b0111,
     #     "N",  # => 0b1111
     # ]
     NUC2BIN: Final[dict[str, int]] = {
@@ -333,6 +333,26 @@ class EasyHLA:
         return "".join([EasyHLA.BIN2NUC.get(seq[i], "_") for i in range(len(seq))])
 
     @staticmethod
+    def std_match(std: np.ndarray, seq: np.ndarray) -> int:
+        """
+        Compare an HLA standard against an incoming sequence.
+
+        This will output the number of mismatches between the standard and the
+        sequence.
+
+        :param std: HLA standard sequence
+        :type std: np.ndarray
+        :param seq: Sequence being tested against
+        :type seq: np.ndarray
+        :return: Number of mismatches between the two sequences.
+        :rtype: int
+        """
+        mismatches = 0
+        masked_array: np.ndarray = std & seq
+        mismatches = np.count_nonzero(masked_array == 0)
+        return mismatches
+
+    @staticmethod
     def calc_padding(std: np.ndarray, seq: np.ndarray) -> tuple[int, int]:
         """
         Calculate the number of units to pad a sequence.
@@ -352,7 +372,7 @@ class EasyHLA:
         best = 10e10
         pad = len(std) - len(seq)
         left_pad = 0
-        for i in range(pad):
+        for i in range(pad + 1):  # 0, 1, ..., pad - 1, pad
             pseq = np.concatenate(
                 (EasyHLA.nuc2bin("N" * i), seq, EasyHLA.nuc2bin("N" * (pad - i)))
             )
@@ -365,60 +385,40 @@ class EasyHLA:
 
     @staticmethod
     def pad_short(
-        seq: np.ndarray,
+        std_bin: np.ndarray,
+        seq_bin: np.ndarray,
         exon: Optional[EXON_NAME],
-        hla_std: HLAStandard,
     ) -> np.ndarray:
-        std = None
-        has_intron = False
+        left_pad: int
+        right_pad: int
+        exon2_std_bin: np.ndarray = std_bin[: EasyHLA.EXON2_LENGTH]
+        exon3_std_bin: np.ndarray = std_bin[-EasyHLA.EXON3_LENGTH :]
         if exon == "exon2":
-            std = hla_std.sequence[: EasyHLA.EXON2_LENGTH]
+            left_pad, right_pad = EasyHLA.calc_padding(
+                exon2_std_bin,
+                seq_bin,
+            )
         elif exon == "exon3":
-            std = hla_std.sequence[EasyHLA.EXON2_LENGTH : EasyHLA.EXON3_LENGTH]
-        else:
-            has_intron = True
-            std = hla_std.sequence
-
-        if has_intron:
+            left_pad, right_pad = EasyHLA.calc_padding(
+                exon3_std_bin,
+                seq_bin,
+            )
+        else:  # i.e. this is a full sequence possibly with intron
             left_pad, _ = EasyHLA.calc_padding(
-                std[: EasyHLA.EXON2_LENGTH], seq[: int(EasyHLA.EXON2_LENGTH / 2)]
+                exon2_std_bin,
+                seq_bin[: int(EasyHLA.EXON2_LENGTH / 2)],
             )
             _, right_pad = EasyHLA.calc_padding(
-                std[-int(EasyHLA.EXON3_LENGTH) :],
-                seq[-int(EasyHLA.EXON3_LENGTH / 2) :],
+                exon3_std_bin,
+                seq_bin[-int(EasyHLA.EXON3_LENGTH / 2) :],
             )
-
-        else:
-            left_pad, right_pad = EasyHLA.calc_padding(std, seq)
-
-        short_padded_array = np.concatenate(
+        return np.concatenate(
             (
                 EasyHLA.nuc2bin("N" * left_pad),
-                seq,
+                seq_bin,
                 EasyHLA.nuc2bin("N" * right_pad),
             )
         )
-        return short_padded_array
-
-    @staticmethod
-    def std_match(std: np.ndarray, seq: np.ndarray) -> int:
-        """
-        Compare an HLA standard against an incoming sequence.
-
-        This will output the number of mismatches between the standard and the
-        sequence.
-
-        :param std: HLA standard sequence
-        :type std: np.ndarray
-        :param seq: Sequence being tested against
-        :type seq: np.ndarray
-        :return: Number of mismatches between the two sequences.
-        :rtype: int
-        """
-        mismatches = 0
-        masked_array: np.ndarray = std & seq
-        mismatches = np.count_nonzero(masked_array == 0)
-        return mismatches
 
     @staticmethod
     def get_matching_stds(
@@ -659,10 +659,10 @@ class EasyHLA:
 
             if is_exon:
                 exon2_bin = self.pad_short(
-                    self.nuc2bin(exon2), "exon2", hla_std=self.hla_stds[0]
+                    self.hla_stds[0].sequence, self.nuc2bin(exon2), "exon2"
                 )
                 exon3_bin = self.pad_short(
-                    self.nuc2bin(exon3), "exon3", hla_std=self.hla_stds[0]
+                    self.hla_stds[0].sequence, self.nuc2bin(exon3), "exon3"
                 )
                 exon2 = self.bin2nuc(exon2_bin)
                 exon3 = self.bin2nuc(exon3_bin)
@@ -678,9 +678,9 @@ class EasyHLA:
                 )
             else:
                 seq = self.pad_short(
+                    self.hla_stds[0].sequence,
                     self.nuc2bin(sr.seq),  # type: ignore
                     None,
-                    hla_std=self.hla_stds[0],
                 )
                 exon2 = self.bin2nuc(seq[: EasyHLA.EXON2_LENGTH])
                 intron = self.bin2nuc(seq[EasyHLA.EXON2_LENGTH : -EasyHLA.EXON3_LENGTH])
