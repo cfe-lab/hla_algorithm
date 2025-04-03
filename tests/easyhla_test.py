@@ -7,6 +7,8 @@ from typing import Optional
 import numpy as np
 import pytest
 import pytz
+from Bio.Seq import Seq
+from Bio.SeqIO import SeqRecord
 
 from easyhla.easyhla import DATE_FORMAT, EXON_NAME, EasyHLA
 from easyhla.models import (
@@ -371,6 +373,356 @@ class TestCombineStandards:
                 mismatch_threshold=threshold,
             )
             assert result == exp_result
+
+
+class TestPairExons:
+    @pytest.mark.parametrize(
+        (
+            "sr, unmatched, expected_id, expected_is_exon, expected_matched, "
+            "expected_exon2, expected_exon3, expected_unmatched"
+        ),
+        [
+            pytest.param(
+                SeqRecord(id="fullseq1", seq=Seq("ACGT")),
+                {"exon2": {}, "exon3": {}},
+                "fullseq1",
+                False,
+                False,
+                "",
+                "",
+                {"exon2": {}, "exon3": {}},
+                id="full_seq_no_possible_matches",
+            ),
+            pytest.param(
+                SeqRecord(id="fullseq1", seq=Seq("ACGT")),
+                {
+                    "exon2": {"E1_exon2": Seq("CCC")},
+                    "exon3": {},
+                },
+                "fullseq1",
+                False,
+                False,
+                "",
+                "",
+                {
+                    "exon2": {"E1_exon2": Seq("CCC")},
+                    "exon3": {},
+                },
+                id="full_seq_one_rejected_exon2_match",
+            ),
+            pytest.param(
+                SeqRecord(id="fullseq1", seq=Seq("ACGT")),
+                {
+                    "exon2": {},
+                    "exon3": {"E1_exon3": Seq("CCC")},
+                },
+                "fullseq1",
+                False,
+                False,
+                "",
+                "",
+                {
+                    "exon2": {},
+                    "exon3": {"E1_exon3": Seq("CCC")},
+                },
+                id="full_seq_one_rejected_exon3_match",
+            ),
+            pytest.param(
+                SeqRecord(id="fullseq1", seq=Seq("ACGT")),
+                {
+                    "exon2": {"E1_exon2": Seq("ATA")},
+                    "exon3": {"E2_exon3": Seq("CCC")},
+                },
+                "fullseq1",
+                False,
+                False,
+                "",
+                "",
+                {
+                    "exon2": {"E1_exon2": Seq("ATA")},
+                    "exon3": {"E2_exon3": Seq("CCC")},
+                },
+                id="full_seq_one_rejected_exon2_and_exon3_match",
+            ),
+            pytest.param(
+                SeqRecord(id="E1", seq=Seq("ACGT")),
+                {
+                    "exon2": {"E1_exon2": Seq("ATA")},
+                    "exon3": {},
+                },
+                "E1",
+                False,
+                False,
+                "",
+                "",
+                {
+                    "exon2": {"E1_exon2": Seq("ATA")},
+                    "exon3": {},
+                },
+                id="full_seq_does_not_match_unmatched_exon2",
+            ),
+            pytest.param(
+                SeqRecord(id="E1", seq=Seq("ACGT")),
+                {
+                    "exon2": {},
+                    "exon3": {"E1_exon3": Seq("CCC")},
+                },
+                "E1",
+                False,
+                False,
+                "",
+                "",
+                {
+                    "exon2": {},
+                    "exon3": {"E1_exon3": Seq("CCC")},
+                },
+                id="full_seq_does_not_match_unmatched_exon3",
+            ),
+            pytest.param(
+                SeqRecord(id="E1", seq=Seq("ACGT")),
+                {
+                    "exon2": {"E1_exon2": Seq("ATA")},
+                    "exon3": {"E1_exon3": Seq("CCC")},
+                },
+                "E1",
+                False,
+                False,
+                "",
+                "",
+                {
+                    "exon2": {"E1_exon2": Seq("ATA")},
+                    "exon3": {"E1_exon3": Seq("CCC")},
+                },
+                id="full_seq_does_not_match_unmatched_exon2_or_exon_3",
+            ),
+            # exon2 tests:
+            pytest.param(
+                SeqRecord(id="E1_exon2", seq=Seq("ACGT")),
+                {"exon2": {}, "exon3": {}},
+                "E1",
+                True,
+                False,
+                "",
+                "",
+                {
+                    "exon2": {"E1_exon2": Seq("ACGT")},
+                    "exon3": {},
+                },
+                id="exon2_unmatched_added_to_empty_dict",
+            ),
+            pytest.param(
+                SeqRecord(id="E1_exon2", seq=Seq("ACGT")),
+                {
+                    "exon2": {"E2_exon2": Seq("CCC")},
+                    "exon3": {},
+                },
+                "E1",
+                True,
+                False,
+                "",
+                "",
+                {
+                    "exon2": {
+                        "E1_exon2": Seq("ACGT"),
+                        "E2_exon2": Seq("CCC"),
+                    },
+                    "exon3": {},
+                },
+                id="exon2_unmatched_added_to_nonempty_dict",
+            ),
+            pytest.param(
+                SeqRecord(id="E1_exon2", seq=Seq("ACGT")),
+                {
+                    "exon2": {},
+                    "exon3": {"E2_exon3": Seq("CCC")},
+                },
+                "E1",
+                True,
+                False,
+                "",
+                "",
+                {
+                    "exon2": {"E1_exon2": Seq("ACGT")},
+                    "exon3": {"E2_exon3": Seq("CCC")},
+                },
+                id="exon2_does_not_match",
+            ),
+            pytest.param(
+                SeqRecord(id="E1_exon2", seq=Seq("ACGT")),
+                {
+                    "exon2": {},
+                    "exon3": {"E1_exon3": Seq("CCC")},
+                },
+                "E1",
+                True,
+                True,
+                "ACGT",
+                "CCC",
+                {"exon2": {}, "exon3": {}},
+                id="exon2_match_empties_unmatched_dict",
+            ),
+            pytest.param(
+                SeqRecord(id="E1_exon2", seq=Seq("ACGT")),
+                {
+                    "exon2": {"E3_exon2": Seq("GCC")},
+                    "exon3": {"E1_exon3": Seq("CCC")},
+                },
+                "E1",
+                True,
+                True,
+                "ACGT",
+                "CCC",
+                {
+                    "exon2": {"E3_exon2": Seq("GCC")},
+                    "exon3": {},
+                },
+                id="exon2_match_leaves_other_unmatched_undisturbed",
+            ),
+            pytest.param(
+                SeqRecord(id="E1_exon2", seq=Seq("ACGT")),
+                {
+                    "exon2": {"E5_exon2": Seq("CCTCCC")},
+                    "exon3": {
+                        "E1_exon3": Seq("CCC"),
+                        "E7_exon3": Seq("GCC"),
+                    },
+                },
+                "E1",
+                True,
+                True,
+                "ACGT",
+                "CCC",
+                {
+                    "exon2": {"E5_exon2": Seq("CCTCCC")},
+                    "exon3": {"E7_exon3": Seq("GCC")},
+                },
+                id="exon2_match_leaves_nonempty_unmatched_dict",
+            ),
+            # exon3 tests:
+            pytest.param(
+                SeqRecord(id="E1_exon3", seq=Seq("ACGT")),
+                {"exon2": {}, "exon3": {}},
+                "E1",
+                True,
+                False,
+                "",
+                "",
+                {
+                    "exon2": {},
+                    "exon3": {"E1_exon3": Seq("ACGT")},
+                },
+                id="exon3_unmatched_added_to_empty_dict",
+            ),
+            pytest.param(
+                SeqRecord(id="E1_exon3", seq=Seq("ACGT")),
+                {
+                    "exon2": {},
+                    "exon3": {"E2_exon3": Seq("CCC")},
+                },
+                "E1",
+                True,
+                False,
+                "",
+                "",
+                {
+                    "exon2": {},
+                    "exon3": {
+                        "E1_exon3": Seq("ACGT"),
+                        "E2_exon3": Seq("CCC"),
+                    },
+                },
+                id="exon3_unmatched_added_to_nonempty_dict",
+            ),
+            pytest.param(
+                SeqRecord(id="E1_exon3", seq=Seq("ACGT")),
+                {
+                    "exon2": {"E2_exon2": Seq("CCC")},
+                    "exon3": {},
+                },
+                "E1",
+                True,
+                False,
+                "",
+                "",
+                {
+                    "exon2": {"E2_exon2": Seq("CCC")},
+                    "exon3": {"E1_exon3": Seq("ACGT")},
+                },
+                id="exon3_does_not_match",
+            ),
+            pytest.param(
+                SeqRecord(id="E1_exon3", seq=Seq("ACGT")),
+                {
+                    "exon2": {"E1_exon2": Seq("CCC")},
+                    "exon3": {},
+                },
+                "E1",
+                True,
+                True,
+                "CCC",
+                "ACGT",
+                {"exon2": {}, "exon3": {}},
+                id="exon3_match_empties_unmatched_dict",
+            ),
+            pytest.param(
+                SeqRecord(id="E1_exon3", seq=Seq("ACGT")),
+                {
+                    "exon2": {"E1_exon2": Seq("GCC")},
+                    "exon3": {"E3_exon3": Seq("CCC")},
+                },
+                "E1",
+                True,
+                True,
+                "GCC",
+                "ACGT",
+                {
+                    "exon2": {},
+                    "exon3": {"E3_exon3": Seq("CCC")},
+                },
+                id="exon3_match_leaves_other_unmatched_undisturbed",
+            ),
+            pytest.param(
+                SeqRecord(id="E1_exon3", seq=Seq("ACGT")),
+                {
+                    "exon2": {
+                        "E1_exon2": Seq("CCC"),
+                        "E7_exon2": Seq("GCC"),
+                    },
+                    "exon3": {"E5_exon3": Seq("CCTCCC")},
+                },
+                "E1",
+                True,
+                True,
+                "CCC",
+                "ACGT",
+                {
+                    "exon2": {"E7_exon2": Seq("GCC")},
+                    "exon3": {"E5_exon3": Seq("CCTCCC")},
+                },
+                id="exon3_match_leaves_nonempty_unmatched_dict",
+            ),
+        ],
+    )
+    def test_pair_exons_helper(
+        self,
+        sr: SeqRecord,
+        unmatched: dict[EXON_NAME, dict[str, Seq]],
+        expected_id: str,
+        expected_is_exon: bool,
+        expected_matched: bool,
+        expected_exon2: str,
+        expected_exon3: str,
+        expected_unmatched: dict[EXON_NAME, dict[str, Seq]],
+    ):
+        result: tuple[str, bool, bool, str, str] = EasyHLA.pair_exons_helper(
+            sr, unmatched
+        )
+        assert result[0] == expected_id
+        assert result[1] == expected_is_exon
+        assert result[2] == expected_matched
+        assert result[3] == expected_exon2
+        assert result[4] == expected_exon3
+        assert unmatched == expected_unmatched
 
 
 class TestEasyHLAMisc:
@@ -751,7 +1103,7 @@ class TestEasyHLAMisc:
     # FIXME: some mixtures here too? and maybe some ties?
     # FIXME continue from here
     @pytest.mark.parametrize(
-        "sequence, hla_stds, exp_result",
+        "sequence, hla_stds, mismatch_threshold, exp_result",
         [
             #
             pytest.param(
@@ -761,6 +1113,7 @@ class TestEasyHLAMisc:
                         allele="std_allmismatch", sequence=np.array([1, 2, 4, 8])
                     )
                 ],
+                5,
                 [
                     HLAStandardMatch(
                         allele="std_allmismatch",
@@ -777,6 +1130,7 @@ class TestEasyHLAMisc:
                         allele="std_allmismatch", sequence=np.array([1, 2, 4, 4])
                     )
                 ],
+                5,
                 [
                     HLAStandardMatch(
                         allele="std_allmismatch",
@@ -787,12 +1141,30 @@ class TestEasyHLAMisc:
                 id="one_standard_one_mismatch",
             ),
             pytest.param(
+                np.array([1, 3, 4, 8]),
+                [
+                    HLAStandard(
+                        allele="std_mixturematch", sequence=np.array([1, 2, 4, 8])
+                    )
+                ],
+                5,
+                [
+                    HLAStandardMatch(
+                        allele="std_mixturematch",
+                        sequence=np.array([1, 2, 4, 8]),
+                        mismatch=0,
+                    )
+                ],
+                id="mixture_match",
+            ),
+            pytest.param(
                 np.array([1, 2, 4, 8]),
                 [
                     HLAStandard(
                         allele="std_allmismatch", sequence=np.array([8, 4, 2, 1])
                     )
                 ],
+                5,
                 [
                     HLAStandardMatch(
                         allele="std_allmismatch",
@@ -802,7 +1174,18 @@ class TestEasyHLAMisc:
                 ],
                 id="one_standard_all_mismatch",
             ),
-            #
+            pytest.param(
+                np.array([1, 2, 4, 8, 3, 5, 7, 9]),
+                [
+                    HLAStandard(
+                        allele="std_mismatch_over_threshold",
+                        sequence=np.array([1, 2, 8, 4, 4, 8, 8, 1]),
+                    )
+                ],
+                5,
+                [],
+                id="one_standard_mismatch_above_threshold",
+            ),
             pytest.param(
                 np.array([1, 2, 4, 8]),
                 [
@@ -814,6 +1197,7 @@ class TestEasyHLAMisc:
                         allele="std_allmismatch", sequence=np.array([8, 4, 2, 1])
                     ),
                 ],
+                5,
                 [
                     HLAStandardMatch(
                         allele="std_allmatch",
@@ -831,7 +1215,47 @@ class TestEasyHLAMisc:
                         mismatch=4,
                     ),
                 ],
-                id="several_standards",
+                id="several_standards_below_threshold",
+            ),
+            pytest.param(
+                np.array([1, 3, 4, 8, 2, 5, 4, 1]),
+                [
+                    HLAStandard(
+                        allele="std_mixturematch",
+                        sequence=np.array([1, 2, 4, 8, 2, 1, 4, 1]),
+                    ),
+                    HLAStandard(
+                        allele="std_2mismatch",
+                        sequence=np.array([1, 4, 4, 4, 2, 4, 4, 1]),
+                    ),
+                    HLAStandard(
+                        allele="std_allmismatch",
+                        sequence=np.array([8, 4, 2, 1, 1, 8, 8, 8]),
+                    ),
+                    HLAStandard(
+                        allele="std_4mismatch",
+                        sequence=np.array([8, 4, 2, 1, 2, 1, 4, 1]),
+                    ),
+                ],
+                5,
+                [
+                    HLAStandardMatch(
+                        allele="std_mixturematch",
+                        sequence=np.array([1, 2, 4, 8, 2, 1, 4, 1]),
+                        mismatch=0,
+                    ),
+                    HLAStandardMatch(
+                        allele="std_2mismatch",
+                        sequence=np.array([1, 4, 4, 4, 2, 4, 4, 1]),
+                        mismatch=2,
+                    ),
+                    HLAStandardMatch(
+                        allele="std_4mismatch",
+                        sequence=np.array([8, 4, 2, 1, 2, 1, 4, 1]),
+                        mismatch=4,
+                    ),
+                ],
+                id="typical_case",
             ),
         ],
     )
@@ -839,9 +1263,12 @@ class TestEasyHLAMisc:
         self,
         sequence: np.ndarray,
         hla_stds: Iterable[HLAStandard],
+        mismatch_threshold: int,
         exp_result: Iterable[HLAStandardMatch],
     ):
-        result = EasyHLA.get_matching_stds(seq=sequence, hla_stds=hla_stds)  # type: ignore
+        result = EasyHLA.get_matching_stds(
+            seq=sequence, hla_stds=hla_stds, mismatch_threshold=mismatch_threshold
+        )  # type: ignore
         print(result)
         assert result == exp_result
 

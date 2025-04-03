@@ -6,9 +6,10 @@ from io import TextIOBase
 from operator import attrgetter
 from typing import Final, Literal, Optional
 
-import Bio.SeqIO
 import numpy as np
 import pydantic_numpy.typing as pnd
+from Bio.Seq import Seq
+from Bio.SeqIO import SeqRecord
 
 from .models import (
     HLACombinedStandard,
@@ -250,8 +251,8 @@ class EasyHLA:
 
         :param seq: Sequence to be validated.
         :type seq: str
-        :param name: Name of sequence. This will commonly be the ID/descriptor
-        in the fasta file.
+        :param name: Name of sequence. This will commonly be the ID in the fasta
+        file.
         :type name: str
         :raises ValueError: Raised if length of sequence is outside allowed
         parameters.
@@ -555,15 +556,15 @@ class EasyHLA:
 
     @staticmethod
     def pair_exons_helper(
-        sequence_record: Bio.SeqIO.SeqRecord,
-        unmatched: dict[EXON_NAME, dict[str, Bio.SeqIO.SeqRecord]],
-    ) -> Optional[tuple[str, bool, bool, str, str]]:
+        sequence_record: SeqRecord,
+        unmatched: dict[EXON_NAME, dict[str, Seq]],
+    ) -> tuple[str, bool, bool, str, str]:
         """
         Helper that attempts to match the given sequence with a "partner" exon.
 
         `sequence_record` represents a sequence that may be an exon2 or exon3
         sequence (or neither).  It determines which of these cases it is by
-        examining its description string; then it either finds a partner for it
+        examining its `id` string; then it either finds a partner for it
         from `unmatched`, or adds it to `unmatched`.
 
         Returns None if it cannot find a match; otherwise, it returns a tuple
@@ -574,8 +575,8 @@ class EasyHLA:
         - exon2 sequence
         - exon3 sequence
         """
-        # The description field is expected to hold the sample name.
-        samp: str = sequence_record.description
+        # The `id`` field is expected to hold the sample name.
+        samp: str = sequence_record.id
         is_exon: bool = False
         matched: bool = False
         exon2: str = ""
@@ -588,22 +589,22 @@ class EasyHLA:
             if exon in samp.lower():
                 is_exon = True
                 identifier = samp.split("_")[0]
-                for other_desc, other_sr in unmatched[other_exon].items():
-                    if identifier.lower() in other_desc.lower():
+                for other_id, other_seq in unmatched[other_exon].items():
+                    if identifier.lower() in other_id.lower():
                         matched = True
                         if exon == "exon2":
                             exon2 = str(sequence_record.seq)
-                            exon3 = str(other_sr.seq)
+                            exon3 = str(other_seq)
                         else:
-                            exon2 = str(other_sr.seq)
+                            exon2 = str(other_seq)
                             exon3 = str(sequence_record.seq)
 
-                        unmatched[other_exon].pop(other_desc)
+                        unmatched[other_exon].pop(other_id)
                         break
                 # If we can't match the exon, put the entry in the list we
                 # weren't looking in.
                 if not matched:
-                    unmatched[exon][samp] = sequence_record
+                    unmatched[exon][samp] = sequence_record.seq
 
         return (
             identifier,
@@ -615,8 +616,8 @@ class EasyHLA:
 
     def pair_exons(
         self,
-        sequence_records: Iterable[Bio.SeqIO.SeqRecord],
-    ) -> tuple[list[HLASequence], dict[EXON_NAME, dict[str, Bio.SeqIO.SeqRecord]]]:
+        sequence_records: Iterable[SeqRecord],
+    ) -> tuple[list[HLASequence], dict[EXON_NAME, dict[str, Seq]]]:
         """
         Pair exons in the given input sequences.
 
@@ -627,7 +628,7 @@ class EasyHLA:
         sequences and attempt to match them up.
         """
         matched_sequences: list[HLASequence] = []
-        unmatched: dict[EXON_NAME, dict[str, Bio.SeqIO.SeqRecord]] = {
+        unmatched: dict[EXON_NAME, dict[str, Seq]] = {
             "exon2": {},
             "exon3": {},
         }
@@ -636,7 +637,7 @@ class EasyHLA:
             # Skip over any sequences that aren't the right length or contain
             # bad bases.
             try:
-                self.check_length(str(sr.seq), sr.description)
+                self.check_length(str(sr.seq), sr.id)
                 self.check_bases(str(sr.seq))
             except ValueError:
                 continue
@@ -760,9 +761,11 @@ class EasyHLA:
 
         :param hla_sequence: the sequence to perform interpretation on
         :type hla_sequence: HLASequence
-        :param threshold: _description_, defaults to None
+        :param threshold: number of mismatches between the sequence and possible
+        matching standards; defaults to None
         :type threshold: Optional[int], optional
-        :return: _description_
+        :return: the HLA interpretation, which holds all matching standards and
+        other details on each
         :rtype: HLAInterpretation
         """
         seq: pnd.NpNDArray = hla_sequence.sequence
