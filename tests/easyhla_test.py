@@ -1,6 +1,7 @@
 import os
 from collections.abc import Iterable
 from datetime import datetime
+from io import StringIO
 from pathlib import Path
 from typing import Optional
 
@@ -14,6 +15,7 @@ from easyhla.easyhla import DATE_FORMAT, EXON_NAME, EasyHLA
 from easyhla.models import (
     HLACombinedStandard,
     HLAProteinPair,
+    HLASequence,
     HLAStandard,
     HLAStandardMatch,
 )
@@ -722,6 +724,50 @@ class TestPairExons:
         assert result[2] == expected_matched
         assert result[3] == expected_exon2
         assert result[4] == expected_exon3
+        assert unmatched == expected_unmatched
+
+    @pytest.mark.parametrize(
+        "raw_sequence_records, raw_standards, expected_paired, expected_unmatched",
+        [
+            pytest.param(
+                [("E1", "A" * 787)],
+                [("A*01:01:01:01", "A" * 270, "AT" * 138)],
+                [
+                    HLASequence(
+                        two="A" * 270,
+                        intron="A" * 241,
+                        three="AT" * 138,
+                        sequence=np.array([1] * 546),
+                        name="E1",
+                        num_sequences_used=1,
+                    ),
+                ],
+                {},
+                id="single_full_sequence",
+            ),
+        ],
+    )
+    def test_pair_exons(
+        self,
+        raw_sequence_records: list[tuple[str, str]],
+        raw_standards: list[tuple[str, str, str]],
+        expected_paired: list[HLASequence],
+        expected_unmatched: dict[EXON_NAME, dict[str, Seq]],
+    ):
+        dummy_standard_strings: list[str] = [
+            f"{allele},{exon2},{exon3}" for allele, exon2, exon3 in raw_standards
+        ]
+        easyhla: EasyHLA = EasyHLA(
+            "A", hla_standards=StringIO("\n".join(dummy_standard_strings) + "\n")
+        )
+        paired_seqs: list[HLASequence]
+        unmatched: dict[EXON_NAME, dict[str, Seq]]
+
+        srs: list[SeqRecord] = [
+            SeqRecord(id=id, seq=Seq(sequence)) for id, sequence in raw_sequence_records
+        ]
+        paired_seqs, unmatched = easyhla.pair_exons(srs)
+        assert paired_seqs == expected_paired
         assert unmatched == expected_unmatched
 
 
