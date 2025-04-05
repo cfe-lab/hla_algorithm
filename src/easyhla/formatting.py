@@ -46,9 +46,9 @@ class HLAInterpretationRow(BaseModel):
             homozygous=int(allele_pairs.is_homozygous()),
             mismatch_count=interpretation.lowest_mismatch_count(),
             mismatches=";".join(best_match_mismatches),
-            exon2=interpretation.hla_sequence.two.upper(),
-            intron=interpretation.hla_sequence.intron.upper(),
-            exon3=interpretation.hla_sequence.three.upper(),
+            exon2=interpretation.hla_sequence.exon2_str.upper(),
+            intron=interpretation.hla_sequence.intron_str.upper(),
+            exon3=interpretation.hla_sequence.exon3_str.upper(),
         )
 
 
@@ -75,9 +75,9 @@ class HLAMismatchRow(BaseModel):
             )
         )
 
-        rows: list[cls] = []
+        rows: list["HLAMismatchRow"] = []
         for _, combined_std, mismatches in matches_by_count:
-            curr_row: cls = cls(
+            curr_row: "HLAMismatchRow" = cls(
                 allele=combined_std.get_allele_pair_str(),
                 mismatches=";".join([str(x) for x in mismatches]),
                 exon2=interpretation.hla_sequence.two.upper(),

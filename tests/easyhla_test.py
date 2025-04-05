@@ -10,8 +10,9 @@ import pytest
 import pytz
 from Bio.Seq import Seq
 from Bio.SeqIO import SeqRecord
+from pydantic import BaseModel
 
-from easyhla.easyhla import DATE_FORMAT, EXON_NAME, EasyHLA
+from easyhla.easyhla import DATE_FORMAT, EXON_NAME, HLA_LOCI, EasyHLA
 from easyhla.models import (
     HLACombinedStandard,
     HLAProteinPair,
@@ -19,8 +20,64 @@ from easyhla.models import (
     HLAStandard,
     HLAStandardMatch,
 )
+from easyhla.utils import nuc2bin
 
 from .conftest import compare_ref_vs_test
+
+
+class DummyStandard(BaseModel):
+    allele: str
+    exon2: str
+    exon3: str
+
+
+HLA_STANDARDS: dict[HLA_LOCI, DummyStandard] = {
+    "A": DummyStandard(
+        allele="A*01:01:01G",
+        exon2=(
+            "GCTCCCACTCCATGAGGTATTTCTTCACATCCGTGTCCCGGCCCGGCCGCGGGGAGCCCCGCTTCATCGCCGT"
+            "GGGCTACGTGGACGACACGCAGTTCGTGCGGTTCGACAGCGACGCCGCGAGCCAGAAGATGGAGCCGCGGGCG"
+            "CCGTGGATAGAGCAGGAGGGGCCGGAGTATTGGGACCAGGAGACACGGAATATGAAGGCCCACTCACAGACTG"
+            "ACCGAGCGAACCTGGGGACCCTGCGCGGCTACTACAACCAGAGCGAGGACG"
+        ),
+        exon3=(
+            "GTTCTCACACCATCCAGATAATGTATGGCTGCGACGTGGGGCCGGACGGGCGCTTCCTCCGCGGGTACCGGCA"
+            "GGACGCCTACGACGGCAAGGATTACATCGCCCTGAACGAGGACCTGCGCTCTTGGACCGCGGCGGACATGGCA"
+            "GCTCAGATCACCAAGCGCAAGTGGGAGGCGGTCCATGCGGCGGAGCAGCGGAGAGTCTACCTGGAGGGCCGGT"
+            "GCGTGGACGGGCTCCGCAGATACCTGGAGAACGGGAAGGAGACGCTGCAGCGCACGG"
+        ),
+    ),
+    "B": DummyStandard(
+        allele="B*07:02:01G",
+        exon2=(
+            "GCTCCCACTCCATGAGGTATTTCTACACCTCCGTGTCCCGGCCCGGCCGCGGGGAGCCCCGCTTCATCTCAGT"
+            "GGGCTACGTGGACGACACCCAGTTCGTGAGGTTCGACAGCGACGCCGCGAGTCCGAGAGAGGAGCCGCGGGCG"
+            "CCGTGGATAGAGCAGGAGGGGCCGGAGTATTGGGACCGGAACACACAGATCTACAAGGCCCAGGCACAGACTG"
+            "ACCGAGAGAGCCTGCGGAACCTGCGCGGCTACTACAACCAGAGCGAGGCCG"
+        ),
+        exon3=(
+            "GGTCTCACACCCTCCAGAGCATGTACGGCTGCGACGTGGGGCCGGACGGGCGCCTCCTCCGCGGGCATGACCA"
+            "GTACGCCTACGACGGCAAGGATTACATCGCCCTGAACGAGGACCTGCGCTCCTGGACCGCCGCGGACACGGCG"
+            "GCTCAGATCACCCAGCGCAAGTGGGAGGCGGCCCGTGAGGCGGAGCAGCGGAGAGCCTACCTGGAGGGCGAGT"
+            "GCGTGGAGTGGCTCCGCAGATACCTGGAGAACGGGAAGGACAAGCTGGAGCGCGCTG"
+        ),
+    ),
+    "C": DummyStandard(
+        allele="C*01:02:01G",
+        exon2=(
+            "GCTCCCACTCCATGAAGTATTTCTTCACATCCGTGTCCCGGCCTGGCCGCGGAGAGCCCCGCTTCATCTCAGT"
+            "GGGCTACGTGGACGACACGCAGTTCGTGCGGTTCGACAGCGACGCCGCGAGTCCGAGAGGGGAGCCGCGGGCG"
+            "CCGTGGGTGGAGCAGGAGGGGCCGGAGTATTGGGACCGGGAGACACAGAAGTACAAGCGCCAGGCACAGACTG"
+            "ACCGAGTGAGCCTGCGGAACCTGCGCGGCTACTACAACCAGAGCGAGGCCG"
+        ),
+        exon3=(
+            "GGTCTCACACCCTCCAGTGGATGTGTGGCTGCGACCTGGGGCCCGACGGGCGCCTCCTCCGCGGGTATGACCA"
+            "GTACGCCTACGACGGCAAGGATTACATCGCCCTGAACGAGGACCTGCGCTCCTGGACCGCCGCGGACACCGCG"
+            "GCTCAGATCACCCAGCGCAAGTGGGAGGCGGCCCGTGAGGCGGAGCAGCGGAGAGCCTACCTGGAGGGCACGT"
+            "GCGTGGAGTGGCTCCGCAGATACCTGGAGAACGGGAAGGAGACGCTGCAGCGCGCGG"
+        ),
+    ),
+}
 
 
 @pytest.fixture(scope="module")
@@ -727,38 +784,360 @@ class TestPairExons:
         assert unmatched == expected_unmatched
 
     @pytest.mark.parametrize(
-        "raw_sequence_records, raw_standards, expected_paired, expected_unmatched",
+        "raw_sequence_records, locus, expected_paired, expected_unmatched",
         [
             pytest.param(
-                [("E1", "A" * 787)],
-                [("A*01:01:01:01", "A" * 270, "AT" * 138)],
+                [
+                    (
+                        "E1",
+                        HLA_STANDARDS["C"].exon2
+                        + "A" * 100
+                        + "Z"
+                        + "A" * 140
+                        + HLA_STANDARDS["C"].exon3,
+                    )
+                ],
+                "C",
+                [],
+                {"exon2": {}, "exon3": {}},
+                id="base_check_fails",
+            ),
+            pytest.param(
+                [
+                    (
+                        "E1",
+                        HLA_STANDARDS["A"].exon2 + "A" * 241 + HLA_STANDARDS["A"].exon3,
+                    )
+                ],
+                "A",
                 [
                     HLASequence(
-                        two="A" * 270,
-                        intron="A" * 241,
-                        three="AT" * 138,
-                        sequence=np.array([1] * 546),
+                        two=nuc2bin(HLA_STANDARDS["A"].exon2),
+                        intron=nuc2bin("A" * 241),
+                        three=nuc2bin(HLA_STANDARDS["A"].exon3),
                         name="E1",
                         num_sequences_used=1,
                     ),
                 ],
-                {},
+                {"exon2": {}, "exon3": {}},
                 id="single_full_sequence",
+            ),
+            pytest.param(
+                [
+                    (
+                        "E1",
+                        HLA_STANDARDS["A"].exon2
+                        + "A" * 1000
+                        + HLA_STANDARDS["A"].exon3,  # too long
+                    )
+                ],
+                "A",
+                [],
+                {"exon2": {}, "exon3": {}},
+                id="locus_a_length_check_fails",
+            ),
+            pytest.param(
+                [
+                    (
+                        "E1",
+                        HLA_STANDARDS["B"].exon2 + "A" * 241 + HLA_STANDARDS["B"].exon3,
+                    )
+                ],
+                "B",
+                [
+                    HLASequence(
+                        two=nuc2bin(HLA_STANDARDS["B"].exon2),
+                        intron=nuc2bin("A" * 241),
+                        three=nuc2bin(HLA_STANDARDS["B"].exon3),
+                        name="E1",
+                        num_sequences_used=1,
+                    ),
+                ],
+                {"exon2": {}, "exon3": {}},
+                id="locus_b_single_full_sequence_min_length",
+            ),
+            pytest.param(
+                [
+                    (
+                        "E1",
+                        HLA_STANDARDS["B"].exon2 + "A" * 250 + HLA_STANDARDS["B"].exon3,
+                    )
+                ],
+                "B",
+                [
+                    HLASequence(
+                        two=nuc2bin(HLA_STANDARDS["B"].exon2),
+                        intron=nuc2bin("A" * 250),
+                        three=nuc2bin(HLA_STANDARDS["B"].exon3),
+                        name="E1",
+                        num_sequences_used=1,
+                    ),
+                ],
+                {"exon2": {}, "exon3": {}},
+                id="locus_b_single_full_sequence_max_length",
+            ),
+            pytest.param(
+                [
+                    (
+                        "E1",
+                        HLA_STANDARDS["B"].exon2 + "A" * 245 + HLA_STANDARDS["B"].exon3,
+                    )
+                ],
+                "B",
+                [
+                    HLASequence(
+                        two=nuc2bin(HLA_STANDARDS["B"].exon2),
+                        intron=nuc2bin("A" * 245),
+                        three=nuc2bin(HLA_STANDARDS["B"].exon3),
+                        name="E1",
+                        num_sequences_used=1,
+                    ),
+                ],
+                {"exon2": {}, "exon3": {}},
+                id="locus_b_single_full_sequence_middle_of_length_range",
+            ),
+            pytest.param(
+                [("E1_exon2", HLA_STANDARDS["B"].exon2)],
+                "B",
+                [],
+                {"exon2": {"E1_exon2": Seq(HLA_STANDARDS["B"].exon2)}, "exon3": {}},
+                id="locus_b_single_exon2_sequence",
+            ),
+            pytest.param(
+                [("E1_exon3", HLA_STANDARDS["B"].exon3)],
+                "B",
+                [],
+                {"exon2": {}, "exon3": {"E1_exon3": Seq(HLA_STANDARDS["B"].exon3)}},
+                id="locus_b_single_exon3_sequence",
+            ),
+            pytest.param(
+                [
+                    ("E1_exon2", HLA_STANDARDS["B"].exon2),
+                    ("E1_exon3", HLA_STANDARDS["B"].exon3),
+                ],
+                "B",
+                [
+                    HLASequence(
+                        two=nuc2bin(HLA_STANDARDS["B"].exon2),
+                        intron=np.array([]),
+                        three=nuc2bin(HLA_STANDARDS["B"].exon3),
+                        name="E1",
+                        num_sequences_used=2,
+                    ),
+                ],
+                {"exon2": {}, "exon3": {}},
+                id="locus_b_one_properly_paired_sequence_exon2_first",
+            ),
+            pytest.param(
+                [
+                    ("E1_exon3", HLA_STANDARDS["B"].exon3),
+                    ("E1_exon2", HLA_STANDARDS["B"].exon2),
+                ],
+                "B",
+                [
+                    HLASequence(
+                        two=nuc2bin(HLA_STANDARDS["B"].exon2),
+                        intron=np.array([]),
+                        three=nuc2bin(HLA_STANDARDS["B"].exon3),
+                        name="E1",
+                        num_sequences_used=2,
+                    ),
+                ],
+                {"exon2": {}, "exon3": {}},
+                id="locus_b_one_properly_paired_sequence_exon3_first",
+            ),
+            pytest.param(
+                [
+                    (
+                        "E1_exon2",
+                        HLA_STANDARDS["B"].exon2[0:100],  # too short
+                    )
+                ],
+                "B",
+                [],
+                {"exon2": {}, "exon3": {}},
+                id="locus_b_exon2_failed_length_check",
+            ),
+            pytest.param(
+                [
+                    ("E1_exon2_short", HLA_STANDARDS["C"].exon2[0:250]),
+                    ("E1_exon3", HLA_STANDARDS["C"].exon3),
+                ],
+                "C",
+                [
+                    HLASequence(
+                        two=nuc2bin(HLA_STANDARDS["C"].exon2[0:250] + "N" * 20),
+                        intron=np.array([]),
+                        three=nuc2bin(HLA_STANDARDS["C"].exon3),
+                        name="E1",
+                        num_sequences_used=2,
+                    ),
+                ],
+                {"exon2": {}, "exon3": {}},
+                id="exon2_properly_padded",
+            ),
+            pytest.param(
+                [
+                    ("E1_exon2", HLA_STANDARDS["C"].exon2),
+                    ("E1_exon3_short", HLA_STANDARDS["C"].exon3[0:270]),
+                ],
+                "C",
+                [
+                    HLASequence(
+                        two=nuc2bin(HLA_STANDARDS["C"].exon2),
+                        intron=np.array([]),
+                        three=nuc2bin(HLA_STANDARDS["C"].exon3[0:270] + "N" * 6),
+                        name="E1",
+                        num_sequences_used=2,
+                    ),
+                ],
+                {"exon2": {}, "exon3": {}},
+                id="exon3_properly_padded",
+            ),
+            pytest.param(
+                [
+                    ("E1_exon2_short", HLA_STANDARDS["C"].exon2[0:250]),
+                    ("E1_exon3_short", HLA_STANDARDS["C"].exon3[0:270]),
+                ],
+                "C",
+                [
+                    HLASequence(
+                        two=nuc2bin(HLA_STANDARDS["C"].exon2[0:250] + "N" * 20),
+                        intron=np.array([]),
+                        three=nuc2bin(HLA_STANDARDS["C"].exon3[0:270] + "N" * 6),
+                        name="E1",
+                        num_sequences_used=2,
+                    ),
+                ],
+                {"exon2": {}, "exon3": {}},
+                id="both_exons_properly_padded",
+            ),
+            pytest.param(
+                [
+                    ("E1_exon2_short", HLA_STANDARDS["B"].exon2[0:250]),
+                ],
+                "B",
+                [],
+                {
+                    "exon2": {"E1_exon2_short": Seq(HLA_STANDARDS["B"].exon2[0:250])},
+                    "exon3": {},
+                },
+                id="unmatched_exon2_not_padded",
+            ),
+            pytest.param(
+                [
+                    ("E1_exon3_short", HLA_STANDARDS["B"].exon3[0:250]),
+                ],
+                "B",
+                [],
+                {
+                    "exon2": {},
+                    "exon3": {"E1_exon3_short": Seq(HLA_STANDARDS["B"].exon3[0:250])},
+                },
+                id="unmatched_exon3_not_padded",
+            ),
+            pytest.param(
+                [
+                    (
+                        "E1_full_short",
+                        HLA_STANDARDS["B"].exon2[15:]
+                        + "A" * 241
+                        + HLA_STANDARDS["B"].exon3[0:265],
+                    ),
+                ],
+                "B",
+                [
+                    HLASequence(
+                        two=nuc2bin("N" * 15 + HLA_STANDARDS["B"].exon2[15:]),
+                        intron=np.array([1] * 241),
+                        three=nuc2bin(HLA_STANDARDS["B"].exon3[0:265] + "N" * 11),
+                        name="E1_full_short",
+                        num_sequences_used=1,
+                    ),
+                ],
+                {"exon2": {}, "exon3": {}},
+                id="short_full_sequence_properly_padded",
+            ),
+            pytest.param(
+                [
+                    (
+                        "E1_full_short",
+                        HLA_STANDARDS["B"].exon2[15:]
+                        + "A" * 241
+                        + HLA_STANDARDS["B"].exon3[0:265],
+                    ),
+                    ("E2_exon2_short", HLA_STANDARDS["B"].exon2[0:250]),
+                    (
+                        "E3_full",
+                        HLA_STANDARDS["B"].exon2[15:]
+                        + "A" * 241
+                        + HLA_STANDARDS["B"].exon3,  # wrong length
+                    ),
+                    ("E2_exon3", HLA_STANDARDS["B"].exon3),
+                    (
+                        "E4_full",
+                        HLA_STANDARDS["B"].exon2 + "A" * 241 + HLA_STANDARDS["B"].exon3,
+                    ),
+                    ("E5_exon3", HLA_STANDARDS["B"].exon3[0:200]),  # wrong length
+                    ("E6_exon2", HLA_STANDARDS["B"].exon2),
+                    ("E5_exon2", HLA_STANDARDS["B"].exon2),  # will go unmatched
+                    ("E6_exon3", HLA_STANDARDS["B"].exon3),
+                    ("E7_exon3_short", "A" * 270),
+                ],
+                "B",
+                [
+                    HLASequence(
+                        two=nuc2bin("N" * 15 + HLA_STANDARDS["B"].exon2[15:]),
+                        intron=np.array([1] * 241),
+                        three=nuc2bin(HLA_STANDARDS["B"].exon3[0:265] + "N" * 11),
+                        name="E1_full_short",
+                        num_sequences_used=1,
+                    ),
+                    HLASequence(
+                        two=nuc2bin(HLA_STANDARDS["B"].exon2[0:250] + "N" * 20),
+                        intron=np.array([]),
+                        three=nuc2bin(HLA_STANDARDS["B"].exon3),
+                        name="E2",
+                        num_sequences_used=2,
+                    ),
+                    HLASequence(
+                        two=nuc2bin(HLA_STANDARDS["B"].exon2),
+                        intron=np.array([1] * 241),
+                        three=nuc2bin(HLA_STANDARDS["B"].exon3),
+                        name="E4_full",
+                        num_sequences_used=1,
+                    ),
+                    HLASequence(
+                        two=nuc2bin(HLA_STANDARDS["B"].exon2),
+                        intron=np.array([]),
+                        three=nuc2bin(HLA_STANDARDS["B"].exon3),
+                        name="E6",
+                        num_sequences_used=2,
+                    ),
+                ],
+                {
+                    "exon2": {"E5_exon2": Seq(HLA_STANDARDS["B"].exon2)},
+                    "exon3": {"E7_exon3_short": Seq("A" * 270)},
+                },
+                id="typical_case",
             ),
         ],
     )
     def test_pair_exons(
         self,
         raw_sequence_records: list[tuple[str, str]],
-        raw_standards: list[tuple[str, str, str]],
+        locus: HLA_LOCI,
         expected_paired: list[HLASequence],
         expected_unmatched: dict[EXON_NAME, dict[str, Seq]],
     ):
+        # We only need one standard as it only uses the first standard to pad
+        # our inputs against.
+        current_standard: DummyStandard = HLA_STANDARDS[locus]
         dummy_standard_strings: list[str] = [
-            f"{allele},{exon2},{exon3}" for allele, exon2, exon3 in raw_standards
+            f"{current_standard.allele},{current_standard.exon2},{current_standard.exon3}"
         ]
         easyhla: EasyHLA = EasyHLA(
-            "A", hla_standards=StringIO("\n".join(dummy_standard_strings) + "\n")
+            locus, hla_standards=StringIO("\n".join(dummy_standard_strings) + "\n")
         )
         paired_seqs: list[HLASequence]
         unmatched: dict[EXON_NAME, dict[str, Seq]]
@@ -850,68 +1229,6 @@ class TestEasyHLAMisc:
         else:
             with pytest.raises(ValueError):
                 EasyHLA.check_bases(seq=sequence)
-
-    @pytest.mark.parametrize(
-        "sequence_str, sequence_list",
-        [
-            ("ACGT", np.array([1, 2, 4, 8])),
-            ("YANK", np.array([10, 1, 15, 12])),
-            ("TARDY", np.array([8, 1, 5, 13, 10])),
-            ("MRMAN", np.array([3, 5, 3, 1, 15])),
-            ("MYSWARD", np.array([3, 10, 6, 9, 1, 5, 13])),
-            # This is where I pull out scrabblewordfinder.org
-            ("GANTRY", np.array([4, 1, 15, 8, 5, 10])),
-            ("SKYWATCH", np.array([6, 12, 10, 9, 1, 8, 2, 11])),
-            ("THWACK", np.array([8, 11, 9, 1, 2, 12])),
-            ("VAN", np.array([7, 1, 15])),
-            ("ABRA", np.array([1, 14, 5, 1])),
-        ],
-    )
-    def test_nuc2bin_bin2nuc_good_cases(
-        self, sequence_str: str, sequence_list: np.ndarray
-    ):
-        """
-        Test that we can convert back and forth between a list of binary values
-        and strings.
-        """
-        result_str = EasyHLA.bin2nuc(sequence_list)
-        assert result_str == sequence_str
-        result_list = EasyHLA.nuc2bin(sequence_str)
-        assert np.array_equal(result_list, sequence_list)
-
-    @pytest.mark.parametrize(
-        "sequence_str, sequence_list",
-        [
-            ("E", np.array([0])),
-            ("a", np.array([0])),
-            ("123", np.array([0, 0, 0])),
-            ("AC_TT_G", np.array([1, 2, 0, 8, 8, 0, 4])),
-        ],
-    )
-    def test_nuc2bin_bad_characters(self, sequence_str: str, sequence_list: np.ndarray):
-        """
-        Translating characters that aren't in the mapping turns them into 0s.
-        """
-        result_list = EasyHLA.nuc2bin(sequence_str)
-        assert np.array_equal(result_list, sequence_list)
-
-    @pytest.mark.parametrize(
-        "sequence_list, sequence_str",
-        [
-            (np.array([0]), "_"),
-            (np.array([16]), "_"),
-            (np.array([17]), "_"),
-            (np.array([250]), "_"),
-            (np.array([1, 2, 0, 8, 8, 0, 4]), "AC_TT_G"),
-            (np.array([1, 14, 2, 100, 8, 17, 4]), "ABC_T_G"),
-        ],
-    )
-    def test_bin2nuc_bad_indices(self, sequence_list: np.ndarray, sequence_str: str):
-        """
-        Indices not in our mapping become underscores.
-        """
-        result_str = EasyHLA.bin2nuc(sequence_list)
-        assert np.array_equal(result_str, sequence_str)
 
     @pytest.mark.parametrize(
         "sequence, standard, exp_result",

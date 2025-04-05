@@ -21,6 +21,7 @@ from .models import (
     HLAStandard,
     HLAStandardMatch,
 )
+from .utils import BIN2NUC, bin2nuc, nuc2bin
 
 HLA_LOCI = Literal["A", "B", "C"]
 
@@ -39,61 +40,6 @@ class EasyHLA:
     MAX_HLA_BC_LENGTH: Final[int] = 796
     EXON2_LENGTH: Final[int] = 270
     EXON3_LENGTH: Final[int] = 276
-
-    ALLOWED_HLA_LOCI: Final[list[str]] = ["A", "B", "C"]
-
-    # A lookup table of translations from ambiguous nucleotides to unambiguous
-    # nucleotides.
-    AMBIG: Final[dict[str, list[str]]] = {
-        "A": ["A"],
-        "C": ["C"],
-        "G": ["G"],
-        "T": ["T"],
-        "R": ["A", "G"],
-        "Y": ["C", "T"],
-        "K": ["G", "T"],
-        "M": ["A", "C"],
-        "S": ["C", "G"],
-        "W": ["A", "T"],
-        "B": ["C", "G", "T"],
-        "D": ["A", "G", "T"],
-        "H": ["A", "C", "T"],
-        "V": ["A", "C", "G"],
-        "N": ["A", "C", "G", "T"],
-    }
-
-    # Thanks to binary logic, we encode nucleotide positions as a 4 bit number
-    # the first position 000a represents 'A',
-    # the second position 00a0 represents 'C',
-    # the third position 0a00 represents 'G',
-    # the fourth position a000 represents 'T'
-    # We can then perform binary ORs, XORs, and ANDs, to check whether or not
-    # a mixture contains a specific nucleotide.
-    PURENUC2BIN: Final[dict[str, int]] = {nuc: 2**i for i, nuc in enumerate("ACGT")}
-
-    # Nucleotides converted to their binary representation
-    # LISTOFNUCS: list[str] = [
-    #     "A",  # => 0b0001,
-    #     "C",  # => 0b0010,
-    #     "G",  # => 0b0100,
-    #     "T",  # => 0b1000,
-    #     "M",  # => 0b0011,
-    #     "R",  # => 0b0101,
-    #     "W",  # => 0b1001,
-    #     "S",  # => 0b0110,
-    #     "Y",  # => 0b1010,
-    #     "K",  # => 0b1100,
-    #     "B",  # => 0b1110,
-    #     "D",  # => 0b1101,
-    #     "H",  # => 0b1011,
-    #     "V",  # => 0b0111,
-    #     "N",  # => 0b1111
-    # ]
-    NUC2BIN: Final[dict[str, int]] = {
-        k: sum([{nuc: 2**i for i, nuc in enumerate("ACGT")}[nuc] for nuc in v])
-        for k, v in AMBIG.items()
-    }
-    BIN2NUC: Final[dict[int, str]] = {v: k for k, v in NUC2BIN.items()}
 
     COLUMN_IDS: Final[dict[str, int]] = {"A": 0, "B": 2, "C": 4}
 
@@ -212,7 +158,7 @@ class EasyHLA:
 
             for line in standards_io.readlines():
                 line_array = line.strip().split(",")
-                seq = self.nuc2bin((line_array[1] + line_array[2]))
+                seq = nuc2bin((line_array[1] + line_array[2]))
                 hla_stds.append(HLAStandard(allele=line_array[0], sequence=seq))
         finally:
             if default_standards_used:
@@ -303,37 +249,6 @@ class EasyHLA:
             raise ValueError("Sequence has invalid characters")
 
     @staticmethod
-    def nuc2bin(seq: str) -> np.ndarray:
-        """
-        Convert a string sequence to a numpy array.
-
-        Converts a string sequence to a numpy array containing binary
-        equivalents of the strings.
-
-        :param seq: ...
-        :type seq: str
-        :return: ...
-        :rtype: np.ndarray
-        """
-        return np.array(
-            [EasyHLA.NUC2BIN.get(seq[i], 0) for i in range(len(seq))], dtype="int8"
-        )
-
-    @staticmethod
-    def bin2nuc(seq: np.ndarray) -> str:
-        """
-        Convert an array of numbers to a string sequence.
-
-        Converts an array of numbers back to a string sequence.
-
-        :param seq: ...
-        :type seq: np.ndarray
-        :return: ...
-        :rtype: str
-        """
-        return "".join([EasyHLA.BIN2NUC.get(seq[i], "_") for i in range(len(seq))])
-
-    @staticmethod
     def std_match(std: np.ndarray, seq: np.ndarray) -> int:
         """
         Compare an HLA standard against an incoming sequence.
@@ -374,9 +289,7 @@ class EasyHLA:
         pad = len(std) - len(seq)
         left_pad = 0
         for i in range(pad + 1):  # 0, 1, ..., pad - 1, pad
-            pseq = np.concatenate(
-                (EasyHLA.nuc2bin("N" * i), seq, EasyHLA.nuc2bin("N" * (pad - i)))
-            )
+            pseq = np.concatenate((nuc2bin("N" * i), seq, nuc2bin("N" * (pad - i))))
             mismatches = EasyHLA.std_match(std, pseq)
             if mismatches < best:
                 best = mismatches
@@ -415,9 +328,9 @@ class EasyHLA:
             )
         return np.concatenate(
             (
-                EasyHLA.nuc2bin("N" * left_pad),
+                nuc2bin("N" * left_pad),
                 seq_bin,
-                EasyHLA.nuc2bin("N" * right_pad),
+                nuc2bin("N" * right_pad),
             )
         )
 
@@ -645,7 +558,6 @@ class EasyHLA:
             is_exon: bool = False
             matched: bool = False
             exon2: str = ""
-            intron: str = ""
             exon3: str = ""
             identifier: str = ""
 
@@ -660,19 +572,16 @@ class EasyHLA:
 
             if is_exon:
                 exon2_bin = self.pad_short(
-                    self.hla_stds[0].sequence, self.nuc2bin(exon2), "exon2"
+                    self.hla_stds[0].sequence, nuc2bin(exon2), "exon2"
                 )
                 exon3_bin = self.pad_short(
-                    self.hla_stds[0].sequence, self.nuc2bin(exon3), "exon3"
+                    self.hla_stds[0].sequence, nuc2bin(exon3), "exon3"
                 )
-                exon2 = self.bin2nuc(exon2_bin)
-                exon3 = self.bin2nuc(exon3_bin)
                 matched_sequences.append(
                     HLASequence(
-                        two=exon2,
-                        intron="",
-                        three=exon3,
-                        sequence=np.concatenate((exon2_bin, exon3_bin)),
+                        two=exon2_bin,
+                        intron=np.array([]),
+                        three=exon3_bin,
                         name=identifier,
                         num_sequences_used=2,
                     )
@@ -680,20 +589,14 @@ class EasyHLA:
             else:
                 seq = self.pad_short(
                     self.hla_stds[0].sequence,
-                    self.nuc2bin(sr.seq),  # type: ignore
+                    nuc2bin(sr.seq),  # type: ignore
                     None,
                 )
-                exon2 = self.bin2nuc(seq[: EasyHLA.EXON2_LENGTH])
-                intron = self.bin2nuc(seq[EasyHLA.EXON2_LENGTH : -EasyHLA.EXON3_LENGTH])
-                exon3 = self.bin2nuc(seq[-EasyHLA.EXON3_LENGTH :])
                 matched_sequences.append(
                     HLASequence(
-                        two=exon2,
-                        intron=intron,
-                        three=exon3,
-                        sequence=np.concatenate(
-                            (seq[: EasyHLA.EXON2_LENGTH], seq[-EasyHLA.EXON3_LENGTH :])
-                        ),
+                        two=seq[: EasyHLA.EXON2_LENGTH],
+                        intron=seq[EasyHLA.EXON2_LENGTH : -EasyHLA.EXON3_LENGTH],
+                        three=seq[-EasyHLA.EXON3_LENGTH :],
                         name=identifier,
                         num_sequences_used=1,
                     )
@@ -738,10 +641,9 @@ class EasyHLA:
             else:
                 dex = index + 1
 
-            base = EasyHLA.BIN2NUC[seq[index]]
+            base = BIN2NUC[seq[index]]
             correct_bases_str = [
-                EasyHLA.BIN2NUC[correct_base_bin]
-                for correct_base_bin in correct_bases_bin
+                BIN2NUC[correct_base_bin] for correct_base_bin in correct_bases_bin
             ]
             mislist.append(HLAMismatch(dex, base, correct_bases_str))
 

@@ -7,14 +7,36 @@ import pydantic_numpy.typing as pnd
 from pydantic import BaseModel, ConfigDict
 from pydantic_numpy.model import NumpyModel
 
+from .utils import bin2nuc
+
 
 class HLASequence(NumpyModel):
-    two: str
-    intron: str = ""
-    three: str
-    sequence: pnd.NpNDArray
+    two: pnd.NpNDArray
+    intron: pnd.NpNDArray = np.array([])
+    three: pnd.NpNDArray
     name: str
     num_sequences_used: int = 1
+
+    @property
+    def sequence_for_interpretation(self) -> np.ndarray:
+        """
+        Returns the "binary" sequence for interpretation purposes.
+
+        This is exon2 concatenated with exon3 (no intron)..
+        """
+        return np.concatenate((self.two, self.three))
+
+    @property
+    def exon2_str(self) -> str:
+        return bin2nuc(self.two)
+
+    @property
+    def exon3_str(self) -> str:
+        return bin2nuc(self.three)
+
+    @property
+    def intron_str(self) -> str:
+        return bin2nuc(self.intron)
 
 
 class HLAStandard(NumpyModel):
