@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from easyhla.easyhla import DATE_FORMAT, EXON_NAME, HLA_LOCI, EasyHLA
 from easyhla.models import (
     HLACombinedStandard,
+    HLAMismatch,
     HLAProteinPair,
     HLASequence,
     HLAStandard,
@@ -78,6 +79,18 @@ HLA_STANDARDS: dict[HLA_LOCI, DummyStandard] = {
         ),
     ),
 }
+
+
+def get_dummy_easyhla(locus: HLA_LOCI) -> EasyHLA:
+    # We only need one standard as it only uses the first standard to pad
+    # our inputs against.
+    current_standard: DummyStandard = HLA_STANDARDS[locus]
+    dummy_standard_strings: list[str] = [
+        f"{current_standard.allele},{current_standard.exon2},{current_standard.exon3}"
+    ]
+    return EasyHLA(
+        locus, hla_standards=StringIO("\n".join(dummy_standard_strings) + "\n")
+    )
 
 
 @pytest.fixture(scope="module")
@@ -1130,15 +1143,7 @@ class TestPairExons:
         expected_paired: list[HLASequence],
         expected_unmatched: dict[EXON_NAME, dict[str, Seq]],
     ):
-        # We only need one standard as it only uses the first standard to pad
-        # our inputs against.
-        current_standard: DummyStandard = HLA_STANDARDS[locus]
-        dummy_standard_strings: list[str] = [
-            f"{current_standard.allele},{current_standard.exon2},{current_standard.exon3}"
-        ]
-        easyhla: EasyHLA = EasyHLA(
-            locus, hla_standards=StringIO("\n".join(dummy_standard_strings) + "\n")
-        )
+        easyhla: EasyHLA = get_dummy_easyhla(locus)
         paired_seqs: list[HLASequence]
         unmatched: dict[EXON_NAME, dict[str, Seq]]
 
@@ -1148,6 +1153,202 @@ class TestPairExons:
         paired_seqs, unmatched = easyhla.pair_exons(srs)
         assert paired_seqs == expected_paired
         assert unmatched == expected_unmatched
+
+
+class TestGetMismatches:
+    @pytest.mark.parametrize(
+        "std_bin, seq_bin, locuses, expected_result",
+        [
+            pytest.param(
+                [1, 2, 4, 8, 1, 2, 4, 8, 1, 2, 4, 8],
+                [1, 2, 4, 8, 1, 2, 4, 8, 1, 2, 4, 8],
+                ["A", "B", "C"],
+                [],
+                id="no_mismatches",
+            ),
+            pytest.param(
+                [1, 2, 4, 12, 1, 2, 5, 8, 1, 2, 13, 8],
+                [1, 2, 4, 12, 1, 2, 5, 8, 1, 2, 13, 8],
+                ["A", "B", "C"],
+                [],
+                id="no_mismatches_with_mixtures",
+            ),
+            pytest.param(
+                [1, 2, 4, 8],
+                [4, 2, 4, 8],
+                ["A", "B", "C"],
+                [HLAMismatch(index=1, observed_base="G", expected_base="A")],
+                id="mismatch_at_beginning",
+            ),
+            pytest.param(
+                [1, 2, 4, 8],
+                [1, 2, 4, 1],
+                ["A", "B", "C"],
+                [HLAMismatch(index=4, observed_base="A", expected_base="T")],
+                id="mismatch_at_end",
+            ),
+            pytest.param(
+                [1, 2, 4, 8],
+                [1, 4, 4, 8],
+                ["A", "B", "C"],
+                [HLAMismatch(index=2, observed_base="G", expected_base="C")],
+                id="mismatch_in_middle",
+            ),
+            pytest.param(
+                [1, 2, 4, 8],
+                [5, 2, 4, 8],
+                ["A", "B", "C"],
+                [HLAMismatch(index=1, observed_base="R", expected_base="A")],
+                id="mixture_seq_to_unambiguous_std_mismatch",
+            ),
+            pytest.param(
+                [1, 2, 11, 8],
+                [1, 2, 4, 8],
+                ["A", "B", "C"],
+                [HLAMismatch(index=3, observed_base="G", expected_base="H")],
+                id="unambiguous_seq_to_mixture_std_mismatch",
+            ),
+            pytest.param(
+                [1, 2, 4, 3],
+                [1, 2, 4, 5],
+                ["A", "B", "C"],
+                [HLAMismatch(index=4, observed_base="R", expected_base="M")],
+                id="mixture_seq_to_mixture_std_mismatch",
+            ),
+            pytest.param(
+                [1] * 270 + [4] * 276,
+                [1] * 200 + [4] + [1] * 69 + [4] * 276,
+                ["A", "B", "C"],
+                [HLAMismatch(index=201, observed_base="G", expected_base="A")],
+                id="indexing_not_modified_before_position_270",
+            ),
+            pytest.param(
+                [1] * 269 + [3] + [4] * 276,
+                [1] * 270 + [4] * 276,
+                ["A", "B", "C"],
+                [HLAMismatch(index=270, observed_base="A", expected_base="M")],
+                id="indexing_not_modified_at_position_270",
+            ),
+            pytest.param(
+                [1] * 270 + [4] * 276,
+                [1] * 270 + [14] + [4] * 275,
+                ["A"],
+                [HLAMismatch(index=512, observed_base="B", expected_base="G")],
+                id="locus_a_indexing_modified_at_position_271",
+            ),
+            pytest.param(
+                [1] * 270 + [14] + [4] * 275,
+                [1] * 270 + [4] * 276,
+                ["B", "C"],
+                [HLAMismatch(index=271, observed_base="G", expected_base="B")],
+                id="locus_b_c_indexing_not_modified_at_position_271",
+            ),
+            pytest.param(
+                [1] * 270 + [4] * 276,
+                [1] * 270 + [4] * 100 + [11] + [4] * 175,
+                ["A"],
+                [HLAMismatch(index=612, observed_base="H", expected_base="G")],
+                id="locus_a_indexing_modified_after_position_270",
+            ),
+            pytest.param(
+                [1] * 270 + [4] * 100 + [11] + [4] * 175,
+                [1] * 270 + [4] * 276,
+                ["B", "C"],
+                [HLAMismatch(index=371, observed_base="G", expected_base="H")],
+                id="locus_b_c_indexing_not_modified_after_position_270",
+            ),
+            pytest.param(
+                [1] * 170
+                + [3]
+                + [1] * 99
+                + [11]
+                + [4] * 99
+                + [4] * 50
+                + [1]
+                + [4] * 125,
+                [1] * 270 + [4] * 100 + [4] * 50 + [11] + [4] * 125,
+                ["A"],
+                [
+                    HLAMismatch(index=171, observed_base="A", expected_base="M"),
+                    HLAMismatch(index=512, observed_base="G", expected_base="H"),
+                    HLAMismatch(index=662, observed_base="H", expected_base="A"),
+                ],
+                id="locus_b_c_several_mismatches",
+            ),
+            pytest.param(
+                [1] * 170
+                + [3]
+                + [1] * 99
+                + [11]
+                + [4] * 99
+                + [4] * 50
+                + [1]
+                + [4] * 125,
+                [1] * 270 + [4] * 100 + [4] * 50 + [11] + [4] * 125,
+                ["B", "C"],
+                [
+                    HLAMismatch(index=171, observed_base="A", expected_base="M"),
+                    HLAMismatch(index=271, observed_base="G", expected_base="H"),
+                    HLAMismatch(index=421, observed_base="H", expected_base="A"),
+                ],
+                id="locus_b_c_several_mismatches",
+            ),
+        ],
+    )
+    def test_get_mismatches_good_cases(
+        self,
+        std_bin: Iterable[int],
+        seq_bin: Iterable[int],
+        locuses: Iterable[HLA_LOCI],
+        expected_result: list[HLAMismatch],
+    ):
+        for locus in locuses:
+            easyhla: EasyHLA = get_dummy_easyhla(locus)
+            result: list[HLAMismatch] = easyhla.get_mismatches(
+                tuple(std_bin), np.array(seq_bin)
+            )
+            assert result == expected_result
+
+    @pytest.mark.parametrize(
+        "std_bin, seq_bin, expected_error",
+        [
+            pytest.param(
+                [],
+                [],
+                "standard must be non-trivial",
+                id="empty_sequence_and_standard",
+            ),
+            pytest.param(
+                [],
+                [1, 2, 4],
+                "standard must be non-trivial",
+                id="empty_standard_nontrivial_sequence",
+            ),
+            pytest.param(
+                [1],
+                [1, 2, 4],
+                "standard and sequence must be the same length",
+                id="longer_sequence",
+            ),
+            pytest.param(
+                [1] * 100,
+                [1, 2, 4],
+                "standard and sequence must be the same length",
+                id="longer_standard",
+            ),
+        ],
+    )
+    def test_get_mismatches_errors(
+        self,
+        std_bin: Iterable[int],
+        seq_bin: Iterable[int],
+        expected_error: str,
+    ):
+        for locus in ["A", "B", "C"]:
+            easyhla: EasyHLA = get_dummy_easyhla(locus)
+            with pytest.raises(ValueError) as excinfo:
+                easyhla.get_mismatches(tuple(std_bin), np.array(seq_bin))
+            assert expected_error in str(excinfo.value)
 
 
 class TestEasyHLAMisc:

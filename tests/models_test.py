@@ -48,24 +48,24 @@ class TestHLACombinedStandard:
 
 class TestHLAMismatch:
     @pytest.mark.parametrize(
-        "index, observed_base, expected_bases, expected_str",
+        "index, observed_base, expected_base, expected_str",
         [
-            (55, "A", ["C"], "55:A->C"),
-            (199, "C", ["A", "G"], "199:C->A/G"),
-            (9, "T", ["A", "C", "G"], "9:T->A/C/G"),
+            (55, "A", "C", "55:A->C"),
+            (199, "C", "R", "199:C->R"),
+            (9, "T", "V", "9:T->V"),
         ],
     )
     def test_string(
         self,
         index: int,
         observed_base: str,
-        expected_bases: list[str],
+        expected_base: str,
         expected_str: str,
     ):
         mismatch: HLAMismatch = HLAMismatch(
             index=index,
             observed_base=observed_base,
-            expected_bases=expected_bases,
+            expected_base=expected_base,
         )
         assert str(mismatch) == expected_str
 

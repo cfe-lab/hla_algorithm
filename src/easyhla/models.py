@@ -92,10 +92,10 @@ class HLACombinedStandard(BaseModel):
 class HLAMismatch(BaseModel):
     index: int
     observed_base: str
-    expected_bases: list[str]
+    expected_base: str
 
     def __str__(self):
-        return f"{self.index}:{self.observed_base}->{'/'.join(self.expected_bases)}"
+        return f"{self.index}:{self.observed_base}->{self.expected_base}"
 
 
 class HLAMatchDetails(BaseModel):

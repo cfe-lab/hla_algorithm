@@ -614,9 +614,6 @@ class EasyHLA:
         standard_bin should look like (1, 4, 9, 14, 2, ...) where each position
         is represented as a 4-bit integer.
 
-        The output looks like "$LOC:$SEQ_BASE->$STANDARD_BASE", if multiple
-        mismatches are present, they will be delimited with `;`'s.
-
         :param standard_bin: the standard to compare the sequence to
         :type standard_bin: tuple[int, ...]
         :param seq: The sequence being interpreted.
@@ -624,28 +621,34 @@ class EasyHLA:
         :return: A list of HLAMismatches, sorted by their indices.
         :rtype: list[HLAMismatch]
         """
-        correct_bases_at_pos: dict[int, list[int]] = {}
+        if len(standard_bin) == 0:
+            raise ValueError("standard must be non-trivial")
+        if len(standard_bin) != len(seq):
+            raise ValueError("standard and sequence must be the same length")
+
+        correct_base_at_pos: dict[int, int] = {}
 
         std_bin_seq = np.array(standard_bin)
-        for idx in np.flatnonzero(std_bin_seq ^ seq):
-            if idx not in correct_bases_at_pos:
-                correct_bases_at_pos[idx] = []
-            if std_bin_seq[idx] not in correct_bases_at_pos[idx]:
-                correct_bases_at_pos[idx].append(std_bin_seq[idx])
+        for idx in np.flatnonzero(std_bin_seq ^ seq):  # 0-based indices
+            correct_base_at_pos[idx] = std_bin_seq[idx]
 
         mislist: list[HLAMismatch] = []
 
-        for index, correct_bases_bin in correct_bases_at_pos.items():
-            if self.locus == "A" and index > 270:
+        for index, correct_base_bin in correct_base_at_pos.items():
+            if self.locus == "A" and index > 269:  # i.e. > 270 in 1-based indices
+                # This is 241 + 1, where the 1 converts from 0-based to 1-based
+                # indices.
                 dex = index + 242
             else:
                 dex = index + 1
 
-            base = BIN2NUC[seq[index]]
-            correct_bases_str = [
-                BIN2NUC[correct_base_bin] for correct_base_bin in correct_bases_bin
-            ]
-            mislist.append(HLAMismatch(dex, base, correct_bases_str))
+            mislist.append(
+                HLAMismatch(
+                    index=dex,
+                    observed_base=BIN2NUC[seq[index]],
+                    expected_base=BIN2NUC[correct_base_bin],
+                )
+            )
 
         mislist.sort(key=attrgetter("index"))
         return mislist
