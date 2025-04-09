@@ -21,7 +21,7 @@ from .models import (
     HLAStandard,
     HLAStandardMatch,
 )
-from .utils import BIN2NUC, bin2nuc, nuc2bin
+from .utils import BIN2NUC, nuc2bin
 
 HLA_LOCI = Literal["A", "B", "C"]
 
@@ -46,9 +46,9 @@ class EasyHLA:
     def __init__(
         self,
         locus: HLA_LOCI,
-        hla_standards: Optional[TextIOBase] = None,
-        hla_frequencies: Optional[TextIOBase] = None,
-        last_modified_time: Optional[datetime] = None,
+        hla_standards: Optional[list[HLAStandard]] = None,
+        hla_frequencies: Optional[dict[HLAProteinPair, int]] = None,
+        last_modified: Optional[datetime] = None,
     ):
         """
         Initialize an EasyHLA class.
@@ -63,22 +63,93 @@ class EasyHLA:
         if locus not in ["A", "B", "C"]:
             raise ValueError("Invalid HLA locus specified; must be A, B, or C")
         self.locus: HLA_LOCI = locus
-        self.hla_stds: list[HLAStandard] = self.load_hla_stds(
-            hla_standards=hla_standards,
-        )
-        self.hla_freqs: dict[HLAProteinPair, int] = self.load_hla_frequencies(
-            hla_frequencies=hla_frequencies,
-        )
-        self.last_modified_time: datetime
-        if last_modified_time is not None:
-            self.last_modified_time = last_modified_time
-        else:
-            self.last_modified_time = self.load_allele_definitions_last_modified_time()
 
-    def load_hla_frequencies(
-        self,
-        hla_frequencies: Optional[TextIOBase] = None,
+        self.hla_standards: list[HLAStandard]
+        if hla_standards is not None:
+            self.hla_standards = hla_standards
+        else:
+            self.hla_standards = self.load_default_hla_standards()
+
+        self.hla_frequencies: dict[HLAProteinPair, int]
+        if hla_frequencies is not None:
+            self.hla_frequencies = hla_frequencies
+        else:
+            self.hla_frequencies = self.load_default_hla_frequencies()
+
+        self.last_modified: datetime
+        if last_modified is not None:
+            self.last_modified = last_modified
+        else:
+            self.last_modified = self.load_default_last_modified()
+
+    # In the future it may make sense to convert this to return a dictionary
+    # keyed by the allele name, but in the current code it's only ever used
+    # as a list.
+    @staticmethod
+    def read_hla_standards(standards_io: TextIOBase) -> list[HLAStandard]:
+        """
+        Read HLA standards from a specified file-like object.
+
+        :return: List of known HLA standards
+        :rtype: list[HLAStandard]
+        """
+        hla_stds: list[HLAStandard] = []
+        for line in standards_io.readlines():
+            line_array = line.strip().split(",")
+            seq = nuc2bin((line_array[1] + line_array[2]))
+            hla_stds.append(HLAStandard(allele=line_array[0], sequence=seq))
+        return hla_stds
+
+    def load_default_hla_standards(self) -> list[HLAStandard]:
+        """
+        Load HLA Standards from reference file.
+
+        :return: List of known HLA standards
+        :rtype: list[HLAStandard]
+        """
+        standards_filename: str = os.path.join(
+            os.path.dirname(__file__),
+            "default_data",
+            f"hla_{self.locus.lower()}_std_reduced.csv",
+        )
+        hla_stds: list[HLAStandard] = []
+        with open(standards_filename) as standards_file:
+            hla_stds = self.read_hla_standards(standards_file)
+        return hla_stds
+
+    @staticmethod
+    def read_hla_frequencies(
+        locus: HLA_LOCI,
+        frequencies_io: TextIOBase,
     ) -> dict[HLAProteinPair, int]:
+        """
+        Load HLA frequencies from a specified file-like object.
+
+        This takes two columns AAAA,BBBB out of 6 (...FFFF), and then uses a
+        subset of these two columns (AABB,CCDD) to use as the key, in this case
+        "AA|BB,CC|DD", we then count the number of times this key appears in our
+        columns.
+
+        :return: Lookup table of HLA frequencies.
+        :rtype: dict[HLAProteinPair, int]
+        """
+        hla_freqs: dict[HLAProteinPair, int] = {}
+        for line in frequencies_io.readlines():
+            column_id = EasyHLA.COLUMN_IDS[locus]
+            line_array = line.strip().split(",")[column_id : column_id + 2]
+
+            protein_pair: HLAProteinPair = HLAProteinPair(
+                first_field_1=line_array[0][0:2],
+                first_field_2=line_array[0][2:4],
+                second_field_1=line_array[1][0:2],
+                second_field_2=line_array[1][2:4],
+            )
+            if hla_freqs.get(protein_pair, None) is None:
+                hla_freqs[protein_pair] = 0
+            hla_freqs[protein_pair] += 1
+        return hla_freqs
+
+    def load_default_hla_frequencies(self) -> dict[HLAProteinPair, int]:
         """
         Load HLA frequencies from reference file.
 
@@ -90,88 +161,22 @@ class EasyHLA:
         :return: Lookup table of HLA frequencies.
         :rtype: dict[HLAProteinPair, int]
         """
-        hla_freqs: dict[HLAProteinPair, int] = {}
-
-        freqs_io: TextIOBase = hla_frequencies
-        default_freqs_used: bool = False
-        try:
-            if hla_frequencies is None:
-                freqs_io = open(
-                    os.path.join(
-                        os.path.dirname(__file__),
-                        "default_data",
-                        "hla_frequencies.csv",
-                    ),
-                    "r",
-                    encoding="utf-8",
-                )
-                default_freqs_used = True
-
-            for line in freqs_io.readlines():
-                column_id = EasyHLA.COLUMN_IDS[self.locus]
-                line_array = line.strip().split(",")[column_id : column_id + 2]
-
-                protein_pair: HLAProteinPair = HLAProteinPair(
-                    first_field_1=line_array[0][0:2],
-                    first_field_2=line_array[0][2:4],
-                    second_field_1=line_array[1][0:2],
-                    second_field_2=line_array[1][2:4],
-                )
-                if hla_freqs.get(protein_pair, None) is None:
-                    hla_freqs[protein_pair] = 0
-                hla_freqs[protein_pair] += 1
-        finally:
-            if default_freqs_used:
-                freqs_io.close()
-
+        hla_freqs: dict[HLAProteinPair, int]
+        default_frequencies_filename: str = os.path.join(
+            os.path.dirname(__file__),
+            "default_data",
+            "hla_frequencies.csv",
+        )
+        with open(default_frequencies_filename, "r") as f:
+            hla_freqs = self.read_hla_frequencies(self.locus, f)
         return hla_freqs
 
-    # In the future it may make sense to convert this to return a dictionary
-    # keyed by the allele name, but in the current code it's only ever used
-    # as a list.
-    def load_hla_stds(
-        self,
-        hla_standards: Optional[TextIOBase] = None,
-    ) -> list[HLAStandard]:
-        """
-        Load HLA Standards from reference file.
-
-        :return: List of known HLA standards
-        :rtype: list[HLAStandard]
-        """
-        hla_stds: list[HLAStandard] = []
-
-        standards_io: TextIOBase = hla_standards
-        default_standards_used: bool = False
-        try:
-            if hla_standards is None:
-                standards_io = open(
-                    os.path.join(
-                        os.path.dirname(__file__),
-                        "default_data",
-                        f"hla_{self.locus.lower()}_std_reduced.csv",
-                    ),
-                    "r",
-                    encoding="utf-8",
-                )
-                default_standards_used = True
-
-            for line in standards_io.readlines():
-                line_array = line.strip().split(",")
-                seq = nuc2bin((line_array[1] + line_array[2]))
-                hla_stds.append(HLAStandard(allele=line_array[0], sequence=seq))
-        finally:
-            if default_standards_used:
-                standards_io.close()
-
-        return hla_stds
-
     @staticmethod
-    def load_allele_definitions_last_modified_time() -> datetime:
+    def load_default_last_modified() -> datetime:
         """
         Load a datetime object describing when standard definitions were last updated.
 
-        :return: Date representing time when references were last updated.
+        :return: Date and time representing when references were last updated.
         :rtype: datetime
         """
         filename = os.path.join(
@@ -249,7 +254,7 @@ class EasyHLA:
             raise ValueError("Sequence has invalid characters")
 
     @staticmethod
-    def std_match(std: np.ndarray, seq: np.ndarray) -> int:
+    def std_match(std: Sequence[int], seq: Sequence[int]) -> int:
         """
         Compare an HLA standard against an incoming sequence.
 
@@ -257,30 +262,29 @@ class EasyHLA:
         sequence.
 
         :param std: HLA standard sequence
-        :type std: np.ndarray
+        :type std: Sequence[int]
         :param seq: Sequence being tested against
-        :type seq: np.ndarray
+        :type seq: Sequence[int]
         :return: Number of mismatches between the two sequences.
         :rtype: int
         """
         mismatches = 0
-        masked_array: np.ndarray = std & seq
+        masked_array: np.ndarray = np.array(std) & np.array(seq)
         mismatches = np.count_nonzero(masked_array == 0)
         return mismatches
 
     @staticmethod
-    def calc_padding(std: np.ndarray, seq: np.ndarray) -> tuple[int, int]:
+    def calc_padding(std: Sequence[int], seq: Sequence[int]) -> tuple[int, int]:
         """
         Calculate the number of units to pad a sequence.
 
-        Calculate the number of units to pad a sequence if it doesn't match the
-        length of the standard. This will attempt to achieve the best pad value
-        by minimizing the number of mismatches.
+        This will attempt to achieve the best pad value by minimizing the
+        number of mismatches.
 
         :param std: ...
-        :type std: np.ndarray
+        :type std: Sequence[int]
         :param seq: ...
-        :type seq: np.ndarray
+        :type seq: Sequence[int]
         :return: Returns the number of 'N's (b1111) needed to match the sequence
         to the standard.
         :rtype: tuple[int, int]
@@ -289,24 +293,29 @@ class EasyHLA:
         pad = len(std) - len(seq)
         left_pad = 0
         for i in range(pad + 1):  # 0, 1, ..., pad - 1, pad
-            pseq = np.concatenate((nuc2bin("N" * i), seq, nuc2bin("N" * (pad - i))))
+            pseq = np.concatenate(
+                (
+                    np.array(nuc2bin("N" * i), dtype="int8"),
+                    np.array(seq, dtype="int8"),
+                    np.array(nuc2bin("N" * (pad - i)), dtype="int8"),
+                ),
+            )
             mismatches = EasyHLA.std_match(std, pseq)
             if mismatches < best:
                 best = mismatches
                 left_pad = i
-
         return left_pad, pad - left_pad
 
     @staticmethod
     def pad_short(
-        std_bin: np.ndarray,
-        seq_bin: np.ndarray,
+        std_bin: Sequence[int],
+        seq_bin: Sequence[int],
         exon: Optional[EXON_NAME],
     ) -> np.ndarray:
         left_pad: int
         right_pad: int
-        exon2_std_bin: np.ndarray = std_bin[: EasyHLA.EXON2_LENGTH]
-        exon3_std_bin: np.ndarray = std_bin[-EasyHLA.EXON3_LENGTH :]
+        exon2_std_bin: np.ndarray = np.array(std_bin[: EasyHLA.EXON2_LENGTH])
+        exon3_std_bin: np.ndarray = np.array(std_bin[-EasyHLA.EXON3_LENGTH :])
         if exon == "exon2":
             left_pad, right_pad = EasyHLA.calc_padding(
                 exon2_std_bin,
@@ -335,8 +344,8 @@ class EasyHLA:
         )
 
     @staticmethod
-    def get_matching_stds(
-        seq: np.ndarray,
+    def get_matching_standards(
+        seq: Sequence[int],
         hla_stds: Iterable[HLAStandard],
         mismatch_threshold: int = 5,
     ) -> list[HLAStandardMatch]:
@@ -355,7 +364,7 @@ class EasyHLA:
     @staticmethod
     def combine_standards_helper(
         matching_stds: Sequence[HLAStandardMatch],
-        seq: list[int],
+        seq: Sequence[int],
         mismatch_threshold: int = 0,
     ) -> dict[tuple[int, ...], tuple[int, list[tuple[str, str]]]]:
         """
@@ -387,8 +396,9 @@ class EasyHLA:
 
                 # "Mush" the two standards together to produce something
                 # that looks like what you get when you sequence HLA.
-                std_bin = std_b.sequence | std_a.sequence
+                std_bin = np.array(std_b.sequence) | np.array(std_a.sequence)
                 seq_mask = np.full_like(std_bin, fill_value=15)
+                # Note that seq is implicitly cast to a NumPy array:
                 mismatches: int = np.count_nonzero((std_bin ^ seq) & seq_mask != 0)
 
                 if mismatches > current_rejection_threshold:
@@ -408,7 +418,7 @@ class EasyHLA:
     @staticmethod
     def combine_standards(
         matching_stds: Sequence[HLAStandardMatch],
-        seq: list[int],
+        seq: Sequence[int],
         mismatch_threshold: Optional[int] = None,
     ) -> dict[HLACombinedStandard, int]:
         """
@@ -572,26 +582,27 @@ class EasyHLA:
 
             if is_exon:
                 exon2_bin = self.pad_short(
-                    self.hla_stds[0].sequence, nuc2bin(exon2), "exon2"
+                    self.hla_standards[0].sequence, nuc2bin(exon2), "exon2"
                 )
                 exon3_bin = self.pad_short(
-                    self.hla_stds[0].sequence, nuc2bin(exon3), "exon3"
+                    self.hla_standards[0].sequence, nuc2bin(exon3), "exon3"
                 )
                 matched_sequences.append(
                     HLASequence(
-                        two=exon2_bin,
-                        intron=np.array([]),
-                        three=exon3_bin,
+                        two=(int(x) for x in exon2_bin),
+                        intron=(),
+                        three=(int(x) for x in exon3_bin),
                         name=identifier,
                         num_sequences_used=2,
                     )
                 )
             else:
-                seq = self.pad_short(
-                    self.hla_stds[0].sequence,
+                seq_numpy: np.array = self.pad_short(
+                    self.hla_standards[0].sequence,
                     nuc2bin(sr.seq),  # type: ignore
                     None,
                 )
+                seq: tuple[int] = tuple(int(x) for x in seq_numpy)
                 matched_sequences.append(
                     HLASequence(
                         two=seq[: EasyHLA.EXON2_LENGTH],
@@ -605,8 +616,8 @@ class EasyHLA:
 
     def get_mismatches(
         self,
-        standard_bin: tuple[int, ...],
-        seq: np.ndarray,
+        standard_bin: Sequence[int],
+        sequence_bin: Sequence[int],
     ) -> list[HLAMismatch]:
         """
         Report mismatched bases and their location versus a standard.
@@ -615,21 +626,21 @@ class EasyHLA:
         is represented as a 4-bit integer.
 
         :param standard_bin: the standard to compare the sequence to
-        :type standard_bin: tuple[int, ...]
-        :param seq: The sequence being interpreted.
-        :type seq: np.ndarray
+        :type standard_bin: Sequence[int]
+        :param sequence_bin: The sequence being interpreted.
+        :type sequence_bin: Sequence[int]
         :return: A list of HLAMismatches, sorted by their indices.
         :rtype: list[HLAMismatch]
         """
         if len(standard_bin) == 0:
             raise ValueError("standard must be non-trivial")
-        if len(standard_bin) != len(seq):
+        if len(standard_bin) != len(sequence_bin):
             raise ValueError("standard and sequence must be the same length")
 
         correct_base_at_pos: dict[int, int] = {}
 
         std_bin_seq = np.array(standard_bin)
-        for idx in np.flatnonzero(std_bin_seq ^ seq):  # 0-based indices
+        for idx in np.flatnonzero(std_bin_seq ^ sequence_bin):  # 0-based indices
             correct_base_at_pos[idx] = std_bin_seq[idx]
 
         mislist: list[HLAMismatch] = []
@@ -645,7 +656,7 @@ class EasyHLA:
             mislist.append(
                 HLAMismatch(
                     index=dex,
-                    observed_base=BIN2NUC[seq[index]],
+                    observed_base=BIN2NUC[sequence_bin[index]],
                     expected_base=BIN2NUC[correct_base_bin],
                 )
             )
@@ -673,9 +684,9 @@ class EasyHLA:
         other details on each
         :rtype: HLAInterpretation
         """
-        seq: pnd.NpNDArray = hla_sequence.sequence
+        seq: tuple[int, ...] = hla_sequence.sequence_for_interpretation
 
-        matching_stds = self.get_matching_stds(seq, self.hla_stds)
+        matching_stds = self.get_matching_standards(seq, self.hla_standards)
         if len(matching_stds) == 0:
             raise EasyHLA.NoMatchingStandards()
 

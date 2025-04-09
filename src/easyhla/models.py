@@ -3,28 +3,26 @@ from collections.abc import Iterable
 from operator import itemgetter
 
 import numpy as np
-import pydantic_numpy.typing as pnd
 from pydantic import BaseModel, ConfigDict
-from pydantic_numpy.model import NumpyModel
 
 from .utils import bin2nuc
 
 
-class HLASequence(NumpyModel):
-    two: pnd.NpNDArray
-    intron: pnd.NpNDArray = np.array([])
-    three: pnd.NpNDArray
+class HLASequence(BaseModel):
+    two: tuple[int, ...]
+    intron: tuple[int, ...]
+    three: tuple[int, ...]
     name: str
     num_sequences_used: int = 1
 
     @property
-    def sequence_for_interpretation(self) -> np.ndarray:
+    def sequence_for_interpretation(self) -> tuple[int, ...]:
         """
         Returns the "binary" sequence for interpretation purposes.
 
-        This is exon2 concatenated with exon3 (no intron)..
+        This is exon2 concatenated with exon3 (no intron).
         """
-        return np.concatenate((self.two, self.three))
+        return self.two + self.three
 
     @property
     def exon2_str(self) -> str:
@@ -39,31 +37,17 @@ class HLASequence(NumpyModel):
         return bin2nuc(self.intron)
 
 
-class HLAStandard(NumpyModel):
+class HLAStandard(BaseModel):
     allele: str
-    sequence: pnd.NpNDArray
+    sequence: tuple[int, ...]
 
-    def __eq__(self, other):
-        if not isinstance(other, self.__class__):
-            raise TypeError(f"Cannot compare against {type(other)}")
-        return all(
-            [self.allele == other.allele, np.array_equal(self.sequence, other.sequence)]
-        )
+    @property
+    def sequence_np(self):
+        return np.array(self.sequence)
 
 
 class HLAStandardMatch(HLAStandard):
     mismatch: int
-
-    def __eq__(self, other):
-        if not isinstance(other, self.__class__):
-            raise TypeError(f"Cannot compare against {type(other)}")
-        return all(
-            [
-                self.allele == other.allele,
-                np.array_equal(self.sequence, other.sequence),
-                self.mismatch == other.mismatch,
-            ]
-        )
 
 
 class HLACombinedStandard(BaseModel):

@@ -82,7 +82,7 @@ def process_from_file_to_files(
 
     log_and_print(
         f"Run commencing {time_start.strftime(DATE_FORMAT)}. "
-        f"Allele definitions last updated {hla_alg.last_modified_time}.",
+        f"Allele definitions last updated {hla_alg.last_modified}.",
         to_stdout=to_stdout,
     )
 
@@ -121,7 +121,7 @@ def process_from_file_to_files(
             )
 
         row: HLAInterpretationRow = HLAInterpretationRow.summary_row(
-            result, hla_alg.hla_freqs
+            result, hla_alg.hla_frequencies
         )
         rows.append(row)
 

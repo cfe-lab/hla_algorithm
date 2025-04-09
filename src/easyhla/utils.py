@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from typing import Final
 
 import numpy as np
@@ -56,7 +57,7 @@ NUC2BIN: Final[dict[str, int]] = {
 BIN2NUC: Final[dict[int, str]] = {v: k for k, v in NUC2BIN.items()}
 
 
-def nuc2bin(seq: str) -> np.ndarray:
+def nuc2bin(seq: str) -> tuple[int, ...]:
     """
     Convert a string sequence to a numpy array.
 
@@ -66,21 +67,19 @@ def nuc2bin(seq: str) -> np.ndarray:
     :param seq: ...
     :type seq: str
     :return: ...
-    :rtype: np.ndarray
+    :rtype: tuple[int, ...]
     """
-    return np.array([NUC2BIN.get(seq[i], 0) for i in range(len(seq))], dtype="int8")
+    return tuple(NUC2BIN.get(nuc, 0) for nuc in seq)
 
 
 @staticmethod
-def bin2nuc(seq: np.ndarray) -> str:
+def bin2nuc(seq: Iterable[int]) -> str:
     """
     Convert an array of numbers to a string sequence.
 
-    Converts an array of numbers back to a string sequence.
-
     :param seq: ...
-    :type seq: np.ndarray
+    :type seq: Iterable[int]
     :return: ...
     :rtype: str
     """
-    return "".join([BIN2NUC.get(seq[i], "_") for i in range(len(seq))])
+    return "".join([BIN2NUC.get(nuc, "_") for nuc in seq])

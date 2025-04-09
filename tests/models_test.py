@@ -1,4 +1,4 @@
-import numpy
+import numpy as np
 import pytest
 
 from easyhla.models import (
@@ -9,7 +9,92 @@ from easyhla.models import (
     HLAMismatch,
     HLAProteinPair,
     HLASequence,
+    HLAStandard,
 )
+
+
+class TestHLASequence:
+    @pytest.mark.parametrize(
+        (
+            "hla_sequence, expected_sequence_for_interpretation, "
+            "expected_exon2_str, expected_intron_str, expected_exon3_str"
+        ),
+        [
+            pytest.param(
+                HLASequence(
+                    two=(1, 2, 4, 8),
+                    intron=(),
+                    three=(14, 13, 11, 7),
+                    name="test_sequence",
+                    num_sequences_used=1,
+                ),
+                (1, 2, 4, 8, 14, 13, 11, 7),
+                "ACGT",
+                "",
+                "BDHV",
+                id="no_intron",
+            ),
+            pytest.param(
+                HLASequence(
+                    two=(1, 2, 4, 8),
+                    intron=(2, 4, 5, 6),
+                    three=(14, 13, 11, 7),
+                    name="test_sequence",
+                    num_sequences_used=1,
+                ),
+                (1, 2, 4, 8, 14, 13, 11, 7),
+                "ACGT",
+                "CGRS",
+                "BDHV",
+                id="with_intron",
+            ),
+        ],
+    )
+    def test_all_methods(
+        self,
+        hla_sequence: HLASequence,
+        expected_sequence_for_interpretation: tuple[int, ...],
+        expected_exon2_str: str,
+        expected_intron_str: str,
+        expected_exon3_str: str,
+    ):
+        assert (
+            hla_sequence.sequence_for_interpretation
+            == expected_sequence_for_interpretation
+        )
+        assert hla_sequence.exon2_str == expected_exon2_str
+        assert hla_sequence.intron_str == expected_intron_str
+        assert hla_sequence.exon3_str == expected_exon3_str
+
+
+class TestHLAStandard:
+    @pytest.mark.parametrize(
+        "sequence_tuple, expected_result",
+        [
+            pytest.param(
+                (),
+                np.array([]),
+                id="empty_sequence",
+            ),
+            pytest.param(
+                (4,),
+                np.array([4]),
+                id="single_base_sequence",
+            ),
+            pytest.param(
+                (1, 2, 4, 8, 11, 15, 12, 8),
+                np.array([1, 2, 4, 8, 11, 15, 12, 8]),
+                id="typical_sequence",
+            ),
+        ],
+    )
+    def test_sequence_np(
+        self, sequence_tuple: tuple[int, ...], expected_result: np.array
+    ):
+        hla_standard: HLAStandard = HLAStandard(
+            allele="B*01:23:45", sequence=sequence_tuple
+        )
+        assert np.array_equal(hla_standard.sequence_np, expected_result)
 
 
 class TestHLACombinedStandard:
@@ -787,10 +872,9 @@ class TestAllelePairs:
 @pytest.fixture
 def hla_sequence() -> HLASequence:
     return HLASequence(
-        two="CCTC",
-        intron="",
-        three="AGGCT",
-        sequence=numpy.array([1, 4, 2, 4, 8]),
+        two=(2, 2, 1, 2),  # "CCTC"
+        intron=(),
+        three=(1, 4, 4, 2, 8),  # "AGGCT"
         name="dummy_seq",
         num_sequences_used=1,
     )
@@ -878,7 +962,7 @@ class TestHLAInterpretation:
             ),
         ],
     )
-    def test_best_matches(
+    def test_all_methods(
         self,
         hla_sequence: HLASequence,
         raw_matches: dict[HLACombinedStandard, HLAMatchDetails],
