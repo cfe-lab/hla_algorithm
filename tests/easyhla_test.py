@@ -1815,16 +1815,31 @@ class TestConstructor:
         standards_file_str: str = ""
         for allele, exon2, exon3 in raw_standards:
             standards_file_str += f"{allele},{exon2},{exon3}\n"
-        result: list[HLAStandard] = EasyHLA.read_hla_standards(
+        read_result: list[HLAStandard] = EasyHLA.read_hla_standards(
             StringIO(standards_file_str)
         )
-        assert result == expected_result
+        assert read_result == expected_result
 
         # Also, try loading these from a file.
-        easyhla: EasyHLA = get_dummy_easyhla("A")
-        p = tmp_path / "hla_std.csv"
-        p.write_text(standards_file_str)
-        mocker.patch.object(os.path, "join", return_value=str(p))
+        for locus in ("A", "B", "C"):
+            easyhla: EasyHLA = get_dummy_easyhla(locus)
+            p = tmp_path / "hla_std.csv"
+            p.write_text(standards_file_str)
+            dirname_return_mock: mocker.MagicMock = mocker.MagicMock()
+            os_path_dirname_mock: mocker.MagicMock = mocker.patch.object(
+                os.path, "dirname", return_value=dirname_return_mock
+            )
+            os_path_join_mock: mocker.MagicMock = mocker.patch.object(
+                os.path, "join", return_value=str(p)
+            )
+            load_result: list[HLAStandard] = easyhla.load_default_hla_standards()
+            assert load_result == expected_result
+            os_path_dirname_mock.assert_called_once()
+            os_path_join_mock.assert_called_once_with(
+                dirname_return_mock,
+                "default_data",
+                f"hla_{locus.lower()}_std_reduced.csv",
+            )
 
     def test_load_default_last_modified(
         self, hla_last_modified_file, timestamp, mocker
