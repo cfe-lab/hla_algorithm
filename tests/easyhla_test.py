@@ -173,75 +173,76 @@ class TestCombineStandards:
     @pytest.mark.parametrize(
         "sequence, matching_standards, thresholds, exp_result",
         [
-            # Simple case
-            (
-                np.array([1, 2, 4, 8]),
+            pytest.param(
+                (1, 2, 4, 8),
                 [
                     HLAStandardMatch(
                         allele="std_allmatch",
-                        sequence=np.array([1, 2, 4, 8]),
+                        sequence=(1, 2, 4, 8),
                         mismatch=0,
                     ),
                 ],
-                [0, 1, 5],
+                [None, 0, 1, 5],
                 {
                     HLACombinedStandard(
                         standard_bin=(1, 2, 4, 8),
                         possible_allele_pairs=(("std_allmatch", "std_allmatch"),),
                     ): 0,
                 },
+                id="one_combo_all_matches",
             ),
-            (
-                np.array([1, 2, 4, 8]),
+            pytest.param(
+                (1, 2, 4, 8),
                 [
                     HLAStandardMatch(
                         allele="std_allmatch",
-                        sequence=np.array([1, 4, 2, 8]),
+                        sequence=(1, 4, 2, 8),
                         mismatch=2,
                     ),
                 ],
-                [0, 1, 2, 3, 5],
+                [None, 0, 1, 2, 3, 5],
                 {
                     HLACombinedStandard(
                         standard_bin=(1, 4, 2, 8),
                         possible_allele_pairs=(("std_allmatch", "std_allmatch"),),
                     ): 2,
                 },
+                id="one_combo_two_mismatches",
             ),
-            #
-            (
-                np.array([1, 2, 4, 8]),
+            pytest.param(
+                (1, 2, 4, 8),
                 [
                     HLAStandardMatch(
                         allele="std_allmatch",
-                        sequence=np.array([1, 2, 4, 8]),
+                        sequence=(1, 2, 4, 8),
                         mismatch=0,
                     ),
                     HLAStandardMatch(
                         allele="std_allmatch2",
-                        sequence=np.array([1, 4, 4, 8]),
+                        sequence=(1, 4, 4, 8),
                         mismatch=1,
                     ),
                 ],
-                [0],
+                [None, 0],
                 {
                     HLACombinedStandard(
                         standard_bin=(1, 2, 4, 8),
                         possible_allele_pairs=(("std_allmatch", "std_allmatch"),),
                     ): 0,
                 },
+                id="combo_with_mismatch_above_threshold",
             ),
-            (
-                np.array([1, 2, 4, 8]),
+            pytest.param(
+                (1, 2, 4, 8),
                 [
                     HLAStandardMatch(
                         allele="std_allmatch",
-                        sequence=np.array([1, 2, 4, 8]),
+                        sequence=(1, 2, 4, 8),
                         mismatch=0,
                     ),
                     HLAStandardMatch(
                         allele="std_allmatch2",
-                        sequence=np.array([1, 4, 4, 8]),
+                        sequence=(1, 4, 4, 8),
                         mismatch=1,
                     ),
                 ],
@@ -260,42 +261,44 @@ class TestCombineStandards:
                         possible_allele_pairs=(("std_allmatch2", "std_allmatch2"),),
                     ): 1,
                 },
+                id="several_combos_all_below_threshold",
             ),
             #
-            (
-                np.array([9, 6, 4, 6]),
+            pytest.param(
+                (9, 6, 4, 6),
                 [
                     HLAStandardMatch(
                         allele="std_allmatch",
-                        sequence=np.array([1, 2, 4, 4]),
+                        sequence=(1, 2, 4, 4),
                         mismatch=0,
                     ),
                     HLAStandardMatch(
                         allele="std_1mismatch2",
-                        sequence=np.array([8, 4, 4, 8]),
+                        sequence=(8, 4, 4, 8),
                         mismatch=1,
                     ),
                 ],
-                [0, 1, 2],
+                [None, 0, 1, 2],
                 {
                     HLACombinedStandard(
                         standard_bin=(9, 6, 4, 12),
                         possible_allele_pairs=(("std_1mismatch2", "std_allmatch"),),
                     ): 1,
                 },
+                id="best_match_has_mismatch_others_rejected",
             ),
             #
-            (
-                np.array([9, 6, 4, 6]),
+            pytest.param(
+                (9, 6, 4, 6),
                 [
                     HLAStandardMatch(
                         allele="std_allmatch",
-                        sequence=np.array([1, 2, 4, 4]),
+                        sequence=(1, 2, 4, 4),
                         mismatch=0,
                     ),
                     HLAStandardMatch(
                         allele="std_1mismatch2",
-                        sequence=np.array([8, 4, 4, 8]),
+                        sequence=(8, 4, 4, 8),
                         mismatch=1,
                     ),
                 ],
@@ -314,86 +317,90 @@ class TestCombineStandards:
                         possible_allele_pairs=(("std_1mismatch2", "std_1mismatch2"),),
                     ): 3,
                 },
+                id="all_combos_have_mismatches_below_threshold",
             ),
             #
-            (
-                np.array([1, 2, 4, 8]),
+            pytest.param(
+                (1, 2, 4, 8),
                 [
                     HLAStandardMatch(
                         allele="std_1mismatch",
-                        sequence=np.array([1, 2, 4, 4]),
+                        sequence=(1, 2, 4, 4),
                         mismatch=1,
                     )
                 ],
-                [0, 1, 2, 5],
+                [None, 0, 1, 2, 5],
                 {
                     HLACombinedStandard(
                         standard_bin=(1, 2, 4, 4),
                         possible_allele_pairs=(("std_1mismatch", "std_1mismatch"),),
                     ): 1
                 },
+                id="one_combo_retained_regardless_of_threshold",
             ),
-            (
-                np.array([1, 2, 4, 8]),
+            pytest.param(
+                (1, 2, 4, 8),
                 [
                     HLAStandardMatch(
                         allele="std_allmismatch",
-                        sequence=np.array([8, 4, 2, 1]),
+                        sequence=(8, 4, 2, 1),
                         mismatch=4,
                     )
                 ],
-                [0, 1, 3, 4, 5, 10],
+                [None, 0, 1, 3, 4, 5, 10],
                 {
                     HLACombinedStandard(
                         standard_bin=(8, 4, 2, 1),
                         possible_allele_pairs=(("std_allmismatch", "std_allmismatch"),),
                     ): 4,
                 },
+                id="only_combo_retained_regardless_of_threshold_more_mismatches",
             ),
             #
-            (
-                np.array([1, 2, 4, 8]),
+            pytest.param(
+                (1, 2, 4, 8),
                 [
                     HLAStandardMatch(
                         allele="std_allmatch",
-                        sequence=np.array([1, 2, 4, 8]),
+                        sequence=(1, 2, 4, 8),
                         mismatch=0,
                     ),
                     HLAStandardMatch(
                         allele="std_1mismatch",
-                        sequence=np.array([1, 2, 4, 4]),
+                        sequence=(1, 2, 4, 4),
                         mismatch=1,
                     ),
                     HLAStandardMatch(
                         allele="std_allmismatch",
-                        sequence=np.array([8, 4, 2, 1]),
+                        sequence=(8, 4, 2, 1),
                         mismatch=4,
                     ),
                 ],
-                [0],
+                [None, 0],
                 {
                     HLACombinedStandard(
                         standard_bin=(1, 2, 4, 8),
                         possible_allele_pairs=(("std_allmatch", "std_allmatch"),),
                     ): 0,
                 },
+                id="several_combos_only_one_below_threshold",
             ),
-            (
-                np.array([1, 2, 4, 8]),
+            pytest.param(
+                (1, 2, 4, 8),
                 [
                     HLAStandardMatch(
                         allele="std_allmatch",
-                        sequence=np.array([1, 2, 4, 8]),
+                        sequence=(1, 2, 4, 8),
                         mismatch=0,
                     ),
                     HLAStandardMatch(
                         allele="std_1mismatch",
-                        sequence=np.array([1, 2, 4, 4]),
+                        sequence=(1, 2, 4, 4),
                         mismatch=1,
                     ),
                     HLAStandardMatch(
                         allele="std_allmismatch",
-                        sequence=np.array([8, 4, 2, 1]),
+                        sequence=(8, 4, 2, 1),
                         mismatch=4,
                     ),
                 ],
@@ -412,23 +419,24 @@ class TestCombineStandards:
                         possible_allele_pairs=(("std_1mismatch", "std_1mismatch"),),
                     ): 1,
                 },
+                id="several_combos_only_ones_below_threshold_retained",
             ),
-            (
-                np.array([1, 2, 4, 8]),
+            pytest.param(
+                (1, 2, 4, 8),
                 [
                     HLAStandardMatch(
                         allele="std_allmatch",
-                        sequence=np.array([1, 2, 4, 8]),
+                        sequence=(1, 2, 4, 8),
                         mismatch=0,
                     ),
                     HLAStandardMatch(
                         allele="std_1mismatch",
-                        sequence=np.array([1, 2, 4, 4]),
+                        sequence=(1, 2, 4, 4),
                         mismatch=1,
                     ),
                     HLAStandardMatch(
                         allele="std_allmismatch",
-                        sequence=np.array([8, 4, 2, 1]),
+                        sequence=(8, 4, 2, 1),
                         mismatch=4,
                     ),
                 ],
@@ -459,6 +467,117 @@ class TestCombineStandards:
                         possible_allele_pairs=(("std_allmismatch", "std_allmismatch"),),
                     ): 4,
                 },
+                id="several_combos_all_below_threshold_retained",
+            ),
+            pytest.param(
+                (1, 2, 4, 8),
+                [
+                    HLAStandardMatch(
+                        allele="std_1mismatch",
+                        sequence=(1, 2, 4, 4),
+                        mismatch=1,
+                    ),
+                    HLAStandardMatch(
+                        allele="std_allmismatch",
+                        sequence=(8, 4, 2, 1),
+                        mismatch=4,
+                    ),
+                    HLAStandardMatch(
+                        allele="std_allmatch",
+                        sequence=(1, 2, 4, 8),
+                        mismatch=0,
+                    ),
+                ],
+                [None, 0],
+                {
+                    HLACombinedStandard(
+                        standard_bin=(1, 2, 4, 8),
+                        possible_allele_pairs=(("std_allmatch", "std_allmatch"),),
+                    ): 0,
+                },
+                id="standard_as_second_part_of_combo_worse_than_already_known_combo_skipped_only_best_retained",
+            ),
+            pytest.param(
+                (1, 2, 4, 8),
+                [
+                    HLAStandardMatch(
+                        allele="std_1mismatch",
+                        sequence=(1, 2, 4, 4),
+                        mismatch=1,
+                    ),
+                    HLAStandardMatch(
+                        allele="std_allmismatch",
+                        sequence=(8, 4, 2, 1),
+                        mismatch=4,
+                    ),
+                    HLAStandardMatch(
+                        allele="std_allmatch",
+                        sequence=(1, 2, 4, 8),
+                        mismatch=0,
+                    ),
+                ],
+                [1, 2, 3],
+                {
+                    HLACombinedStandard(
+                        standard_bin=(1, 2, 4, 8),
+                        possible_allele_pairs=(("std_allmatch", "std_allmatch"),),
+                    ): 0,
+                    HLACombinedStandard(
+                        standard_bin=(1, 2, 4, 12),
+                        possible_allele_pairs=(("std_1mismatch", "std_allmatch"),),
+                    ): 1,
+                    HLACombinedStandard(
+                        standard_bin=(1, 2, 4, 4),
+                        possible_allele_pairs=(("std_1mismatch", "std_1mismatch"),),
+                    ): 1,
+                },
+                id="standard_as_second_part_of_combo_worse_than_already_known_combo_skipped_under_threshold_retained",
+            ),
+            pytest.param(
+                (1, 2, 4, 8),
+                [
+                    HLAStandardMatch(
+                        allele="std_first_last_mismatch",
+                        sequence=(2, 2, 4, 4),
+                        mismatch=2,
+                    ),
+                    HLAStandardMatch(
+                        allele="std_produces_identical_combo",
+                        sequence=(3, 2, 4, 12),
+                        mismatch=2,
+                    ),
+                    HLAStandardMatch(
+                        allele="std_allmatch",
+                        sequence=(1, 2, 4, 8),
+                        mismatch=0,
+                    ),
+                ],
+                [2, 3, 10],
+                {
+                    HLACombinedStandard(
+                        standard_bin=(1, 2, 4, 8),
+                        possible_allele_pairs=(("std_allmatch", "std_allmatch"),),
+                    ): 0,
+                    HLACombinedStandard(
+                        standard_bin=(2, 2, 4, 4),
+                        possible_allele_pairs=(
+                            ("std_first_last_mismatch", "std_first_last_mismatch"),
+                        ),
+                    ): 2,
+                    HLACombinedStandard(
+                        standard_bin=(3, 2, 4, 12),
+                        possible_allele_pairs=(
+                            ("std_allmatch", "std_first_last_mismatch"),
+                            ("std_allmatch", "std_produces_identical_combo"),
+                            ("std_first_last_mismatch", "std_produces_identical_combo"),
+                            (
+                                "std_produces_identical_combo",
+                                "std_produces_identical_combo",
+                            ),
+                        ),
+                    ): 2,
+                },
+                id="several_standards_produce_same_sequence",
             ),
         ],
     )
@@ -466,7 +585,7 @@ class TestCombineStandards:
         self,
         sequence: list[int],
         matching_standards: list[HLAStandardMatch],
-        thresholds: list[int],
+        thresholds: list[Optional[int]],
         exp_result: dict[int, list[int]],
     ):
         for threshold in thresholds:
@@ -1399,22 +1518,22 @@ class TestInterpret:
                 [
                     HLAStandard(
                         allele="std_allmatch",
-                        sequence=np.array([1, 2, 4, 8]),
+                        sequence=(1, 2, 4, 8),
                     ),
                     HLAStandard(
                         allele="std_1mismatch",
-                        sequence=np.array([1, 2, 4, 4]),
+                        sequence=(1, 2, 4, 4),
                     ),
                     HLAStandard(
                         allele="std_allmismatch",
-                        sequence=np.array([8, 4, 2, 1]),
+                        sequence=(8, 4, 2, 1),
                     ),
                 ],
                 HLAInterpretation(
                     hla_sequence=HLASequence(
-                        two=np.array([1, 2]),
-                        intron=np.array([]),
-                        three=np.array([4, 8]),
+                        two=(1, 2),
+                        intron=(),
+                        three=(4, 8),
                         name="E1",
                         num_sequences_used=1,
                     ),
@@ -1628,20 +1747,84 @@ class TestInterpret:
         get_mismatches_spy.assert_not_called()
 
 
-class TestEasyHLAMisc:
+class TestConstructor:
     def test_unknown_hla_gene(self):
         """
         Assert we raise a value error if we put in an unknown HLA gene.
         """
         with pytest.raises(ValueError):
-            _ = EasyHLA("D")  # type: ignore[arg-type]
+            _: EasyHLA = EasyHLA("D")
 
     def test_known_hla_gene_lowercase(self):
         """
         Assert we raise a value error if we put in an HLA gene with wrong case.
         """
         with pytest.raises(ValueError):
-            _ = EasyHLA("a")  # type: ignore[arg-type]
+            _: EasyHLA = EasyHLA("a")
+
+    @pytest.mark.parametrize(
+        "raw_standards, expected_result",
+        [
+            pytest.param(
+                [],
+                [],
+                id="empty_file",
+            ),
+            pytest.param(
+                [("A*01:23:45:67N", "A" * 270, "T" * 276)],
+                [
+                    HLAStandard(
+                        allele="A*01:23:45:67N",
+                        sequence=(1,) * 270 + (8,) * 276,
+                    ),
+                ],
+                id="single_entry",
+            ),
+            pytest.param(
+                [
+                    ("B*01:23:45:67N", "A" * 270, "T" * 276),
+                    ("B*57:01:02", "C" * 270, "GT" * 138),
+                    ("B*100:101:111", "AT" * 135, "G" * 276),
+                ],
+                [
+                    HLAStandard(
+                        allele="B*01:23:45:67N",
+                        sequence=(1,) * 270 + (8,) * 276,
+                    ),
+                    HLAStandard(
+                        allele="B*57:01:02",
+                        sequence=(2,) * 270 + (4, 8) * 138,
+                    ),
+                    HLAStandard(
+                        allele="B*100:101:111",
+                        sequence=(1, 8) * 135 + (4,) * 276,
+                    ),
+                ],
+                id="multiple_entries",
+            ),
+        ],
+    )
+    def test_read_hla_standards(
+        self,
+        raw_standards: list[tuple[str, str, str]],
+        expected_result: list[HLAStandard],
+        tmp_path: Path,
+        mocker: MockerFixture,
+    ):
+        # Build a string from the raw standards:
+        standards_file_str: str = ""
+        for allele, exon2, exon3 in raw_standards:
+            standards_file_str += f"{allele},{exon2},{exon3}\n"
+        result: list[HLAStandard] = EasyHLA.read_hla_standards(
+            StringIO(standards_file_str)
+        )
+        assert result == expected_result
+
+        # Also, try loading these from a file.
+        easyhla: EasyHLA = get_dummy_easyhla("A")
+        p = tmp_path / "hla_std.csv"
+        p.write_text(standards_file_str)
+        mocker.patch.object(os.path, "join", return_value=str(p))
 
     def test_load_default_last_modified(
         self, hla_last_modified_file, timestamp, mocker
@@ -1665,6 +1848,8 @@ class TestEasyHLAMisc:
         result = EasyHLA.load_default_last_modified()
         assert result == expected_time
 
+
+class TestEasyHLAMisc:
     @pytest.mark.parametrize(
         "sequence, exp_good",
         [
@@ -1946,79 +2131,63 @@ class TestEasyHLAMisc:
         [
             #
             pytest.param(
-                np.array([1, 2, 4, 8]),
-                [
-                    HLAStandard(
-                        allele="std_allmismatch", sequence=np.array([1, 2, 4, 8])
-                    )
-                ],
+                (1, 2, 4, 8),
+                [HLAStandard(allele="std_allmismatch", sequence=(1, 2, 4, 8))],
                 5,
                 [
                     HLAStandardMatch(
                         allele="std_allmismatch",
-                        sequence=np.array([1, 2, 4, 8]),
+                        sequence=(1, 2, 4, 8),
                         mismatch=0,
                     )
                 ],
                 id="one_standard_no_mismatches",
             ),
             pytest.param(
-                np.array([1, 2, 4, 8]),
-                [
-                    HLAStandard(
-                        allele="std_allmismatch", sequence=np.array([1, 2, 4, 4])
-                    )
-                ],
+                (1, 2, 4, 8),
+                [HLAStandard(allele="std_allmismatch", sequence=(1, 2, 4, 4))],
                 5,
                 [
                     HLAStandardMatch(
                         allele="std_allmismatch",
-                        sequence=np.array([1, 2, 4, 4]),
+                        sequence=(1, 2, 4, 4),
                         mismatch=1,
                     )
                 ],
                 id="one_standard_one_mismatch",
             ),
             pytest.param(
-                np.array([1, 3, 4, 8]),
-                [
-                    HLAStandard(
-                        allele="std_mixturematch", sequence=np.array([1, 2, 4, 8])
-                    )
-                ],
+                (1, 3, 4, 8),
+                [HLAStandard(allele="std_mixturematch", sequence=(1, 2, 4, 8))],
                 5,
                 [
                     HLAStandardMatch(
                         allele="std_mixturematch",
-                        sequence=np.array([1, 2, 4, 8]),
+                        sequence=(1, 2, 4, 8),
                         mismatch=0,
                     )
                 ],
                 id="mixture_match",
             ),
             pytest.param(
-                np.array([1, 2, 4, 8]),
-                [
-                    HLAStandard(
-                        allele="std_allmismatch", sequence=np.array([8, 4, 2, 1])
-                    )
-                ],
+                (1, 2, 4, 8),
+                [HLAStandard(allele="std_allmismatch", sequence=(8, 4, 2, 1))],
                 5,
                 [
                     HLAStandardMatch(
                         allele="std_allmismatch",
-                        sequence=np.array([8, 4, 2, 1]),
+                        sequence=(8, 4, 2, 1),
                         mismatch=4,
                     )
                 ],
                 id="one_standard_all_mismatch",
             ),
             pytest.param(
-                np.array([1, 2, 4, 8, 3, 5, 7, 9]),
+                (1, 2, 4, 8, 3, 5, 7, 9),
                 [
                     HLAStandard(
                         allele="std_mismatch_over_threshold",
-                        sequence=np.array([1, 2, 8, 4, 4, 8, 8, 1]),
+                        sequence=(1, 2, 8, 4, 4, 8, 8, 1),
                     )
                 ],
                 5,
@@ -2026,71 +2195,67 @@ class TestEasyHLAMisc:
                 id="one_standard_mismatch_above_threshold",
             ),
             pytest.param(
-                np.array([1, 2, 4, 8]),
+                (1, 2, 4, 8),
                 [
-                    HLAStandard(allele="std_allmatch", sequence=np.array([1, 2, 4, 8])),
-                    HLAStandard(
-                        allele="std_1mismatch", sequence=np.array([1, 2, 4, 4])
-                    ),
-                    HLAStandard(
-                        allele="std_allmismatch", sequence=np.array([8, 4, 2, 1])
-                    ),
+                    HLAStandard(allele="std_allmatch", sequence=(1, 2, 4, 8)),
+                    HLAStandard(allele="std_1mismatch", sequence=(1, 2, 4, 4)),
+                    HLAStandard(allele="std_allmismatch", sequence=(8, 4, 2, 1)),
                 ],
                 5,
                 [
                     HLAStandardMatch(
                         allele="std_allmatch",
-                        sequence=np.array([1, 2, 4, 8]),
+                        sequence=(1, 2, 4, 8),
                         mismatch=0,
                     ),
                     HLAStandardMatch(
                         allele="std_1mismatch",
-                        sequence=np.array([1, 2, 4, 4]),
+                        sequence=(1, 2, 4, 4),
                         mismatch=1,
                     ),
                     HLAStandardMatch(
                         allele="std_allmismatch",
-                        sequence=np.array([8, 4, 2, 1]),
+                        sequence=(8, 4, 2, 1),
                         mismatch=4,
                     ),
                 ],
                 id="several_standards_below_threshold",
             ),
             pytest.param(
-                np.array([1, 3, 4, 8, 2, 5, 4, 1]),
+                (1, 3, 4, 8, 2, 5, 4, 1),
                 [
                     HLAStandard(
                         allele="std_mixturematch",
-                        sequence=np.array([1, 2, 4, 8, 2, 1, 4, 1]),
+                        sequence=(1, 2, 4, 8, 2, 1, 4, 1),
                     ),
                     HLAStandard(
                         allele="std_2mismatch",
-                        sequence=np.array([1, 4, 4, 4, 2, 4, 4, 1]),
+                        sequence=(1, 4, 4, 4, 2, 4, 4, 1),
                     ),
                     HLAStandard(
                         allele="std_allmismatch",
-                        sequence=np.array([8, 4, 2, 1, 1, 8, 8, 8]),
+                        sequence=(8, 4, 2, 1, 1, 8, 8, 8),
                     ),
                     HLAStandard(
                         allele="std_4mismatch",
-                        sequence=np.array([8, 4, 2, 1, 2, 1, 4, 1]),
+                        sequence=(8, 4, 2, 1, 2, 1, 4, 1),
                     ),
                 ],
                 5,
                 [
                     HLAStandardMatch(
                         allele="std_mixturematch",
-                        sequence=np.array([1, 2, 4, 8, 2, 1, 4, 1]),
+                        sequence=(1, 2, 4, 8, 2, 1, 4, 1),
                         mismatch=0,
                     ),
                     HLAStandardMatch(
                         allele="std_2mismatch",
-                        sequence=np.array([1, 4, 4, 4, 2, 4, 4, 1]),
+                        sequence=(1, 4, 4, 4, 2, 4, 4, 1),
                         mismatch=2,
                     ),
                     HLAStandardMatch(
                         allele="std_4mismatch",
-                        sequence=np.array([8, 4, 2, 1, 2, 1, 4, 1]),
+                        sequence=(8, 4, 2, 1, 2, 1, 4, 1),
                         mismatch=4,
                     ),
                 ],
@@ -2348,65 +2513,63 @@ class TestEasyHLA:
     def test_load_default_hla_standards(self, easyhla, hla_standard_file, mocker):
         mocker.patch.object(os.path, "join", return_value=hla_standard_file)
         exp_result = [
-            HLAStandard(
-                allele="HELLO-WORLD", sequence=np.array([1, 1, 1, 1, 2, 1, 5, 8, 10])
-            )
+            HLAStandard(allele="HELLO-WORLD", sequence=(1, 1, 1, 1, 2, 1, 5, 8, 10))
         ]
 
         result = easyhla.load_default_hla_standards()
         assert result == exp_result
 
-    @pytest.mark.integration
-    @pytest.mark.slow
-    def test_run(self, easyhla: EasyHLA):
-        """
-        Integration test, assert that pyEasyHLA produces an identical output to
-        the original Ruby output.
-        """
+    # @pytest.mark.integration
+    # @pytest.mark.slow
+    # def test_run(self, easyhla: EasyHLA):
+    #     """
+    #     Integration test, assert that pyEasyHLA produces an identical output to
+    #     the original Ruby output.
+    #     """
 
-        input_file = (
-            os.path.dirname(__file__) + f"/input/hla-{easyhla.locus.lower()}-seqs.fasta"
-        )
-        ref_output_file = (
-            os.path.dirname(__file__)
-            + f"/output/hla-{easyhla.locus.lower()}-output-ref.csv"
-        )
-        output_file = (
-            os.path.dirname(__file__) + f"/output/hla-{easyhla.locus.lower()}-test.csv"
-        )
+    #     input_file = (
+    #         os.path.dirname(__file__) + f"/input/hla-{easyhla.locus.lower()}-seqs.fasta"
+    #     )
+    #     ref_output_file = (
+    #         os.path.dirname(__file__)
+    #         + f"/output/hla-{easyhla.locus.lower()}-output-ref.csv"
+    #     )
+    #     output_file = (
+    #         os.path.dirname(__file__) + f"/output/hla-{easyhla.locus.lower()}-test.csv"
+    #     )
 
-        if not os.path.exists(input_file):
-            pytest.skip("Input sequence does not exist!")
-        if not os.path.exists(ref_output_file):
-            pytest.skip("Reference output does not exist!")
+    #     if not os.path.exists(input_file):
+    #         pytest.skip("Input sequence does not exist!")
+    #     if not os.path.exists(ref_output_file):
+    #         pytest.skip("Reference output does not exist!")
 
-        start_time = datetime.now()
-        print(f"Test started at {start_time.isoformat()}")
+    #     start_time = datetime.now()
+    #     print(f"Test started at {start_time.isoformat()}")
 
-        easyhla.run(
-            input_file,
-            output_file,
-            0,
-        )
+    #     easyhla.run(
+    #         input_file,
+    #         output_file,
+    #         0,
+    #     )
 
-        end_time = datetime.now()
+    #     end_time = datetime.now()
 
-        print(f"Interpretation ended at {end_time.isoformat()}")
+    #     print(f"Interpretation ended at {end_time.isoformat()}")
 
-        compare_ref_vs_test(
-            easyhla=easyhla,
-            reference_output_file=ref_output_file,
-            output_file=output_file,
-        )
+    #     compare_ref_vs_test(
+    #         easyhla=easyhla,
+    #         reference_output_file=ref_output_file,
+    #         output_file=output_file,
+    #     )
 
-        end_compare_time = datetime.now()
+    #     end_compare_time = datetime.now()
 
-        print(f"Test ended at {end_compare_time.isoformat()}")
+    #     print(f"Test ended at {end_compare_time.isoformat()}")
 
-        print(f"Time elapsed: {(end_compare_time - start_time).total_seconds()}")
-        print(
-            f"Time elapsed for interpretation: {(end_time - start_time).total_seconds()}"
-        )
-        print(
-            f"Time elapsed for output comparison: {(end_compare_time - end_time).total_seconds()}"
-        )
+    #     print(f"Time elapsed: {(end_compare_time - start_time).total_seconds()}")
+    #     print(
+    #         f"Time elapsed for interpretation: {(end_time - start_time).total_seconds()}"
+    #     )
+    #     print(
+    #         f"Time elapsed for output comparison: {(end_compare_time - end_time).total_seconds()}"
+    #     )

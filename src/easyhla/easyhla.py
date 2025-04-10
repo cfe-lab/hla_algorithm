@@ -406,7 +406,7 @@ class EasyHLA:
 
                 # There could be more than one combined standard with the
                 # same sequence, so keep track of all the possible combinations.
-                combined_std_bin: tuple[int, ...] = (int(s) for s in std_bin)
+                combined_std_bin: tuple[int, ...] = tuple(int(s) for s in std_bin)
                 if combined_std_bin not in combos:
                     combos[combined_std_bin] = (mismatches, [])
                 combos[combined_std_bin][1].append(sorted((std_a.allele, std_b.allele)))
@@ -440,7 +440,8 @@ class EasyHLA:
         counts.  If mismatch_threshold is None, then the result contains only
         the best-matching combined standard(s); otherwise, the result contains
         all combined standards with mismatch counts up to and including the
-        threshold.
+        threshold.  All of the HLACombinedStandards have their
+        `possible_allele_pairs` value sorted.
         """
         if mismatch_threshold is None:
             # We only care about the best match, so we set this threshold
@@ -471,7 +472,7 @@ class EasyHLA:
             if mismatch_count <= cutoff:
                 combined_std: HLACombinedStandard = HLACombinedStandard(
                     standard_bin=combined_std_bin,
-                    possible_allele_pairs=tuple(pair_list),
+                    possible_allele_pairs=tuple(sorted(pair_list)),
                 )
                 result[combined_std] = mismatch_count
 

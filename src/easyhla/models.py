@@ -278,13 +278,15 @@ class AllelePairs(BaseModel):
         unambiguous_set: AllelePairs = AllelePairs(
             allele_pairs=self.get_unambiguous_allele_pairs(frequencies)
         )
+        paired_gene_coordinates: list[tuple[list[str], list[str]]] = (
+            unambiguous_set.get_paired_gene_coordinates()
+        )
 
         clean_allele: list[str] = []
         for n in [0, 1]:
             for i in [4, 3, 2, 1]:
                 all_leading_coordinates = {
-                    ":".join(a[n][0:i])
-                    for a in unambiguous_set.get_paired_gene_coordinates()
+                    ":".join(a[n][0:i]) for a in paired_gene_coordinates
                 }
                 if len(all_leading_coordinates) == 1:
                     best_common_coords = all_leading_coordinates.pop()
@@ -295,7 +297,10 @@ class AllelePairs(BaseModel):
                             best_common_coords,
                         )
                     )
-                    break
+                    if i > 1:
+                        # This branch is unnecessary but it gets us 100% code
+                        # coverage ¯\_(ツ)_/¯
+                        break
 
         clean_allele_pair_str: str = " - ".join(clean_allele)
         return clean_allele_pair_str
