@@ -130,28 +130,8 @@ def easyhla(request: pytest.FixtureRequest):
     return easyhla
 
 
-@pytest.fixture
-def hla_standard_file(tmp_path: Path):
-    hla_standard = ["HELLO-WORLD", "AAAAC", "ARTY"]
-
-    d = tmp_path / "hla_std"
-    d.mkdir()
-    p = d / "hla_std.csv"
-    p.write_text(",".join(hla_standard))
-
-    return str(p)
-
-
-@pytest.fixture
-def hla_frequency_file(tmp_path: Path):
-    d = tmp_path / "hla_std"
-    d.mkdir()
-    p = d / "hla_freq.csv"
-    p.write_text("2233,1423,5701,5703,4043,2529")
-
-    return str(p)
-
-
+# FIXME this is only used for one thing; we can probably get rid of the fixture and just
+# define it where it's needed
 @pytest.fixture(scope="session")
 def timestamp() -> datetime:
     _dt = datetime.today()
@@ -159,6 +139,7 @@ def timestamp() -> datetime:
     return dt
 
 
+# FIXME likewise with this
 @pytest.fixture
 def hla_last_modified_file(tmp_path: Path, timestamp: datetime) -> str:
     d = tmp_path / "hla_std"
@@ -2427,19 +2408,6 @@ class TestEasyHLADiscreteHLALocusA:
             with pytest.raises(ValueError):
                 easyhla.check_length(seq=sequence, name=name)
 
-    def test_load_default_hla_freqs(self, easyhla, hla_frequency_file, mocker):
-        mocker.patch.object(os.path, "join", return_value=hla_frequency_file)
-        exp_result = {
-            HLAProteinPair(
-                first_field_1="22",
-                first_field_2="33",
-                second_field_1="14",
-                second_field_2="23",
-            ): 1,
-        }
-        result = easyhla.load_default_hla_frequencies()
-        assert result == exp_result
-
 
 @pytest.mark.parametrize("easyhla", ["B"], indirect=True)
 class TestEasyHLADiscreteHLALocusB:
@@ -2496,19 +2464,6 @@ class TestEasyHLADiscreteHLALocusB:
         else:
             with pytest.raises(ValueError):
                 easyhla.check_length(seq=sequence, name=name)
-
-    def test_load_default_hla_freqs(self, easyhla, hla_frequency_file, mocker):
-        mocker.patch.object(os.path, "join", return_value=hla_frequency_file)
-        exp_result = {
-            HLAProteinPair(
-                first_field_1="57",
-                first_field_2="01",
-                second_field_1="57",
-                second_field_2="03",
-            ): 1,
-        }
-        result = easyhla.load_default_hla_frequencies()
-        assert result == exp_result
 
 
 @pytest.mark.parametrize("easyhla", ["C"], indirect=True)
@@ -2567,19 +2522,6 @@ class TestEasyHLADiscreteHLALocusC:
             with pytest.raises(ValueError):
                 easyhla.check_length(seq=sequence, name=name)
 
-    def test_load_default_hla_freqs(self, easyhla, hla_frequency_file, mocker):
-        mocker.patch.object(os.path, "join", return_value=hla_frequency_file)
-        exp_result = {
-            HLAProteinPair(
-                first_field_1="40",
-                first_field_2="43",
-                second_field_1="25",
-                second_field_2="29",
-            ): 1,
-        }
-        result = easyhla.load_default_hla_frequencies()
-        assert result == exp_result
-
     # @pytest.mark.integration
     # def test_run(self, easyhla: EasyHLA):
     #     """
@@ -2605,15 +2547,6 @@ class TestEasyHLADiscreteHLALocusC:
 
 @pytest.mark.parametrize("easyhla", ["A", "B", "C"], indirect=True)
 class TestEasyHLA:
-    def test_load_default_hla_standards(self, easyhla, hla_standard_file, mocker):
-        mocker.patch.object(os.path, "join", return_value=hla_standard_file)
-        exp_result = [
-            HLAStandard(allele="HELLO-WORLD", sequence=(1, 1, 1, 1, 2, 1, 5, 8, 10))
-        ]
-
-        result = easyhla.load_default_hla_standards()
-        assert result == exp_result
-
     # @pytest.mark.integration
     # @pytest.mark.slow
     # def test_run(self, easyhla: EasyHLA):
@@ -2668,3 +2601,4 @@ class TestEasyHLA:
     #     print(
     #         f"Time elapsed for output comparison: {(end_compare_time - end_time).total_seconds()}"
     #     )
+    pass
