@@ -1841,6 +1841,86 @@ class TestConstructor:
                 f"hla_{locus.lower()}_std_reduced.csv",
             )
 
+    # FIXME continue from here
+    # Add more tests!
+    @pytest.mark.parametrize(
+        "raw_hlas_observed, expected_locus_a, expected_locus_b, expected_locus_c",
+        [
+            pytest.param(
+                ["2233,1423,5701,5703,4043,2529"],
+                {
+                    HLAProteinPair(
+                        first_field_1="22",
+                        first_field_2="33",
+                        second_field_1="14",
+                        second_field_2="23",
+                    ): 1,
+                },
+                {
+                    HLAProteinPair(
+                        first_field_1="57",
+                        first_field_2="01",
+                        second_field_1="57",
+                        second_field_2="03",
+                    ): 1,
+                },
+                {
+                    HLAProteinPair(
+                        first_field_1="40",
+                        first_field_2="43",
+                        second_field_1="25",
+                        second_field_2="29",
+                    ): 1,
+                },
+                id="single_row",
+            )
+        ],
+    )
+    def test_read_hla_frequencies(
+        self,
+        raw_hlas_observed: list[str],
+        expected_locus_a: dict[HLAProteinPair, int],
+        expected_locus_b: dict[HLAProteinPair, int],
+        expected_locus_c: dict[HLAProteinPair, int],
+        tmp_path: Path,
+        mocker: MockerFixture,
+    ):
+        frequencies_str: str = "\n".join(raw_hlas_observed) + "\n"
+        expected_results: dict[HLA_LOCI, dict[HLAProteinPair, int]] = {
+            "A": expected_locus_a,
+            "B": expected_locus_b,
+            "C": expected_locus_c,
+        }
+        for locus in ("A", "B", "C"):
+            result: dict[HLAProteinPair, int] = EasyHLA.read_hla_frequencies(
+                locus, StringIO(frequencies_str)
+            )
+            assert result == expected_results[locus]
+
+        # Now try loading these from a file.
+        p = tmp_path / "hla_frequencies.csv"
+        p.write_text(frequencies_str)
+
+        for locus in ("A", "B", "C"):
+            easyhla: EasyHLA = get_dummy_easyhla(locus)
+            dirname_return_mock: mocker.MagicMock = mocker.MagicMock()
+            os_path_dirname_mock: mocker.MagicMock = mocker.patch.object(
+                os.path, "dirname", return_value=dirname_return_mock
+            )
+            os_path_join_mock: mocker.MagicMock = mocker.patch.object(
+                os.path, "join", return_value=str(p)
+            )
+            load_result: dict[HLAProteinPair, int] = (
+                easyhla.load_default_hla_frequencies()
+            )
+            assert load_result == expected_results[locus]
+            os_path_dirname_mock.assert_called_once()
+            os_path_join_mock.assert_called_once_with(
+                dirname_return_mock,
+                "default_data",
+                "hla_frequencies.csv",
+            )
+
     def test_load_default_last_modified(
         self, hla_last_modified_file, timestamp, mocker
     ):
