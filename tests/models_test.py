@@ -155,6 +155,66 @@ class TestHLAMismatch:
         assert str(mismatch) == expected_str
 
 
+class TestHLAProteinPair:
+    @pytest.mark.parametrize(
+        "raw_lesser, raw_greater",
+        [
+            pytest.param(
+                ("01", "01", "01", "01"),
+                ("01", "01", "01", "11"),
+            ),
+            pytest.param(
+                ("01", "01", "01", "01"),
+                ("01", "01", "31", "01"),
+            ),
+            pytest.param(
+                ("01", "01", "01", "01"),
+                ("01", "41", "01", "01"),
+            ),
+            pytest.param(
+                ("01", "01", "01", "01"),
+                ("91", "41", "01", "01"),
+            ),
+            pytest.param(
+                ("15", "84", "99", "92"),
+                ("16", "41", "01", "01"),
+            ),
+            pytest.param(
+                ("15", "84", "89", "92"),
+                ("15", "91", "91", "01"),
+            ),
+        ],
+    )
+    def test_strictly_less_than(
+        self,
+        raw_lesser: tuple[str, str, str, str],
+        raw_greater: tuple[str, str, str, str],
+    ):
+        first_pair: HLAProteinPair = HLAProteinPair(
+            first_field_1=raw_lesser[0],
+            first_field_2=raw_lesser[1],
+            second_field_1=raw_lesser[2],
+            second_field_2=raw_lesser[3],
+        )
+        second_pair: HLAProteinPair = HLAProteinPair(
+            first_field_1=raw_greater[0],
+            first_field_2=raw_greater[1],
+            second_field_1=raw_greater[2],
+            second_field_2=raw_greater[3],
+        )
+        assert first_pair < second_pair
+        assert not (second_pair < first_pair)
+
+    def test_equal_pairs(self):
+        protein_pair: HLAProteinPair = HLAProteinPair(
+            first_field_1="15",
+            first_field_2="85",
+            second_field_1="57",
+            second_field_2="02",
+        )
+        assert not (protein_pair < protein_pair)
+
+
 class TestAllelePairs:
     @pytest.mark.parametrize(
         "raw_alleles, exp_result",

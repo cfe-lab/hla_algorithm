@@ -2614,38 +2614,290 @@ def test_check_length_hla_type_a(sequence: str, name: str, expected_to_pass: boo
             easyhla.check_length(seq=sequence, name=name)
 
 
-# FIXME continue from here; keep adding test cases!
 CHECK_LENGTH_HLA_BC_TEST_CASES = [
+    # exon2 tests:
     pytest.param(
-        "A" * EasyHLA.EXON2_LENGTH,
+        EasyHLA.EXON2_LENGTH,
         "myseq_exon2",
         True,
         id="regular_exon2_good_case",
     ),
     pytest.param(
-        "A" * EasyHLA.EXON2_LENGTH,
+        EasyHLA.EXON2_LENGTH,
         "myseq_exon2_exon3",
         True,
         id="regular_exon2_good_case_ignores_exon3_name",
     ),
     pytest.param(
-        "A" * EasyHLA.EXON2_LENGTH,
+        EasyHLA.EXON2_LENGTH - 1,
         "myseq_exon2",
+        False,
+        id="regular_exon2_too_short_edge_case",
+    ),
+    pytest.param(
+        EasyHLA.EXON2_LENGTH - 100,
+        "myseq_exon2",
+        False,
+        id="regular_exon2_too_short_typical_case",
+    ),
+    pytest.param(
+        EasyHLA.EXON2_LENGTH + 1,
+        "myseq_exon2",
+        False,
+        id="regular_exon2_too_long_edge_case",
+    ),
+    pytest.param(
+        EasyHLA.EXON3_LENGTH,
+        "myseq_exon2",
+        False,
+        id="regular_exon2_too_long_exon3_length",
+    ),
+    pytest.param(
+        EasyHLA.HLA_A_LENGTH,
+        "myseq_exon2",
+        False,
+        id="regular_exon2_too_long_a_length",
+    ),
+    pytest.param(
+        EasyHLA.EXON2_LENGTH + 100,
+        "myseq_exon2",
+        False,
+        id="regular_exon2_too_long_typical_case",
+    ),
+    # exon3 tests:
+    pytest.param(
+        EasyHLA.EXON3_LENGTH,
+        "myseq_exon3",
         True,
-        id="regular_exon2_good_case_ignores_exon3_name",
+        id="regular_exon3_good_case",
+    ),
+    pytest.param(
+        EasyHLA.EXON3_LENGTH - 1,
+        "myseq_exon3",
+        False,
+        id="regular_exon3_too_short_edge_case",
+    ),
+    pytest.param(
+        EasyHLA.EXON2_LENGTH,
+        "myseq_exon3",
+        False,
+        id="regular_exon3_too_short_exon2_length",
+    ),
+    pytest.param(
+        EasyHLA.EXON3_LENGTH - 100,
+        "myseq_exon3",
+        False,
+        id="regular_exon3_too_short_typical_case",
+    ),
+    pytest.param(
+        EasyHLA.EXON3_LENGTH + 1,
+        "myseq_exon3",
+        False,
+        id="regular_exon3_too_long_edge_case",
+    ),
+    pytest.param(
+        EasyHLA.HLA_A_LENGTH,
+        "myseq_exon3",
+        False,
+        id="regular_exon3_too_long_a_length",
+    ),
+    pytest.param(
+        EasyHLA.EXON3_LENGTH + 100,
+        "myseq_exon3",
+        False,
+        id="regular_exon3_too_long_typical_case",
+    ),
+    # Full sequence tests:
+    pytest.param(
+        EasyHLA.MIN_HLA_BC_LENGTH,
+        "myseq_full",
+        True,
+        id="regular_full_good_case_lower_edge_case",
+    ),
+    pytest.param(
+        EasyHLA.MAX_HLA_BC_LENGTH,
+        "myseq_full",
+        True,
+        id="regular_full_good_case_upper_edge_case",
+    ),
+    pytest.param(
+        790,
+        "myseq_full",
+        True,
+        id="regular_full_good_case_middle_of_range",
+    ),
+    pytest.param(
+        EasyHLA.MIN_HLA_BC_LENGTH - 1,
+        "myseq_full",
+        False,
+        id="regular_full_too_short_edge_case",
+    ),
+    pytest.param(
+        EasyHLA.EXON2_LENGTH,
+        "myseq_full",
+        False,
+        id="regular_full_too_short_exon2_length",
+    ),
+    pytest.param(
+        EasyHLA.EXON3_LENGTH,
+        "myseq_full",
+        False,
+        id="regular_full_too_short_exon3_length",
+    ),
+    pytest.param(
+        EasyHLA.MIN_HLA_BC_LENGTH - 100,
+        "myseq_full",
+        False,
+        id="regular_full_too_short_typical_case",
+    ),
+    pytest.param(
+        EasyHLA.MAX_HLA_BC_LENGTH + 1,
+        "myseq_full",
+        False,
+        id="regular_full_too_long_edge_case",
+    ),
+    pytest.param(
+        EasyHLA.MAX_HLA_BC_LENGTH + 100,
+        "myseq_full",
+        False,
+        id="regular_full_too_long_typical_case",
+    ),
+    # Short exon2 tests:
+    pytest.param(
+        EasyHLA.EXON2_LENGTH - 1,
+        "myseq_exon2_short",
+        True,
+        id="short_exon2_good_case_edge_case",
+    ),
+    pytest.param(
+        EasyHLA.EXON2_LENGTH - 100,
+        "myseq_exon2_short",
+        True,
+        id="short_exon2_good_case_typical",
+    ),
+    pytest.param(
+        EasyHLA.EXON2_LENGTH,
+        "myseq_exon2_short",
+        False,
+        id="short_exon2_too_long_edge_case",
+    ),
+    pytest.param(
+        EasyHLA.EXON3_LENGTH,
+        "myseq_exon2_short",
+        False,
+        id="short_exon2_too_long_exon3_length",
+    ),
+    pytest.param(
+        EasyHLA.HLA_A_LENGTH,
+        "myseq_exon2_short",
+        False,
+        id="short_exon2_too_long_a_length",
+    ),
+    pytest.param(
+        EasyHLA.EXON2_LENGTH + 10,
+        "myseq_exon2_short",
+        False,
+        id="short_exon2_too_long_typical_case",
+    ),
+    pytest.param(
+        EasyHLA.EXON3_LENGTH - 1,
+        "myseq_exon2_short",
+        False,
+        id="short_exon2_ignores_exon3_name",
+    ),
+    # Short exon3 tests:
+    pytest.param(
+        EasyHLA.EXON3_LENGTH - 1,
+        "myseq_exon3_short",
+        True,
+        id="short_exon3_good_case_edge_case",
+    ),
+    pytest.param(
+        EasyHLA.EXON3_LENGTH - 100,
+        "myseq_exon3_short",
+        True,
+        id="short_exon3_good_case_typical",
+    ),
+    pytest.param(
+        EasyHLA.EXON2_LENGTH,
+        "myseq_exon3_short",
+        True,
+        id="short_exon3_good_case_exon2_length",
+    ),
+    pytest.param(
+        EasyHLA.EXON3_LENGTH,
+        "myseq_exon3_short",
+        False,
+        id="short_exon3_too_long_edge_case",
+    ),
+    pytest.param(
+        EasyHLA.HLA_A_LENGTH,
+        "myseq_exon3_short",
+        False,
+        id="short_exon3_too_long_a_length",
+    ),
+    pytest.param(
+        EasyHLA.EXON3_LENGTH + 10,
+        "myseq_exon3_short",
+        False,
+        id="short_exon3_too_long_typical_case",
+    ),
+    # Full sequence tests:
+    pytest.param(
+        EasyHLA.MAX_HLA_BC_LENGTH - 1,
+        "myseq_short",
+        True,
+        id="short_full_good_case_edge_case",
+    ),
+    pytest.param(
+        EasyHLA.MAX_HLA_BC_LENGTH - 100,
+        "myseq_short",
+        True,
+        id="short_full_good_case_typical",
+    ),
+    pytest.param(
+        EasyHLA.MIN_HLA_BC_LENGTH,
+        "myseq_short",
+        True,
+        id="short_full_good_case_min_bc_length",
+    ),
+    pytest.param(
+        EasyHLA.EXON2_LENGTH,
+        "myseq_short",
+        True,
+        id="short_full_good_case_exon2_length",
+    ),
+    pytest.param(
+        EasyHLA.EXON3_LENGTH,
+        "myseq_short",
+        True,
+        id="short_full_good_case_exon3_length",
+    ),
+    pytest.param(
+        EasyHLA.MAX_HLA_BC_LENGTH,
+        "myseq_short",
+        False,
+        id="short_full_too_long_edge_case",
+    ),
+    pytest.param(
+        EasyHLA.MAX_HLA_BC_LENGTH + 150,
+        "myseq_short",
+        False,
+        id="short_full_too_long_typical_case",
     ),
 ]
 
 
 @pytest.mark.parametrize(
-    "sequence, name, expected_to_pass",
+    "sequence_length, name, expected_to_pass",
     CHECK_LENGTH_HLA_BC_TEST_CASES,
 )
 def test_check_length_hla_type_b_and_c(
-    sequence: str, name: str, expected_to_pass: bool
+    sequence_length: int, name: str, expected_to_pass: bool
 ):
     for locus in ("B", "C"):
         easyhla: EasyHLA = get_dummy_easyhla(locus)
+        sequence: str = "A" * sequence_length
         if expected_to_pass:
             easyhla.check_length(seq=sequence, name=name)
         else:
@@ -2653,196 +2905,88 @@ def test_check_length_hla_type_b_and_c(
                 easyhla.check_length(seq=sequence, name=name)
 
 
-# @pytest.mark.parametrize("easyhla", ["B"], indirect=True)
-# class TestEasyHLADiscreteHLALocusB:
+# @pytest.mark.parametrize("easyhla", ["C"], indirect=True)
+# class TestEasyHLADiscreteHLALocusC:
 #     """
-#     Testing EasyHLA where tests require HLA-B.
+#     Testing EasyHLA where tests require HLA-C.
 #     """
+#     @pytest.mark.integration
+#     def test_run(self, easyhla: EasyHLA):
+#         """
+#         Integration test, assert that pyEasyHLA produces an identical output to
+#         the original Ruby output.
+#         """
+#         input_file = os.path.dirname(__file__) + "/input/test.fasta"
+#         ref_output_file = os.path.dirname(__file__) + "/output/hla-c-output.csv"
+#         output_file = os.path.dirname(__file__) + "/output/test.csv"
 
-#     @pytest.mark.parametrize(
-#         "sequence, name, exp_return",
-#         [
-#             ("A" * EasyHLA.HLA_A_LENGTH, "myseq-b00-short", 1),
-#             #
-#             ("A" * EasyHLA.MIN_HLA_BC_LENGTH, "myseq-b01-short", 1),
-#             ("A" * EasyHLA.MAX_HLA_BC_LENGTH, "myseq-b02-short", 0),
-#             #
-#             ("A" * EasyHLA.MIN_HLA_BC_LENGTH, "myseq-b-mingood", 1),
-#             ("A" * EasyHLA.MAX_HLA_BC_LENGTH, "myseq-b-maxgood", 1),
-#             #
-#             ("A" * EasyHLA.EXON2_LENGTH, "myseq-b-good-exon2", 1),
-#             ("A" * EasyHLA.EXON3_LENGTH, "myseq-b-good-exon3", 1),
-#             #
-#             ("A" * EasyHLA.EXON2_LENGTH, "myseq-b00-bad-exon2-short", -1),
-#             ("A" * EasyHLA.EXON3_LENGTH, "myseq-b00-bad-exon3-short", -1),
-#             #
-#             (
-#                 "A" * (EasyHLA.EXON2_LENGTH + 1),
-#                 "myseq-b01-bad-exon2-short",
-#                 -1,
-#             ),
-#             (
-#                 "A" * (EasyHLA.EXON3_LENGTH + 1),
-#                 "myseq-b01-bad-exon3-short",
-#                 -1,
-#             ),
-#             ("A" * (EasyHLA.EXON2_LENGTH - 1), "myseq-b02-good-exon2-short", 1),
-#             ("A" * (EasyHLA.EXON3_LENGTH - 1), "myseq-b02-good-exon3-short", 1),
-#             #
-#             ("A" * (EasyHLA.EXON2_LENGTH + 1), "myseq-b00-bad-exon2", 0),
-#             ("A" * (EasyHLA.EXON3_LENGTH + 1), "myseq-b01-bad-exon3", 0),
-#             ("A" * (EasyHLA.EXON2_LENGTH - 1), "myseq-b02-bad-exon2", 0),
-#             ("A" * (EasyHLA.EXON3_LENGTH - 1), "myseq-b03-bad-exon3", 0),
-#             #
-#             ("A" * (EasyHLA.EXON2_LENGTH + 1), "myseq-b00-bad-exon2-short", -1),
-#             ("A" * (EasyHLA.EXON3_LENGTH + 1), "myseq-b01-bad-exon3-short", -1),
-#             ("A" * (EasyHLA.EXON2_LENGTH - 1), "myseq-b02-good-exon2-short", 1),
-#             ("A" * (EasyHLA.EXON3_LENGTH - 1), "myseq-b03-good-exon3-short", 1),
-#         ],
-#     )
-#     def test_check_length_hla_type_b(
-#         self, easyhla: EasyHLA, sequence: str, name: str, exp_return: int
-#     ):
-#         if exp_return > 0:
-#             easyhla.check_length(seq=sequence, name=name)
-#         else:
-#             with pytest.raises(ValueError):
-#                 easyhla.check_length(seq=sequence, name=name)
+#         easyhla.run(
+#             input_file,
+#             output_file,
+#             0,
+#         )
+
+#         compare_ref_vs_test(
+#             easyhla=easyhla,
+#             reference_output_file=ref_output_file,
+#             output_file=output_file,
+#         )
 
 
-@pytest.mark.parametrize("easyhla", ["C"], indirect=True)
-class TestEasyHLADiscreteHLALocusC:
-    """
-    Testing EasyHLA where tests require HLA-C.
-    """
+# @pytest.mark.parametrize("easyhla", ["A", "B", "C"], indirect=True)
+# class TestEasyHLA:
+#     @pytest.mark.integration
+#     @pytest.mark.slow
+#     def test_run(self, easyhla: EasyHLA):
+#         """
+#         Integration test, assert that pyEasyHLA produces an identical output to
+#         the original Ruby output.
+#         """
 
-    # @pytest.mark.parametrize(
-    #     "sequence, name, exp_return",
-    #     [
-    #         ("A" * EasyHLA.HLA_A_LENGTH, "myseq-c00-short", 1),
-    #         #
-    #         ("A" * EasyHLA.MIN_HLA_BC_LENGTH, "myseq-c01-short", 1),
-    #         ("A" * EasyHLA.MAX_HLA_BC_LENGTH, "myseq-c02-short", 0),
-    #         #
-    #         ("A" * EasyHLA.MIN_HLA_BC_LENGTH, "myseq-c-mingood", 1),
-    #         ("A" * EasyHLA.MAX_HLA_BC_LENGTH, "myseq-c-maxgood", 1),
-    #         #
-    #         ("A" * EasyHLA.EXON2_LENGTH, "myseq-c-good-exon2", 1),
-    #         ("A" * EasyHLA.EXON3_LENGTH, "myseq-c-good-exon3", 1),
-    #         #
-    #         ("A" * EasyHLA.EXON2_LENGTH, "myseq-c00-bad-exon2-short", -1),
-    #         ("A" * EasyHLA.EXON3_LENGTH, "myseq-c00-bad-exon3-short", -1),
-    #         #
-    #         (
-    #             "A" * (EasyHLA.EXON2_LENGTH + 1),
-    #             "myseq-c01-bad-exon2-short",
-    #             -1,
-    #         ),
-    #         (
-    #             "A" * (EasyHLA.EXON3_LENGTH + 1),
-    #             "myseq-c01-bad-exon3-short",
-    #             -1,
-    #         ),
-    #         ("A" * (EasyHLA.EXON2_LENGTH - 1), "myseq-c02-good-exon2-short", 1),
-    #         ("A" * (EasyHLA.EXON3_LENGTH - 1), "myseq-c02-good-exon3-short", 1),
-    #         #
-    #         ("A" * (EasyHLA.EXON2_LENGTH + 1), "myseq-c00-bad-exon2", 0),
-    #         ("A" * (EasyHLA.EXON3_LENGTH + 1), "myseq-c01-bad-exon3", 0),
-    #         ("A" * (EasyHLA.EXON2_LENGTH - 1), "myseq-c02-bad-exon2", 0),
-    #         ("A" * (EasyHLA.EXON3_LENGTH - 1), "myseq-c03-bad-exon3", 0),
-    #         #
-    #         ("A" * (EasyHLA.EXON2_LENGTH + 1), "myseq-c00-bad-exon2-short", -1),
-    #         ("A" * (EasyHLA.EXON3_LENGTH + 1), "myseq-c01-bad-exon3-short", -1),
-    #         ("A" * (EasyHLA.EXON2_LENGTH - 1), "myseq-c02-good-exon2-short", 1),
-    #         ("A" * (EasyHLA.EXON3_LENGTH - 1), "myseq-c03-good-exon3-short", 1),
-    #     ],
-    # )
-    # def test_check_length_hla_type_c(
-    #     self, easyhla: EasyHLA, sequence: str, name: str, exp_return: int
-    # ):
-    #     if exp_return > 0:
-    #         easyhla.check_length(seq=sequence, name=name)
-    #     else:
-    #         with pytest.raises(ValueError):
-    #             easyhla.check_length(seq=sequence, name=name)
+#         input_file = (
+#             os.path.dirname(__file__) + f"/input/hla-{easyhla.locus.lower()}-seqs.fasta"
+#         )
+#         ref_output_file = (
+#             os.path.dirname(__file__)
+#             + f"/output/hla-{easyhla.locus.lower()}-output-ref.csv"
+#         )
+#         output_file = (
+#             os.path.dirname(__file__) + f"/output/hla-{easyhla.locus.lower()}-test.csv"
+#         )
 
-    # @pytest.mark.integration
-    # def test_run(self, easyhla: EasyHLA):
-    #     """
-    #     Integration test, assert that pyEasyHLA produces an identical output to
-    #     the original Ruby output.
-    #     """
-    #     input_file = os.path.dirname(__file__) + "/input/test.fasta"
-    #     ref_output_file = os.path.dirname(__file__) + "/output/hla-c-output.csv"
-    #     output_file = os.path.dirname(__file__) + "/output/test.csv"
+#         if not os.path.exists(input_file):
+#             pytest.skip("Input sequence does not exist!")
+#         if not os.path.exists(ref_output_file):
+#             pytest.skip("Reference output does not exist!")
 
-    #     easyhla.run(
-    #         input_file,
-    #         output_file,
-    #         0,
-    #     )
+#         start_time = datetime.now()
+#         print(f"Test started at {start_time.isoformat()}")
 
-    #     compare_ref_vs_test(
-    #         easyhla=easyhla,
-    #         reference_output_file=ref_output_file,
-    #         output_file=output_file,
-    #     )
+#         easyhla.run(
+#             input_file,
+#             output_file,
+#             0,
+#         )
 
+#         end_time = datetime.now()
 
-@pytest.mark.parametrize("easyhla", ["A", "B", "C"], indirect=True)
-class TestEasyHLA:
-    # @pytest.mark.integration
-    # @pytest.mark.slow
-    # def test_run(self, easyhla: EasyHLA):
-    #     """
-    #     Integration test, assert that pyEasyHLA produces an identical output to
-    #     the original Ruby output.
-    #     """
+#         print(f"Interpretation ended at {end_time.isoformat()}")
 
-    #     input_file = (
-    #         os.path.dirname(__file__) + f"/input/hla-{easyhla.locus.lower()}-seqs.fasta"
-    #     )
-    #     ref_output_file = (
-    #         os.path.dirname(__file__)
-    #         + f"/output/hla-{easyhla.locus.lower()}-output-ref.csv"
-    #     )
-    #     output_file = (
-    #         os.path.dirname(__file__) + f"/output/hla-{easyhla.locus.lower()}-test.csv"
-    #     )
+#         compare_ref_vs_test(
+#             easyhla=easyhla,
+#             reference_output_file=ref_output_file,
+#             output_file=output_file,
+#         )
 
-    #     if not os.path.exists(input_file):
-    #         pytest.skip("Input sequence does not exist!")
-    #     if not os.path.exists(ref_output_file):
-    #         pytest.skip("Reference output does not exist!")
+#         end_compare_time = datetime.now()
 
-    #     start_time = datetime.now()
-    #     print(f"Test started at {start_time.isoformat()}")
+#         print(f"Test ended at {end_compare_time.isoformat()}")
 
-    #     easyhla.run(
-    #         input_file,
-    #         output_file,
-    #         0,
-    #     )
-
-    #     end_time = datetime.now()
-
-    #     print(f"Interpretation ended at {end_time.isoformat()}")
-
-    #     compare_ref_vs_test(
-    #         easyhla=easyhla,
-    #         reference_output_file=ref_output_file,
-    #         output_file=output_file,
-    #     )
-
-    #     end_compare_time = datetime.now()
-
-    #     print(f"Test ended at {end_compare_time.isoformat()}")
-
-    #     print(f"Time elapsed: {(end_compare_time - start_time).total_seconds()}")
-    #     print(
-    #         f"Time elapsed for interpretation: {(end_time - start_time).total_seconds()}"
-    #     )
-    #     print(
-    #         f"Time elapsed for output comparison: {(end_compare_time - end_time).total_seconds()}"
-    #     )
-    pass
+#         print(f"Time elapsed: {(end_compare_time - start_time).total_seconds()}")
+#         print(
+#             f"Time elapsed for interpretation: {(end_time - start_time).total_seconds()}"
+#         )
+#         print(
+#             f"Time elapsed for output comparison: {(end_compare_time - end_time).total_seconds()}"
+#         )
+#     pass

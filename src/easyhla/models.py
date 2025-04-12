@@ -1,6 +1,7 @@
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from operator import itemgetter
+from typing import Literal, Optional
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict
@@ -35,6 +36,20 @@ class HLASequence(BaseModel):
     @property
     def intron_str(self) -> str:
         return bin2nuc(self.intron)
+
+    def distance_from_standard(self, standard: Sequence[int]) -> int:
+        """
+        Returns the Hamming distance to the specified standard.
+
+        At each position, a match is defined as all possible bases in the
+        sequence being possible bases in the standard, or vice versa.
+        """
+        seq_np: np.ndarray = np.array(self.two + self.three)
+        std_np: np.ndarray = np.array(standard)
+
+        overlaps: np.ndarray = seq_np & std_np
+        matches: np.ndarray = (overlaps == seq_np) | (overlaps == std_np)
+        return np.count_nonzero(matches == False)
 
 
 class HLAStandard(BaseModel):
@@ -343,10 +358,18 @@ class AllelePairs(BaseModel):
         all_allele_pairs.sort()
         return cls(allele_pairs=all_allele_pairs)
 
+    def contains_allele(self, allele_name: str) -> bool:
+        """
+        Returns True if allele_name is among the alleles in the pairs.
+        """
+        all_individual_alleles: list[str] = list(sum(self.allele_pairs, ()))
+        return any(x.startswith(allele_name) for x in all_individual_alleles)
+
 
 class HLAInterpretation(BaseModel):
     hla_sequence: HLASequence
     matches: dict[HLACombinedStandard, HLAMatchDetails]
+    b_57_01_references: Optional[dict[Literal[1, 2, 3], HLAStandard]] = None
 
     def lowest_mismatch_count(self) -> int:
         return min([x.mismatch_count for x in self.matches.values()])
@@ -361,3 +384,29 @@ class HLAInterpretation(BaseModel):
 
     def best_matching_allele_pairs(self) -> AllelePairs:
         return AllelePairs.get_allele_pairs(self.best_matches())
+
+    def distance_from_b7501(self) -> Optional[int]:
+        """
+        Return the Hamming distance from this sequence to B*57:01.
+
+        The HLA sequence in question is compared to the specified B*57:01
+        sequences (typically B*57:01:01G, B*57:01:02, and B*57:01:03) and
+        computes the minimum distance between this sequence and those three.
+
+        If no B*57:01 references are specified (i.e. this is not an HLA-B
+        sequence), return None.
+        """
+        if self.b_57_01_references is None:
+            return None
+        distances: dict[Literal[1, 2, 3], int] = {
+            protein_group: self.hla_sequence.distance_from_standard(standard.sequence)
+            for protein_group, standard in self.b_57_01_references
+        }
+        return min(distances.values())
+
+    def is_b5701(self) -> bool:
+        """
+        Returns True if this sequence is a B*57:01 sequence, and False otherwise.
+        """
+        all_allele_pairs: AllelePairs = self.best_matching_allele_pairs()
+        return all_allele_pairs.contains_allele("B*57:01")
