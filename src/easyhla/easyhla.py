@@ -7,7 +7,6 @@ from operator import attrgetter
 from typing import Final, Literal, Optional
 
 import numpy as np
-import pydantic_numpy.typing as pnd
 from Bio.Seq import Seq
 from Bio.SeqIO import SeqRecord
 
