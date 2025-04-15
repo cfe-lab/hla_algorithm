@@ -3,7 +3,12 @@ from collections.abc import Sequence
 import numpy as np
 import pytest
 
-from easyhla.utils import bin2nuc, nuc2bin
+from easyhla.utils import (
+    bin2nuc,
+    count_forgiving_mismatches,
+    count_strict_mismatches,
+    nuc2bin,
+)
 
 
 class TestBinaryNucleotideTranslation:
@@ -70,3 +75,117 @@ class TestBinaryNucleotideTranslation:
         """
         result_str = bin2nuc(sequence_list)
         assert result_str == sequence_str
+
+
+@pytest.mark.parametrize(
+    "sequence_1, sequence_2, exp_result",
+    [
+        # All the normal bases:
+        ([1], [1], 0),
+        ([1], [2], 1),
+        ([1], [4], 1),
+        ([1], [8], 1),
+        ([2], [1], 1),
+        ([2], [2], 0),
+        ([2], [4], 1),
+        ([2], [8], 1),
+        ([4], [1], 1),
+        ([4], [2], 1),
+        ([4], [4], 0),
+        ([4], [8], 1),
+        ([8], [1], 1),
+        ([8], [2], 1),
+        ([8], [4], 1),
+        ([8], [8], 0),
+        # Testing mixtures:
+        ([5], [1], 0),
+        ([5], [8], 1),
+        ([1], [5], 0),
+        ([8], [5], 1),
+        ([12], [3], 1),
+        ([12], [5], 0),
+        ([15], [7], 0),
+        ([7], [15], 0),
+        # Longer sequences:
+        ([1, 2, 4, 8], [1, 2, 4, 8], 0),
+        ([1, 2, 4, 8], [1, 2, 4, 4], 1),
+        ([1, 2, 4, 8], [8, 4, 2, 1], 4),
+        ([1, 2, 4, 8], [5, 2, 6, 12], 0),
+        ([5, 2, 6, 12], [1, 2, 4, 8], 0),
+        ([1, 2, 7, 2], [2, 3, 6, 2], 1),
+    ],
+)
+def test_count_strict_mismatches(
+    sequence_1: list[int], sequence_2: list[int], exp_result: int
+):
+    result = count_strict_mismatches(sequence_1, sequence_2)
+    assert result == exp_result
+
+
+@pytest.mark.parametrize(
+    "sequence_1, sequence_2, exp_result",
+    [
+        # All the normal bases:
+        ([1], [1], 0),
+        ([1], [2], 1),
+        ([1], [4], 1),
+        ([1], [8], 1),
+        ([2], [1], 1),
+        ([2], [2], 0),
+        ([2], [4], 1),
+        ([2], [8], 1),
+        ([4], [1], 1),
+        ([4], [2], 1),
+        ([4], [4], 0),
+        ([4], [8], 1),
+        ([8], [1], 1),
+        ([8], [2], 1),
+        ([8], [4], 1),
+        ([8], [8], 0),
+        # Mixture compared to normal base:
+        ([5], [1], 0),
+        ([1], [5], 0),
+        ([5], [8], 1),
+        ([8], [5], 1),
+        # Mixture compared to self:
+        ([3], [3], 0),
+        # Mixture subsumed by mixture:
+        ([3], [7], 0),
+        ([7], [3], 0),
+        # Mixture orthogonal to other mixture:
+        ([3], [12], 1),
+        ([12], [3], 1),
+        # Mixture partially overlaps other mixture:
+        ([12], [5], 1),
+        ([5], [12], 1),
+        ([13], [3], 1),
+        ([3], [13], 1),
+        # Longer sequences:
+        ([1, 2, 4, 8], [1, 2, 4, 8], 0),
+        ([1, 2, 4, 8], [1, 2, 4, 4], 1),
+        ([1, 2, 4, 8], [8, 4, 2, 1], 4),
+        ([1, 2, 4, 8], [5, 2, 6, 12], 0),
+        ([5, 2, 6, 12], [1, 2, 4, 8], 0),
+        ([1, 2, 7, 2, 12, 5], [2, 3, 6, 2, 5, 10], 3),
+    ],
+)
+def test_count_forgiving_mismatches(
+    sequence_1: list[int], sequence_2: list[int], exp_result: int
+):
+    result = count_forgiving_mismatches(sequence_1, sequence_2)
+    assert result == exp_result
+
+
+@pytest.mark.parametrize(
+    "sequence_1, sequence_2, expected_error",
+    [
+        ([1, 2], [1, 2, 14], "Sequences must be the same length"),
+        ([], [], "Sequences must be non-empty"),
+    ],
+)
+def test_count_forgiving_mismatches_exception_cases(
+    sequence_1: list[int], sequence_2: list[int], expected_error: str
+):
+    with pytest.raises(ValueError) as excinfo:
+        count_forgiving_mismatches(sequence_1, sequence_2)
+    assert expected_error in str(excinfo.value)

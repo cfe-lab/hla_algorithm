@@ -108,12 +108,13 @@ def get_dummy_easyhla(locus: HLA_LOCI) -> EasyHLA:
     # We only need one standard as it only uses the first standard to pad
     # our inputs against.
     current_standard: DummyStandard = HLA_STANDARDS[locus]
-    dummy_standards: list[HLAStandard] = [
-        HLAStandard(
+    dummy_standards: dict[str, HLAStandard] = {
+        current_standard.allele: HLAStandard(
             allele=current_standard.allele,
-            sequence=nuc2bin(current_standard.exon2 + current_standard.exon3),
+            two=nuc2bin(current_standard.exon2),
+            three=nuc2bin(current_standard.exon3),
         )
-    ]
+    }
     dummy_frequencies: dict[HLAProteinPair, int] = {HLA_FREQUENCIES[locus]: 1}
     return EasyHLA(
         locus,
@@ -136,7 +137,8 @@ def easyhla(request: pytest.FixtureRequest):
             [
                 HLAStandardMatch(
                     allele="std_allmatch",
-                    sequence=(1, 2, 4, 8),
+                    two=(1, 2),
+                    three=(4, 8),
                     mismatch=0,
                 ),
             ],
@@ -154,7 +156,8 @@ def easyhla(request: pytest.FixtureRequest):
             [
                 HLAStandardMatch(
                     allele="std_allmatch",
-                    sequence=(1, 4, 2, 8),
+                    two=(1, 4),
+                    three=(2, 8),
                     mismatch=2,
                 ),
             ],
@@ -172,12 +175,14 @@ def easyhla(request: pytest.FixtureRequest):
             [
                 HLAStandardMatch(
                     allele="std_allmatch",
-                    sequence=(1, 2, 4, 8),
+                    two=(1, 2),
+                    three=(4, 8),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
                     allele="std_allmatch2",
-                    sequence=(1, 4, 4, 8),
+                    two=(1, 4),
+                    three=(4, 8),
                     mismatch=1,
                 ),
             ],
@@ -195,12 +200,14 @@ def easyhla(request: pytest.FixtureRequest):
             [
                 HLAStandardMatch(
                     allele="std_allmatch",
-                    sequence=(1, 2, 4, 8),
+                    two=(1, 2),
+                    three=(4, 8),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
                     allele="std_allmatch2",
-                    sequence=(1, 4, 4, 8),
+                    two=(1, 4),
+                    three=(4, 8),
                     mismatch=1,
                 ),
             ],
@@ -227,12 +234,14 @@ def easyhla(request: pytest.FixtureRequest):
             [
                 HLAStandardMatch(
                     allele="std_allmatch",
-                    sequence=(1, 2, 4, 4),
+                    two=(1, 2),
+                    three=(4, 4),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
                     allele="std_1mismatch2",
-                    sequence=(8, 4, 4, 8),
+                    two=(8, 4),
+                    three=(4, 8),
                     mismatch=1,
                 ),
             ],
@@ -251,12 +260,14 @@ def easyhla(request: pytest.FixtureRequest):
             [
                 HLAStandardMatch(
                     allele="std_allmatch",
-                    sequence=(1, 2, 4, 4),
+                    two=(1, 2),
+                    three=(4, 4),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
                     allele="std_1mismatch2",
-                    sequence=(8, 4, 4, 8),
+                    two=(8, 4),
+                    three=(4, 8),
                     mismatch=1,
                 ),
             ],
@@ -283,7 +294,8 @@ def easyhla(request: pytest.FixtureRequest):
             [
                 HLAStandardMatch(
                     allele="std_1mismatch",
-                    sequence=(1, 2, 4, 4),
+                    two=(1, 2),
+                    three=(4, 4),
                     mismatch=1,
                 )
             ],
@@ -301,7 +313,8 @@ def easyhla(request: pytest.FixtureRequest):
             [
                 HLAStandardMatch(
                     allele="std_allmismatch",
-                    sequence=(8, 4, 2, 1),
+                    two=(8, 4),
+                    three=(2, 1),
                     mismatch=4,
                 )
             ],
@@ -320,17 +333,20 @@ def easyhla(request: pytest.FixtureRequest):
             [
                 HLAStandardMatch(
                     allele="std_allmatch",
-                    sequence=(1, 2, 4, 8),
+                    two=(1, 2),
+                    three=(4, 8),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
                     allele="std_1mismatch",
-                    sequence=(1, 2, 4, 4),
+                    two=(1, 2),
+                    three=(4, 4),
                     mismatch=1,
                 ),
                 HLAStandardMatch(
                     allele="std_allmismatch",
-                    sequence=(8, 4, 2, 1),
+                    two=(8, 4),
+                    three=(2, 1),
                     mismatch=4,
                 ),
             ],
@@ -348,17 +364,20 @@ def easyhla(request: pytest.FixtureRequest):
             [
                 HLAStandardMatch(
                     allele="std_allmatch",
-                    sequence=(1, 2, 4, 8),
+                    two=(1, 2),
+                    three=(4, 8),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
                     allele="std_1mismatch",
-                    sequence=(1, 2, 4, 4),
+                    two=(1, 2),
+                    three=(4, 4),
                     mismatch=1,
                 ),
                 HLAStandardMatch(
                     allele="std_allmismatch",
-                    sequence=(8, 4, 2, 1),
+                    two=(8, 4),
+                    three=(2, 1),
                     mismatch=4,
                 ),
             ],
@@ -384,17 +403,20 @@ def easyhla(request: pytest.FixtureRequest):
             [
                 HLAStandardMatch(
                     allele="std_allmatch",
-                    sequence=(1, 2, 4, 8),
+                    two=(1, 2),
+                    three=(4, 8),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
                     allele="std_1mismatch",
-                    sequence=(1, 2, 4, 4),
+                    two=(1, 2),
+                    three=(4, 4),
                     mismatch=1,
                 ),
                 HLAStandardMatch(
                     allele="std_allmismatch",
-                    sequence=(8, 4, 2, 1),
+                    two=(8, 4),
+                    three=(2, 1),
                     mismatch=4,
                 ),
             ],
@@ -432,17 +454,20 @@ def easyhla(request: pytest.FixtureRequest):
             [
                 HLAStandardMatch(
                     allele="std_1mismatch",
-                    sequence=(1, 2, 4, 4),
+                    two=(1, 2),
+                    three=(4, 4),
                     mismatch=1,
                 ),
                 HLAStandardMatch(
                     allele="std_allmismatch",
-                    sequence=(8, 4, 2, 1),
+                    two=(8, 4),
+                    three=(2, 1),
                     mismatch=4,
                 ),
                 HLAStandardMatch(
                     allele="std_allmatch",
-                    sequence=(1, 2, 4, 8),
+                    two=(1, 2),
+                    three=(4, 8),
                     mismatch=0,
                 ),
             ],
@@ -460,17 +485,20 @@ def easyhla(request: pytest.FixtureRequest):
             [
                 HLAStandardMatch(
                     allele="std_1mismatch",
-                    sequence=(1, 2, 4, 4),
+                    two=(1, 2),
+                    three=(4, 4),
                     mismatch=1,
                 ),
                 HLAStandardMatch(
                     allele="std_allmismatch",
-                    sequence=(8, 4, 2, 1),
+                    two=(8, 4),
+                    three=(2, 1),
                     mismatch=4,
                 ),
                 HLAStandardMatch(
                     allele="std_allmatch",
-                    sequence=(1, 2, 4, 8),
+                    two=(1, 2),
+                    three=(4, 8),
                     mismatch=0,
                 ),
             ],
@@ -496,17 +524,20 @@ def easyhla(request: pytest.FixtureRequest):
             [
                 HLAStandardMatch(
                     allele="std_first_last_mismatch",
-                    sequence=(2, 2, 4, 4),
+                    two=(2, 2),
+                    three=(4, 4),
                     mismatch=2,
                 ),
                 HLAStandardMatch(
                     allele="std_produces_identical_combo",
-                    sequence=(3, 2, 4, 12),
+                    two=(3, 2),
+                    three=(4, 12),
                     mismatch=2,
                 ),
                 HLAStandardMatch(
                     allele="std_allmatch",
-                    sequence=(1, 2, 4, 8),
+                    two=(1, 2),
+                    three=(4, 8),
                     mismatch=0,
                 ),
             ],
@@ -1439,7 +1470,7 @@ def test_get_mismatches_errors(
 
 
 @pytest.mark.parametrize(
-    "sequence, locus, threshold, standards, expected_interpretation",
+    "sequence, locus, threshold, raw_standards, expected_interpretation",
     [
         pytest.param(
             HLASequence(
@@ -1449,20 +1480,23 @@ def test_get_mismatches_errors(
                 name="E1",
                 num_sequences_used=1,
             ),
-            "B",
+            "C",
             5,
             [
                 HLAStandard(
                     allele="std_allmatch",
-                    sequence=(1, 2, 4, 8),
+                    two=(1, 2),
+                    three=(4, 8),
                 ),
                 HLAStandard(
                     allele="std_1mismatch",
-                    sequence=(1, 2, 4, 4),
+                    two=(1, 2),
+                    three=(4, 4),
                 ),
                 HLAStandard(
                     allele="std_allmismatch",
-                    sequence=(8, 4, 2, 1),
+                    two=(8, 4),
+                    three=(2, 1),
                 ),
             ],
             HLAInterpretation(
@@ -1534,7 +1568,122 @@ def test_get_mismatches_errors(
                     ),
                 },
             ),
-            id="typical_case",
+            id="typical_case_non_b",
+        ),
+        pytest.param(
+            HLASequence(
+                two=(1, 2),
+                intron=(),
+                three=(4, 8),
+                name="E1",
+                num_sequences_used=1,
+            ),
+            "B",
+            5,
+            [
+                HLAStandard(
+                    allele="B*57:01:01G",
+                    two=(1, 2),
+                    three=(4, 8),
+                ),
+                HLAStandard(
+                    allele="B*57:01:02",
+                    two=(1, 2),
+                    three=(4, 4),
+                ),
+                HLAStandard(
+                    allele="B*57:01:03",
+                    two=(8, 4),
+                    three=(2, 1),
+                ),
+            ],
+            HLAInterpretation(
+                hla_sequence=HLASequence(
+                    two=(1, 2),
+                    intron=(),
+                    three=(4, 8),
+                    name="E1",
+                    num_sequences_used=1,
+                ),
+                matches={
+                    HLACombinedStandard(
+                        standard_bin=(1, 2, 4, 8),
+                        possible_allele_pairs=(("B*57:01:01G", "B*57:01:01G"),),
+                    ): HLAMatchDetails(mismatch_count=0, mismatches=[]),
+                    HLACombinedStandard(
+                        standard_bin=(1, 2, 4, 12),
+                        possible_allele_pairs=(("B*57:01:01G", "B*57:01:02"),),
+                    ): HLAMatchDetails(
+                        mismatch_count=1,
+                        mismatches=[
+                            HLAMismatch(index=4, expected_base="K", observed_base="T"),
+                        ],
+                    ),
+                    HLACombinedStandard(
+                        standard_bin=(1, 2, 4, 4),
+                        possible_allele_pairs=(("B*57:01:02", "B*57:01:02"),),
+                    ): HLAMatchDetails(
+                        mismatch_count=1,
+                        mismatches=[
+                            HLAMismatch(index=4, expected_base="G", observed_base="T"),
+                        ],
+                    ),
+                    HLACombinedStandard(
+                        standard_bin=(9, 6, 6, 9),
+                        possible_allele_pairs=(("B*57:01:01G", "B*57:01:03"),),
+                    ): HLAMatchDetails(
+                        mismatch_count=4,
+                        mismatches=[
+                            HLAMismatch(index=1, expected_base="W", observed_base="A"),
+                            HLAMismatch(index=2, expected_base="S", observed_base="C"),
+                            HLAMismatch(index=3, expected_base="S", observed_base="G"),
+                            HLAMismatch(index=4, expected_base="W", observed_base="T"),
+                        ],
+                    ),
+                    HLACombinedStandard(
+                        standard_bin=(9, 6, 6, 5),
+                        possible_allele_pairs=(("B*57:01:02", "B*57:01:03"),),
+                    ): HLAMatchDetails(
+                        mismatch_count=4,
+                        mismatches=[
+                            HLAMismatch(index=1, expected_base="W", observed_base="A"),
+                            HLAMismatch(index=2, expected_base="S", observed_base="C"),
+                            HLAMismatch(index=3, expected_base="S", observed_base="G"),
+                            HLAMismatch(index=4, expected_base="R", observed_base="T"),
+                        ],
+                    ),
+                    HLACombinedStandard(
+                        standard_bin=(8, 4, 2, 1),
+                        possible_allele_pairs=(("B*57:01:03", "B*57:01:03"),),
+                    ): HLAMatchDetails(
+                        mismatch_count=4,
+                        mismatches=[
+                            HLAMismatch(index=1, expected_base="T", observed_base="A"),
+                            HLAMismatch(index=2, expected_base="G", observed_base="C"),
+                            HLAMismatch(index=3, expected_base="C", observed_base="G"),
+                            HLAMismatch(index=4, expected_base="A", observed_base="T"),
+                        ],
+                    ),
+                },
+                b5701_standards=[
+                    HLAStandard(
+                        allele="B*57:01:01G",
+                        two=(1, 2),
+                        three=(4, 8),
+                    ),
+                    HLAStandard(
+                        allele="B*57:01:02",
+                        two=(1, 2),
+                        three=(4, 4),
+                    ),
+                    HLAStandard(
+                        allele="B*57:01:03",
+                        two=(8, 4),
+                        three=(2, 1),
+                    ),
+                ],
+            ),
+            id="typical_case_b",
         ),
     ],
 )
@@ -1542,12 +1691,13 @@ def test_interpret_good_cases(
     sequence: HLASequence,
     locus: HLA_LOCI,
     threshold: int,
-    standards: list[HLAStandard],
+    raw_standards: list[HLAStandard],
     expected_interpretation: HLAInterpretation,
     mocker: MockerFixture,
 ):
     easyhla: EasyHLA = get_dummy_easyhla(locus)
     # Replace the standards with the ones in the test.
+    standards: dict[str, HLAStandard] = {std.allele: std for std in raw_standards}
     easyhla.hla_standards = standards
 
     # Spy on the internals to make sure they're called correctly.
@@ -1560,10 +1710,16 @@ def test_interpret_good_cases(
     result: HLAInterpretation = easyhla.interpret(sequence, threshold=threshold)
     assert result == expected_interpretation
 
-    get_matching_standards_spy.assert_called_once_with(
-        sequence.sequence_for_interpretation,
-        standards,
-    )
+    # Using assert_called_once_with doesn't work here as we feed it a generator
+    # and the comparison fails; we have to manually convert the value to a list
+    # to be able to compare them.
+    get_matching_standards_spy.assert_called_once()
+    gms_call_args: mocker.call = get_matching_standards_spy.call_args
+    assert len(gms_call_args.args) == 2
+    assert len(gms_call_args.kwargs) == 0
+    assert gms_call_args.args[0] == sequence.sequence_for_interpretation
+    assert list(gms_call_args.args[1]) == list(standards.values())
+
     matching_standards: list[HLAStandardMatch] = get_matching_standards_spy.spy_return
 
     combine_standards_spy.assert_called_once_with(
@@ -1583,7 +1739,7 @@ def test_interpret_good_cases(
 
 
 @pytest.mark.parametrize(
-    "sequence, locus, threshold, standards",
+    "sequence, locus, threshold, raw_standards",
     [
         pytest.param(
             HLASequence(
@@ -1598,15 +1754,18 @@ def test_interpret_good_cases(
             [
                 HLAStandard(
                     allele="std_1",
-                    sequence=(2, 4, 8, 1, 10, 2, 8, 1, 5, 7, 11, 1),
+                    two=(2, 4, 8, 1, 10, 2),
+                    three=(8, 1, 5, 7, 11, 1),
                 ),
                 HLAStandard(
                     allele="std_2",
-                    sequence=(8, 4, 2, 1, 10, 2, 4, 8, 10, 11, 4, 1),
+                    two=(8, 4, 2, 1, 10, 2),
+                    three=(4, 8, 10, 11, 4, 1),
                 ),
                 HLAStandard(
                     allele="std_3",
-                    sequence=(1, 2, 4, 4, 5, 8, 8, 8, 5, 8, 11, 4),
+                    two=(1, 2, 4, 4, 5, 8),
+                    three=(8, 8, 5, 8, 11, 4),
                 ),
             ],
             id="no_matching_standards",
@@ -1617,11 +1776,12 @@ def test_interpret_error_cases(
     sequence: HLASequence,
     locus: HLA_LOCI,
     threshold: int,
-    standards: list[HLAStandard],
+    raw_standards: list[HLAStandard],
     mocker: MockerFixture,
 ):
     easyhla: EasyHLA = get_dummy_easyhla(locus)
     # Replace the standards with the ones in the test.
+    standards: dict[str, HLAStandard] = {std.allele: std for std in raw_standards}
     easyhla.hla_standards = standards
 
     # Spy on the internals to make sure they're called correctly.
@@ -1634,10 +1794,16 @@ def test_interpret_error_cases(
     with pytest.raises(EasyHLA.NoMatchingStandards):
         easyhla.interpret(sequence, threshold=threshold)
 
-    get_matching_standards_spy.assert_called_once_with(
-        sequence.sequence_for_interpretation,
-        standards,
-    )
+    # Using assert_called_once_with doesn't work here as we feed it a generator
+    # and the comparison fails; we have to manually convert the value to a list
+    # to be able to compare them.
+    get_matching_standards_spy.assert_called_once()
+    gms_call_args: mocker.call = get_matching_standards_spy.call_args
+    assert len(gms_call_args.args) == 2
+    assert len(gms_call_args.kwargs) == 0
+    assert gms_call_args.args[0] == sequence.sequence_for_interpretation
+    assert list(gms_call_args.args[1]) == list(standards.values())
+
     combine_standards_spy.assert_not_called()
     get_mismatches_spy.assert_not_called()
 
@@ -1659,7 +1825,7 @@ def test_known_hla_locus_lowercase():
 
 
 @pytest.mark.parametrize(
-    "raw_standards, expected_result",
+    "raw_standards, raw_expected_result",
     [
         pytest.param(
             [],
@@ -1671,7 +1837,8 @@ def test_known_hla_locus_lowercase():
             [
                 HLAStandard(
                     allele="A*01:23:45:67N",
-                    sequence=(1,) * 270 + (8,) * 276,
+                    two=(1,) * 270,
+                    three=(8,) * 276,
                 ),
             ],
             id="single_entry",
@@ -1685,15 +1852,18 @@ def test_known_hla_locus_lowercase():
             [
                 HLAStandard(
                     allele="B*01:23:45:67N",
-                    sequence=(1,) * 270 + (8,) * 276,
+                    two=(1,) * 270,
+                    three=(8,) * 276,
                 ),
                 HLAStandard(
                     allele="B*57:01:02",
-                    sequence=(2,) * 270 + (4, 8) * 138,
+                    two=(2,) * 270,
+                    three=(4, 8) * 138,
                 ),
                 HLAStandard(
                     allele="B*100:101:111",
-                    sequence=(1, 8) * 135 + (4,) * 276,
+                    two=(1, 8) * 135,
+                    three=(4,) * 276,
                 ),
             ],
             id="multiple_entries",
@@ -1702,10 +1872,14 @@ def test_known_hla_locus_lowercase():
 )
 def test_read_hla_standards(
     raw_standards: list[tuple[str, str, str]],
-    expected_result: list[HLAStandard],
+    raw_expected_result: list[HLAStandard],
     tmp_path: Path,
     mocker: MockerFixture,
 ):
+    # Convert the raw expected results into a dict:
+    expected_result: dict[str, HLAStandard] = {
+        std.allele: std for std in raw_expected_result
+    }
     # Build a string from the raw standards:
     standards_file_str: str = ""
     for allele, exon2, exon3 in raw_standards:
@@ -2081,50 +2255,6 @@ def test_check_bases(sequence: str, exp_good: bool):
 
 
 @pytest.mark.parametrize(
-    "sequence, standard, exp_result",
-    [
-        # All the normal bases:
-        ([1], [1], 0),
-        ([1], [2], 1),
-        ([1], [4], 1),
-        ([1], [8], 1),
-        ([2], [1], 1),
-        ([2], [2], 0),
-        ([2], [4], 1),
-        ([2], [8], 1),
-        ([4], [1], 1),
-        ([4], [2], 1),
-        ([4], [4], 0),
-        ([4], [8], 1),
-        ([8], [1], 1),
-        ([8], [2], 1),
-        ([8], [4], 1),
-        ([8], [8], 0),
-        # Testing mixtures:
-        ([5], [1], 0),
-        ([5], [8], 1),
-        ([1], [5], 0),
-        ([8], [5], 1),
-        ([12], [3], 1),
-        ([12], [5], 0),
-        ([15], [7], 0),
-        ([7], [15], 0),
-        # Longer sequences:
-        ([1, 2, 4, 8], [1, 2, 4, 8], 0),
-        ([1, 2, 4, 8], [1, 2, 4, 4], 1),
-        ([1, 2, 4, 8], [8, 4, 2, 1], 4),
-        ([1, 2, 4, 8], [5, 2, 6, 12], 0),
-        ([5, 2, 6, 12], [1, 2, 4, 8], 0),
-        ([1, 2, 7, 2], [2, 3, 6, 2], 1),
-    ],
-)
-def test_std_match(sequence: list[int], standard: list[int], exp_result: int):
-    result = EasyHLA.std_match(std=np.array(standard), seq=np.array(sequence))
-    print(result)
-    assert result == exp_result
-
-
-@pytest.mark.parametrize(
     "standard, sequence, exp_left_pad, exp_right_pad",
     [
         ([1, 2, 4, 8], [1, 2, 4, 8], 0, 0),
@@ -2310,12 +2440,13 @@ def test_pad_short(
         #
         pytest.param(
             (1, 2, 4, 8),
-            [HLAStandard(allele="std_allmismatch", sequence=(1, 2, 4, 8))],
+            [HLAStandard(allele="std_allmismatch", two=(1, 2), three=(4, 8))],
             5,
             [
                 HLAStandardMatch(
                     allele="std_allmismatch",
-                    sequence=(1, 2, 4, 8),
+                    two=(1, 2),
+                    three=(4, 8),
                     mismatch=0,
                 )
             ],
@@ -2323,12 +2454,13 @@ def test_pad_short(
         ),
         pytest.param(
             (1, 2, 4, 8),
-            [HLAStandard(allele="std_allmismatch", sequence=(1, 2, 4, 4))],
+            [HLAStandard(allele="std_allmismatch", two=(1, 2), three=(4, 4))],
             5,
             [
                 HLAStandardMatch(
                     allele="std_allmismatch",
-                    sequence=(1, 2, 4, 4),
+                    two=(1, 2),
+                    three=(4, 4),
                     mismatch=1,
                 )
             ],
@@ -2336,12 +2468,13 @@ def test_pad_short(
         ),
         pytest.param(
             (1, 3, 4, 8),
-            [HLAStandard(allele="std_mixturematch", sequence=(1, 2, 4, 8))],
+            [HLAStandard(allele="std_mixturematch", two=(1, 2), three=(4, 8))],
             5,
             [
                 HLAStandardMatch(
                     allele="std_mixturematch",
-                    sequence=(1, 2, 4, 8),
+                    two=(1, 2),
+                    three=(4, 8),
                     mismatch=0,
                 )
             ],
@@ -2349,12 +2482,13 @@ def test_pad_short(
         ),
         pytest.param(
             (1, 2, 4, 8),
-            [HLAStandard(allele="std_allmismatch", sequence=(8, 4, 2, 1))],
+            [HLAStandard(allele="std_allmismatch", two=(8, 4), three=(2, 1))],
             5,
             [
                 HLAStandardMatch(
                     allele="std_allmismatch",
-                    sequence=(8, 4, 2, 1),
+                    two=(8, 4),
+                    three=(2, 1),
                     mismatch=4,
                 )
             ],
@@ -2365,7 +2499,8 @@ def test_pad_short(
             [
                 HLAStandard(
                     allele="std_mismatch_over_threshold",
-                    sequence=(1, 2, 8, 4, 4, 8, 8, 1),
+                    two=(1, 2, 8, 4),
+                    three=(4, 8, 8, 1),
                 )
             ],
             5,
@@ -2375,25 +2510,28 @@ def test_pad_short(
         pytest.param(
             (1, 2, 4, 8),
             [
-                HLAStandard(allele="std_allmatch", sequence=(1, 2, 4, 8)),
-                HLAStandard(allele="std_1mismatch", sequence=(1, 2, 4, 4)),
-                HLAStandard(allele="std_allmismatch", sequence=(8, 4, 2, 1)),
+                HLAStandard(allele="std_allmatch", two=(1, 2), three=(4, 8)),
+                HLAStandard(allele="std_1mismatch", two=(1, 2), three=(4, 4)),
+                HLAStandard(allele="std_allmismatch", two=(8, 4), three=(2, 1)),
             ],
             5,
             [
                 HLAStandardMatch(
                     allele="std_allmatch",
-                    sequence=(1, 2, 4, 8),
+                    two=(1, 2),
+                    three=(4, 8),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
                     allele="std_1mismatch",
-                    sequence=(1, 2, 4, 4),
+                    two=(1, 2),
+                    three=(4, 4),
                     mismatch=1,
                 ),
                 HLAStandardMatch(
                     allele="std_allmismatch",
-                    sequence=(8, 4, 2, 1),
+                    two=(8, 4),
+                    three=(2, 1),
                     mismatch=4,
                 ),
             ],
@@ -2404,36 +2542,43 @@ def test_pad_short(
             [
                 HLAStandard(
                     allele="std_mixturematch",
-                    sequence=(1, 2, 4, 8, 2, 1, 4, 1),
+                    two=(1, 2, 4, 8),
+                    three=(2, 1, 4, 1),
                 ),
                 HLAStandard(
                     allele="std_2mismatch",
-                    sequence=(1, 4, 4, 4, 2, 4, 4, 1),
+                    two=(1, 4, 4, 4),
+                    three=(2, 4, 4, 1),
                 ),
                 HLAStandard(
                     allele="std_allmismatch",
-                    sequence=(8, 4, 2, 1, 1, 8, 8, 8),
+                    two=(8, 4, 2, 1),
+                    three=(1, 8, 8, 8),
                 ),
                 HLAStandard(
                     allele="std_4mismatch",
-                    sequence=(8, 4, 2, 1, 2, 1, 4, 1),
+                    two=(8, 4, 2, 1),
+                    three=(2, 1, 4, 1),
                 ),
             ],
             5,
             [
                 HLAStandardMatch(
                     allele="std_mixturematch",
-                    sequence=(1, 2, 4, 8, 2, 1, 4, 1),
+                    two=(1, 2, 4, 8),
+                    three=(2, 1, 4, 1),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
                     allele="std_2mismatch",
-                    sequence=(1, 4, 4, 4, 2, 4, 4, 1),
+                    two=(1, 4, 4, 4),
+                    three=(2, 4, 4, 1),
                     mismatch=2,
                 ),
                 HLAStandardMatch(
                     allele="std_4mismatch",
-                    sequence=(8, 4, 2, 1, 2, 1, 4, 1),
+                    two=(8, 4, 2, 1),
+                    three=(2, 1, 4, 1),
                     mismatch=4,
                 ),
             ],
@@ -2455,145 +2600,139 @@ def test_get_matching_standards(
 
 
 CHECK_LENGTH_HLA_A_TEST_CASES = [
+    pytest.param(EasyHLA.HLA_A_LENGTH, "myseq_regular", True, id="regular_good_case"),
     pytest.param(
-        "A" * EasyHLA.HLA_A_LENGTH, "myseq_regular", True, id="regular_good_case"
-    ),
-    pytest.param(
-        "A" * EasyHLA.HLA_A_LENGTH,
+        EasyHLA.HLA_A_LENGTH,
         "myseq_exon2",
         True,
         id="regular_good_case_ignores_exon2_name",
     ),
     pytest.param(
-        "A" * EasyHLA.HLA_A_LENGTH,
+        EasyHLA.HLA_A_LENGTH,
         "myseq_exon3",
         True,
         id="regular_good_case_ignores_exon3_name",
     ),
-    pytest.param("A" * 1000, "myseq_regular", False, id="sequence_too_long"),
+    pytest.param(1000, "myseq_regular", False, id="sequence_too_long"),
+    pytest.param(1000, "myseq_exon2", False, id="sequence_too_long_ignores_exon2_name"),
+    pytest.param(1000, "myseq_exon3", False, id="sequence_too_long_ignores_exon3_name"),
     pytest.param(
-        "A" * 1000, "myseq_exon2", False, id="sequence_too_long_ignores_exon2_name"
-    ),
-    pytest.param(
-        "A" * 1000, "myseq_exon3", False, id="sequence_too_long_ignores_exon3_name"
-    ),
-    pytest.param(
-        "A" * (EasyHLA.HLA_A_LENGTH + 1),
+        EasyHLA.HLA_A_LENGTH + 1,
         "myseq_regular",
         False,
         id="sequence_too_long_edge_case",
     ),
     pytest.param(
-        "A" * (EasyHLA.HLA_A_LENGTH + 1),
+        EasyHLA.HLA_A_LENGTH + 1,
         "myseq_exon2",
         False,
         id="sequence_too_long_edge_case_ignores_exon2_name",
     ),
     pytest.param(
-        "A" * (EasyHLA.HLA_A_LENGTH + 1),
+        EasyHLA.HLA_A_LENGTH + 1,
         "myseq_exon3",
         False,
         id="sequence_too_long_edge_case_ignores_exon3_name",
     ),
-    pytest.param("A" * 300, "myseq_regular", False, id="sequence_too_short"),
+    pytest.param(300, "myseq_regular", False, id="sequence_too_short"),
     pytest.param(
-        "A" * EasyHLA.EXON2_LENGTH,
+        EasyHLA.EXON2_LENGTH,
         "myseq_exon2",
         False,
         id="sequence_too_short_ignores_exon2_name",
     ),
     pytest.param(
-        "A" * EasyHLA.EXON3_LENGTH,
+        EasyHLA.EXON3_LENGTH,
         "myseq_exon3",
         False,
         id="sequence_too_short_ignores_exon3_name",
     ),
     pytest.param(
-        "A" * (EasyHLA.HLA_A_LENGTH - 1),
+        EasyHLA.HLA_A_LENGTH - 1,
         "myseq_regular",
         False,
         id="sequence_too_short_edge_case",
     ),
     pytest.param(
-        "A" * (EasyHLA.HLA_A_LENGTH - 1),
+        EasyHLA.HLA_A_LENGTH - 1,
         "myseq_exon2",
         False,
         id="sequence_too_short_edge_case_ignores_exon2_name",
     ),
     pytest.param(
-        "A" * (EasyHLA.HLA_A_LENGTH - 1),
+        EasyHLA.HLA_A_LENGTH - 1,
         "myseq_exon3",
         False,
         id="sequence_too_short_edge_case_ignores_exon3_name",
     ),
     pytest.param(
-        "A" * 300,
+        300,
         "myseq_short",
         True,
         id="shortseq_good_case",
     ),
     pytest.param(
-        "A" * 300,
+        300,
         "myseq_exon2_short",
         True,
         id="shortseq_good_case_ignores_exon2_name",
     ),
     pytest.param(
-        "A" * 300,
+        300,
         "myseq_exon3_short",
         True,
         id="shortseq_good_case_ignores_exon3_name",
     ),
     pytest.param(
-        "A" * (EasyHLA.HLA_A_LENGTH - 1),
+        EasyHLA.HLA_A_LENGTH - 1,
         "myseq_short",
         True,
         id="shortseq_good_case_edge_case",
     ),
     pytest.param(
-        "A" * (EasyHLA.HLA_A_LENGTH - 1),
+        EasyHLA.HLA_A_LENGTH - 1,
         "myseq_exon2_short",
         True,
         id="shortseq_good_case_edge_case_ignores_exon2_name",
     ),
     pytest.param(
-        "A" * (EasyHLA.HLA_A_LENGTH - 1),
+        EasyHLA.HLA_A_LENGTH - 1,
         "myseq_exon3_short",
         True,
         id="shortseq_good_case_edge_case_ignores_exon3_name",
     ),
     pytest.param(
-        "A" * (EasyHLA.HLA_A_LENGTH + 100),
+        EasyHLA.HLA_A_LENGTH + 100,
         "myseq_short",
         False,
         id="shortseq_too_long",
     ),
     pytest.param(
-        "A" * (EasyHLA.HLA_A_LENGTH + 100),
+        EasyHLA.HLA_A_LENGTH + 100,
         "myseq_short_exon2",
         False,
         id="shortseq_too_long_ignores_exon2_name",
     ),
     pytest.param(
-        "A" * (EasyHLA.HLA_A_LENGTH + 100),
+        EasyHLA.HLA_A_LENGTH + 100,
         "myseq_short_exon3",
         False,
         id="shortseq_too_long_ignores_exon3_name",
     ),
     pytest.param(
-        "A" * EasyHLA.HLA_A_LENGTH,
+        EasyHLA.HLA_A_LENGTH,
         "myseq_short",
         False,
         id="shortseq_too_long_edge_case",
     ),
     pytest.param(
-        "A" * EasyHLA.HLA_A_LENGTH,
+        EasyHLA.HLA_A_LENGTH,
         "myseq_exon2_short",
         False,
         id="shortseq_too_long_edge_case_ignores_exon2_name",
     ),
     pytest.param(
-        "A" * EasyHLA.HLA_A_LENGTH,
+        EasyHLA.HLA_A_LENGTH,
         "myseq_exon3_short",
         False,
         id="shortseq_too_long_edge_case_ignores_exon3_name",
@@ -2602,11 +2741,14 @@ CHECK_LENGTH_HLA_A_TEST_CASES = [
 
 
 @pytest.mark.parametrize(
-    "sequence, name, expected_to_pass",
+    "sequence_length, name, expected_to_pass",
     CHECK_LENGTH_HLA_A_TEST_CASES,
 )
-def test_check_length_hla_type_a(sequence: str, name: str, expected_to_pass: bool):
+def test_check_length_hla_type_a(
+    sequence_length: int, name: str, expected_to_pass: bool
+):
     easyhla: EasyHLA = get_dummy_easyhla("A")
+    sequence: str = "A" * sequence_length
     if expected_to_pass:
         easyhla.check_length(seq=sequence, name=name)
     else:

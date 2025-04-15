@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import Final
 
 import numpy as np
@@ -83,3 +83,45 @@ def bin2nuc(seq: Iterable[int]) -> str:
     :rtype: str
     """
     return "".join([BIN2NUC.get(nuc, "_") for nuc in seq])
+
+
+def count_strict_mismatches(
+    sequence_1: Sequence[int], sequence_2: Sequence[int]
+) -> int:
+    """
+    Compare two sequences in "binary" format.
+
+    This will output the number of "strict mismatches" between the standard
+    and the sequence, meaning positions where the bases have no overlapping
+    possible resolutions.
+
+    :param sequence_1: A sequence in "binary" format.
+    :type sequence_1: Sequence[int]
+    :param seq: A sequence in "binary" format.
+    :type seq: Sequence[int]
+    :return: Number of mismatches between the two sequences.
+    :rtype: int
+    """
+    masked_array: np.ndarray = np.array(sequence_1) & np.array(sequence_2)
+    return np.count_nonzero(masked_array == 0)
+
+
+def count_forgiving_mismatches(
+    sequence_1: Sequence[int], sequence_2: Sequence[int]
+) -> int:
+    """
+    Compare two sequences in "binary" format, being more "forgiving" of mismatches.
+
+    At each position, a match is defined as all possible bases in the
+    sequence being possible bases in the standard, or vice versa.
+    """
+    if len(sequence_1) != len(sequence_2):
+        raise ValueError("Sequences must be the same length")
+    if len(sequence_1) == 0:
+        raise ValueError("Sequences must be non-empty")
+    seq1_np: np.ndarray = np.array(sequence_1)
+    seq2_np: np.ndarray = np.array(sequence_2)
+
+    overlaps: np.ndarray = seq1_np & seq2_np
+    matches: np.ndarray = (overlaps == seq1_np) | (overlaps == seq2_np)
+    return np.count_nonzero(matches == False)

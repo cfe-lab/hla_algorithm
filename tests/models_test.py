@@ -1,5 +1,8 @@
+from typing import Optional
+
 import numpy as np
 import pytest
+from pytest_mock import MockerFixture
 
 from easyhla.models import (
     AllelePairs,
@@ -50,7 +53,7 @@ class TestHLASequence:
             ),
         ],
     )
-    def test_all_methods(
+    def test_basic_properties(
         self,
         hla_sequence: HLASequence,
         expected_sequence_for_interpretation: tuple[int, ...],
@@ -69,19 +72,25 @@ class TestHLASequence:
 
 class TestHLAStandard:
     @pytest.mark.parametrize(
-        "sequence_tuple, expected_result",
+        "two, three, expected_tuple, expected_array",
         [
             pytest.param(
+                (),
+                (),
                 (),
                 np.array([]),
                 id="empty_sequence",
             ),
             pytest.param(
                 (4,),
+                (),
+                (4,),
                 np.array([4]),
                 id="single_base_sequence",
             ),
             pytest.param(
+                (1, 2, 4, 8),
+                (11, 15, 12, 8),
                 (1, 2, 4, 8, 11, 15, 12, 8),
                 np.array([1, 2, 4, 8, 11, 15, 12, 8]),
                 id="typical_sequence",
@@ -89,12 +98,17 @@ class TestHLAStandard:
         ],
     )
     def test_sequence_np(
-        self, sequence_tuple: tuple[int, ...], expected_result: np.array
+        self,
+        two: tuple[int, ...],
+        three: tuple[int, ...],
+        expected_tuple: tuple[int, ...],
+        expected_array: np.array,
     ):
         hla_standard: HLAStandard = HLAStandard(
-            allele="B*01:23:45", sequence=sequence_tuple
+            allele="B*01:23:45", two=two, three=three
         )
-        assert np.array_equal(hla_standard.sequence_np, expected_result)
+        assert hla_standard.sequence == expected_tuple
+        assert np.array_equal(hla_standard.sequence_np, expected_array)
 
 
 class TestHLACombinedStandard:
@@ -928,6 +942,76 @@ class TestAllelePairs:
         ap: AllelePairs = AllelePairs(allele_pairs=raw_allele_pairs)
         assert ap.stringify(max_length) == exp_stringification
 
+    @pytest.mark.parametrize(
+        "raw_allele_pairs, allele_name, expected_result",
+        [
+            pytest.param(
+                [("B*57:01", "B*59:03")],
+                "B*57:01",
+                True,
+                id="single_pair_name_present_as_first_exact_match",
+            ),
+            pytest.param(
+                [("B*57:01", "B*59:03")],
+                "B*59:03",
+                True,
+                id="single_pair_name_present_as_second_exact_match",
+            ),
+            pytest.param(
+                [("B*57:01:03", "B*59:03")],
+                "B*57:01",
+                True,
+                id="single_pair_name_present_as_first_inexact_match",
+            ),
+            pytest.param(
+                [("B*57:01", "B*59:03:02:11G")],
+                "B*59:03:02",
+                True,
+                id="single_pair_name_present_as_second_inexact_match",
+            ),
+            pytest.param(
+                [("A*57:01", "A*59:03")],
+                "A*57:01:04",
+                False,
+                id="single_pair_no_starts_with_match",
+            ),
+            pytest.param(
+                [("A*57:01", "A*59:03")],
+                "A*01:23:45",
+                False,
+                id="single_pair_no_match_at_all",
+            ),
+            pytest.param(
+                [
+                    ("C*11:22:33", "C*55:52:01:03G"),
+                    ("C*11:24:01", "C*55:01:53:04"),
+                    ("C*11:24:02", "C*55:01:54"),
+                ],
+                "C*55:01",
+                True,
+                id="typical_case_with_match",
+            ),
+            pytest.param(
+                [
+                    ("C*11:22:33", "C*55:52:01:03G"),
+                    ("C*11:24:01", "C*55:01:53:04"),
+                    ("C*11:24:02", "C*55:01:54"),
+                ],
+                "C*54:22",
+                False,
+                id="typical_case_without_match",
+            ),
+        ],
+    )
+    def test_contains_allele(
+        self,
+        raw_allele_pairs: list[tuple[str, str]],
+        allele_name: str,
+        expected_result: bool,
+    ):
+        ap: AllelePairs = AllelePairs(allele_pairs=raw_allele_pairs)
+        assert ap.contains_allele(allele_name) == expected_result
+
 
 @pytest.fixture
 def hla_sequence() -> HLASequence:
@@ -1022,7 +1106,7 @@ class TestHLAInterpretation:
             ),
         ],
     )
-    def test_all_methods(
+    def test_basic_methods(
         self,
         hla_sequence: HLASequence,
         raw_matches: dict[HLACombinedStandard, HLAMatchDetails],
@@ -1040,3 +1124,160 @@ class TestHLAInterpretation:
             set(interp.best_matching_allele_pairs().allele_pairs)
             == expected_allele_pairs
         )
+
+    @pytest.mark.parametrize(
+        "b5701_standards, expected_result",
+        [
+            pytest.param(
+                None,
+                None,
+                id="no_standards_specified",
+            ),
+            pytest.param(
+                [
+                    HLAStandard(
+                        allele="B*01:23:45",
+                        two=(2, 2, 1, 2),
+                        three=(1, 4, 4, 2, 8),
+                    ),
+                ],
+                0,
+                id="perfect_match",
+            ),
+            pytest.param(
+                [
+                    HLAStandard(
+                        allele="B*01:23:45",
+                        two=(2, 1, 1, 2),
+                        three=(1, 4, 8, 2, 8),
+                    ),
+                ],
+                2,
+                id="some_unambiguous_mismatches",
+            ),
+            pytest.param(
+                [
+                    HLAStandard(
+                        allele="B*01:23:45",
+                        two=(2, 6, 1, 2),
+                        three=(1, 4, 8, 5, 8),
+                    ),
+                ],
+                2,
+                id="some_ambiguous_mismatches",
+            ),
+            pytest.param(
+                [
+                    HLAStandard(
+                        allele="B*01:23:45",
+                        two=(2, 5, 3, 2),
+                        three=(1, 4, 8, 10, 9),
+                    ),
+                ],
+                2,
+                id="ambiguous_and_unambiguous_mismatches",
+            ),
+            pytest.param(
+                [
+                    HLAStandard(
+                        allele="B*01:23:45",
+                        two=(2, 2, 1, 2),
+                        three=(1, 4, 4, 2, 8),
+                    ),
+                    HLAStandard(
+                        allele="B*01:23:46",
+                        two=(2, 1, 1, 2),
+                        three=(1, 4, 8, 2, 8),
+                    ),
+                    HLAStandard(
+                        allele="B*01:23:4",
+                        two=(2, 5, 3, 2),
+                        three=(1, 4, 8, 10, 9),
+                    ),
+                ],
+                0,
+                id="minimum_distance_chosen",
+            ),
+        ],
+    )
+    def test_distance_from_b5701(
+        self,
+        hla_sequence: HLASequence,
+        b5701_standards: Optional[list[HLAStandard]],
+        expected_result: Optional[int],
+    ):
+        interp: HLAInterpretation = HLAInterpretation(
+            hla_sequence=hla_sequence,
+            matches={},
+            b5701_standards=b5701_standards,
+        )
+        assert interp.distance_from_b7501() == expected_result
+
+    @pytest.mark.parametrize(
+        "raw_matches, expected_result",
+        [
+            pytest.param(
+                {
+                    HLACombinedStandard(
+                        standard_bin=(1, 4, 9, 4),
+                        possible_allele_pairs=(("B*01:01:01", "B*02:02:02"),),
+                    ): HLAMatchDetails(mismatch_count=5, mismatches=[]),
+                    HLACombinedStandard(
+                        standard_bin=(1, 2, 9, 4),
+                        possible_allele_pairs=(
+                            ("B*01:03:22", "B*02:07:05"),
+                            ("B*01:03:25", "B*02:07:05"),
+                        ),
+                    ): HLAMatchDetails(mismatch_count=5, mismatches=[]),
+                    HLACombinedStandard(
+                        standard_bin=(1, 2, 9, 4),
+                        possible_allele_pairs=(
+                            ("B*21:55:07:33N", "B*21:55:07:33N"),
+                            ("B*21:55:07:33N", "B*21:55:42"),
+                        ),
+                    ): HLAMatchDetails(mismatch_count=5, mismatches=[]),
+                },
+                False,
+                id="typical_case_not_b5701",
+            ),
+            pytest.param(
+                {
+                    HLACombinedStandard(
+                        standard_bin=(1, 4, 9, 4),
+                        possible_allele_pairs=(
+                            ("B*22:33:44", "B*56:02:51"),
+                            ("B*57:01:04", "B*57:01:03"),
+                        ),
+                    ): HLAMatchDetails(mismatch_count=5, mismatches=[]),
+                    HLACombinedStandard(
+                        standard_bin=(1, 2, 9, 4),
+                        possible_allele_pairs=(
+                            ("B*02:03:25", "B*02:03:27"),
+                            ("B*13:31:13", "B*13:31:13"),
+                        ),
+                    ): HLAMatchDetails(mismatch_count=5, mismatches=[]),
+                    HLACombinedStandard(
+                        standard_bin=(1, 2, 9, 4),
+                        possible_allele_pairs=(
+                            ("B*22:55:07:33N", "B*21:55:33"),
+                            ("B*22:55:07:33N", "B*21:55:42"),
+                        ),
+                    ): HLAMatchDetails(mismatch_count=5, mismatches=[]),
+                },
+                True,
+                id="typical_case_is_b5701",
+            ),
+        ],
+    )
+    def test_is_b5701(
+        self,
+        hla_sequence: HLASequence,
+        raw_matches: dict[HLACombinedStandard, HLAMatchDetails],
+        expected_result: Optional[bool],
+    ):
+        interp: HLAInterpretation = HLAInterpretation(
+            hla_sequence=hla_sequence,
+            matches=raw_matches,
+            b5701_standards=None,
+        )
+        assert interp.is_b5701() == expected_result

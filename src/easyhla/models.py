@@ -1,12 +1,12 @@
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from operator import itemgetter
-from typing import Literal, Optional
+from typing import Optional
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict
 
-from .utils import bin2nuc
+from .utils import bin2nuc, count_forgiving_mismatches
 
 
 class HLASequence(BaseModel):
@@ -37,27 +37,36 @@ class HLASequence(BaseModel):
     def intron_str(self) -> str:
         return bin2nuc(self.intron)
 
-    def distance_from_standard(self, standard: Sequence[int]) -> int:
-        """
-        Returns the Hamming distance to the specified standard.
+    # def distance_from_standard(self, standard: "HLAStandard") -> int:
+    #     """
+    #     Returns the Hamming distance to the specified standard.
 
-        At each position, a match is defined as all possible bases in the
-        sequence being possible bases in the standard, or vice versa.
-        """
-        seq_np: np.ndarray = np.array(self.two + self.three)
-        std_np: np.ndarray = np.array(standard)
+    #     At each position, a match is defined as all possible bases in the
+    #     sequence being possible bases in the standard, or vice versa.
+    #     """
+    #     if len(self.sequence_for_interpretation) != len(standard.sequence):
+    #         return ValueError("Standard must be the same length as the sequence")
+    #     if len(self.sequence_for_interpretation) == 0:
+    #         return ValueError("Sequence must be non-empty")
+    #     seq_np: np.ndarray = np.array(self.sequence_for_interpretation)
+    #     std_np: np.ndarray = standard.sequence_np
 
-        overlaps: np.ndarray = seq_np & std_np
-        matches: np.ndarray = (overlaps == seq_np) | (overlaps == std_np)
-        return np.count_nonzero(matches == False)
+    #     overlaps: np.ndarray = seq_np & std_np
+    #     matches: np.ndarray = (overlaps == seq_np) | (overlaps == std_np)
+    #     return np.count_nonzero(matches == False)
 
 
 class HLAStandard(BaseModel):
     allele: str
-    sequence: tuple[int, ...]
+    two: tuple[int, ...]
+    three: tuple[int, ...]
 
     @property
-    def sequence_np(self):
+    def sequence(self) -> tuple[int, ...]:
+        return self.two + self.three
+
+    @property
+    def sequence_np(self) -> np.ndarray:
         return np.array(self.sequence)
 
 
@@ -369,7 +378,7 @@ class AllelePairs(BaseModel):
 class HLAInterpretation(BaseModel):
     hla_sequence: HLASequence
     matches: dict[HLACombinedStandard, HLAMatchDetails]
-    b_57_01_references: Optional[dict[Literal[1, 2, 3], HLAStandard]] = None
+    b5701_standards: Optional[list[HLAStandard]] = None
 
     def lowest_mismatch_count(self) -> int:
         return min([x.mismatch_count for x in self.matches.values()])
@@ -396,13 +405,15 @@ class HLAInterpretation(BaseModel):
         If no B*57:01 references are specified (i.e. this is not an HLA-B
         sequence), return None.
         """
-        if self.b_57_01_references is None:
+        if self.b5701_standards is None:
             return None
-        distances: dict[Literal[1, 2, 3], int] = {
-            protein_group: self.hla_sequence.distance_from_standard(standard.sequence)
-            for protein_group, standard in self.b_57_01_references
-        }
-        return min(distances.values())
+        distances: list[int] = [
+            count_forgiving_mismatches(
+                self.hla_sequence.sequence_for_interpretation, standard.sequence
+            )
+            for standard in self.b5701_standards
+        ]
+        return min(distances)
 
     def is_b5701(self) -> bool:
         """
