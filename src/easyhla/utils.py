@@ -1,3 +1,4 @@
+import re
 from collections.abc import Iterable, Sequence
 from typing import Final
 
@@ -72,7 +73,6 @@ def nuc2bin(seq: str) -> tuple[int, ...]:
     return tuple(NUC2BIN.get(nuc, 0) for nuc in seq)
 
 
-@staticmethod
 def bin2nuc(seq: Iterable[int]) -> str:
     """
     Convert an array of numbers to a string sequence.
@@ -125,3 +125,53 @@ def count_forgiving_mismatches(
     overlaps: np.ndarray = seq1_np & seq2_np
     matches: np.ndarray = (overlaps == seq1_np) | (overlaps == seq2_np)
     return np.count_nonzero(matches == False)
+
+
+def check_bases(seq: str) -> None:
+    """
+    Check a string sequence for invalid characters.
+
+    If an invalid character is detected it will raise a ValueError.
+
+    :param seq: ...
+    :type seq: str
+    :raises ValueError: Raised if a sequence contains letters we don't
+    expect
+    :return: True if our sequence only contains valid characters.
+    :rtype: bool
+    """
+    if not re.match(r"^[ATGCRYKMSWNBDHV]+$", seq):
+        raise ValueError("Sequence has invalid characters")
+
+
+def calc_padding(std: Sequence[int], seq: Sequence[int]) -> tuple[int, int]:
+    """
+    Calculate the number of units to pad a sequence.
+
+    This will attempt to achieve the best pad value by minimizing the
+    number of mismatches.
+
+    :param std: ...
+    :type std: Sequence[int]
+    :param seq: ...
+    :type seq: Sequence[int]
+    :return: Returns the number of 'N's (b1111) needed to match the sequence
+    to the standard.
+    :rtype: tuple[int, int]
+    """
+    best = 10e10
+    pad = len(std) - len(seq)
+    left_pad = 0
+    for i in range(pad + 1):  # 0, 1, ..., pad - 1, pad
+        pseq = np.concatenate(
+            (
+                np.array(nuc2bin("N" * i), dtype="int8"),
+                np.array(seq, dtype="int8"),
+                np.array(nuc2bin("N" * (pad - i)), dtype="int8"),
+            ),
+        )
+        mismatches = count_strict_mismatches(std, pseq)
+        if mismatches < best:
+            best = mismatches
+            left_pad = i
+    return left_pad, pad - left_pad

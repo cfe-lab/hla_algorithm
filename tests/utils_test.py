@@ -1,10 +1,12 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
 import numpy as np
 import pytest
 
 from easyhla.utils import (
     bin2nuc,
+    calc_padding,
+    check_bases,
     count_forgiving_mismatches,
     count_strict_mismatches,
     nuc2bin,
@@ -189,3 +191,88 @@ def test_count_forgiving_mismatches_exception_cases(
     with pytest.raises(ValueError) as excinfo:
         count_forgiving_mismatches(sequence_1, sequence_2)
     assert expected_error in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    "sequence, exp_good",
+    [
+        ("A", True),
+        ("C", True),
+        ("G", True),
+        ("T", True),
+        ("R", True),
+        ("Y", True),
+        ("K", True),
+        ("M", True),
+        ("S", True),
+        ("W", True),
+        ("V", True),
+        ("H", True),
+        ("D", True),
+        ("B", True),
+        ("N", True),
+        ("Z", False),
+        ("a", False),
+        ("k", False),
+        ("AZ", False),
+        ("aZ", False),
+        ("CZ", False),
+        ("cZ", False),
+        ("GZ", False),
+        ("gZ", False),
+        ("TZ", False),
+        ("tZ", False),
+        ("ZGR", False),
+        ("CYMSWANDB", True),
+        ("CYMsWANdB", False),
+        ("ZYMSWANDB", False),
+        ("CYMSWANDBZ", False),
+    ],
+)
+def test_check_bases(sequence: str, exp_good: bool):
+    if exp_good:
+        check_bases(seq=sequence)
+    else:
+        with pytest.raises(ValueError):
+            check_bases(seq=sequence)
+
+
+@pytest.mark.parametrize(
+    "standard, sequence, exp_left_pad, exp_right_pad",
+    [
+        ([1, 2, 4, 8], [1, 2, 4, 8], 0, 0),
+        ([1, 2, 4, 8, 8, 8, 8], [1, 2, 4, 8], 0, 3),
+        ([8, 8, 1, 2, 4, 8, 8, 8, 8], [1, 2, 4, 8], 2, 3),
+        ([8, 8, 8, 8, 8, 8, 8, 1, 2, 4, 8], [1, 2, 4, 8], 7, 0),
+        ([8, 8, 1, 2, 4, 8, 8, 4, 8], [1, 8, 2, 4, 8], 1, 3),
+        # In the case of a tie, the first match is chosen:
+        # Here, 10, 0 is equally good:
+        ([8, 8, 1, 2, 4, 8, 8, 8, 8, 8, 1, 2, 4, 8, 8, 8, 8], [1, 2, 4, 8], 2, 11),
+        # Here, 10, 0 is equally good:
+        ([8, 1, 1, 8, 1, 8, 8, 8, 8, 8, 1, 8, 1, 1], [1, 1, 1, 1], 1, 9),
+        # The best match is properly found:
+        ([8, 8, 1, 1, 8, 1, 8, 8, 8, 8, 1, 1, 1, 1, 8], [1, 1, 1, 1], 10, 1),
+        ([8, 8, 1, 1, 1, 1, 8, 8, 8, 8, 1, 1, 8, 1, 8], [1, 1, 1, 1], 2, 9),
+        # Mixtures are handled properly:
+        ([3, 5, 12], [1, 1, 8], 0, 0),
+        ([14, 14, 3, 5, 12, 11], [1, 1, 8], 2, 1),
+        ([3, 5, 12, 4, 6, 4], [1, 1, 8], 0, 3),
+        ([4, 4, 6, 5, 3, 9], [1, 1, 8], 3, 0),
+        # Matches with mixtures are treated equally to matches without mixtures:
+        ([2, 3, 5, 12, 2, 2, 1, 1, 8], [1, 1, 8], 1, 5),
+        ([3, 5, 12, 2, 2, 1, 1, 8, 1], [1, 1, 8], 0, 6),
+        ([1, 1, 3, 2, 2, 3, 5, 12, 1], [1, 1, 8], 5, 1),
+        ([1, 1, 3, 2, 2, 3, 5, 12], [1, 1, 8], 5, 0),
+    ],
+)
+def test_calc_padding(
+    standard: Iterable[int],
+    sequence: Iterable[int],
+    exp_left_pad: int,
+    exp_right_pad: int,
+):
+    std = np.array(standard)
+    seq = np.array(sequence)
+    left_pad, right_pad = calc_padding(std, seq)
+    assert left_pad == exp_left_pad
+    assert right_pad == exp_right_pad

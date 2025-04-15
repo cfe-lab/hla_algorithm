@@ -1,5 +1,4 @@
 import os
-import re
 from collections.abc import Iterable, Sequence
 from datetime import datetime
 from io import TextIOBase
@@ -20,7 +19,7 @@ from .models import (
     HLAStandard,
     HLAStandardMatch,
 )
-from .utils import BIN2NUC, count_strict_mismatches, nuc2bin
+from .utils import BIN2NUC, calc_padding, check_bases, count_strict_mismatches, nuc2bin
 
 HLA_LOCI = Literal["A", "B", "C"]
 
@@ -218,7 +217,7 @@ class EasyHLA:
         """
         error_condition: bool = False
         if name.lower().endswith("short"):
-            if self.locus.upper() == "A":
+            if self.locus == "A":
                 error_condition = len(seq) >= EasyHLA.HLA_A_LENGTH
             elif "exon2" in name.lower():
                 error_condition = len(seq) >= EasyHLA.EXON2_LENGTH
@@ -226,7 +225,7 @@ class EasyHLA:
                 error_condition = len(seq) >= EasyHLA.EXON3_LENGTH
             else:
                 error_condition = len(seq) >= EasyHLA.MAX_HLA_BC_LENGTH
-        elif self.locus.upper() == "A":
+        elif self.locus == "A":
             error_condition = len(seq) != EasyHLA.HLA_A_LENGTH
         elif "exon2" in name.lower():
             error_condition = len(seq) != EasyHLA.EXON2_LENGTH
@@ -243,56 +242,6 @@ class EasyHLA:
             )
 
     @staticmethod
-    def check_bases(seq: str) -> None:
-        """
-        Check a string sequence for invalid characters.
-
-        If an invalid character is detected it will raise a ValueError.
-
-        :param seq: ...
-        :type seq: str
-        :raises ValueError: Raised if a sequence contains letters we don't
-        expect
-        :return: True if our sequence only contains valid characters.
-        :rtype: bool
-        """
-        if not re.match(r"^[ATGCRYKMSWNBDHV]+$", seq):
-            raise ValueError("Sequence has invalid characters")
-
-    @staticmethod
-    def calc_padding(std: Sequence[int], seq: Sequence[int]) -> tuple[int, int]:
-        """
-        Calculate the number of units to pad a sequence.
-
-        This will attempt to achieve the best pad value by minimizing the
-        number of mismatches.
-
-        :param std: ...
-        :type std: Sequence[int]
-        :param seq: ...
-        :type seq: Sequence[int]
-        :return: Returns the number of 'N's (b1111) needed to match the sequence
-        to the standard.
-        :rtype: tuple[int, int]
-        """
-        best = 10e10
-        pad = len(std) - len(seq)
-        left_pad = 0
-        for i in range(pad + 1):  # 0, 1, ..., pad - 1, pad
-            pseq = np.concatenate(
-                (
-                    np.array(nuc2bin("N" * i), dtype="int8"),
-                    np.array(seq, dtype="int8"),
-                    np.array(nuc2bin("N" * (pad - i)), dtype="int8"),
-                ),
-            )
-            mismatches = count_strict_mismatches(std, pseq)
-            if mismatches < best:
-                best = mismatches
-                left_pad = i
-        return left_pad, pad - left_pad
-
-    @staticmethod
     def pad_short(
         std_bin: Sequence[int],
         seq_bin: Sequence[int],
@@ -303,21 +252,21 @@ class EasyHLA:
         exon2_std_bin: np.ndarray = np.array(std_bin[: EasyHLA.EXON2_LENGTH])
         exon3_std_bin: np.ndarray = np.array(std_bin[-EasyHLA.EXON3_LENGTH :])
         if exon == "exon2":
-            left_pad, right_pad = EasyHLA.calc_padding(
+            left_pad, right_pad = calc_padding(
                 exon2_std_bin,
                 seq_bin,
             )
         elif exon == "exon3":
-            left_pad, right_pad = EasyHLA.calc_padding(
+            left_pad, right_pad = calc_padding(
                 exon3_std_bin,
                 seq_bin,
             )
         else:  # i.e. this is a full sequence possibly with intron
-            left_pad, _ = EasyHLA.calc_padding(
+            left_pad, _ = calc_padding(
                 exon2_std_bin,
                 seq_bin[: int(EasyHLA.EXON2_LENGTH / 2)],
             )
-            _, right_pad = EasyHLA.calc_padding(
+            _, right_pad = calc_padding(
                 exon3_std_bin,
                 seq_bin[-int(EasyHLA.EXON3_LENGTH / 2) :],
             )
@@ -553,7 +502,7 @@ class EasyHLA:
             # bad bases.
             try:
                 self.check_length(str(sr.seq), sr.id)
-                self.check_bases(str(sr.seq))
+                check_bases(str(sr.seq))
             except ValueError:
                 continue
 

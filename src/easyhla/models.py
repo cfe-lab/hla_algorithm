@@ -37,24 +37,6 @@ class HLASequence(BaseModel):
     def intron_str(self) -> str:
         return bin2nuc(self.intron)
 
-    # def distance_from_standard(self, standard: "HLAStandard") -> int:
-    #     """
-    #     Returns the Hamming distance to the specified standard.
-
-    #     At each position, a match is defined as all possible bases in the
-    #     sequence being possible bases in the standard, or vice versa.
-    #     """
-    #     if len(self.sequence_for_interpretation) != len(standard.sequence):
-    #         return ValueError("Standard must be the same length as the sequence")
-    #     if len(self.sequence_for_interpretation) == 0:
-    #         return ValueError("Sequence must be non-empty")
-    #     seq_np: np.ndarray = np.array(self.sequence_for_interpretation)
-    #     std_np: np.ndarray = standard.sequence_np
-
-    #     overlaps: np.ndarray = seq_np & std_np
-    #     matches: np.ndarray = (overlaps == seq_np) | (overlaps == std_np)
-    #     return np.count_nonzero(matches == False)
-
 
 class HLAStandard(BaseModel):
     allele: str
