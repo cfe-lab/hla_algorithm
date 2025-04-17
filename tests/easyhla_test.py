@@ -12,7 +12,7 @@ from Bio.SeqIO import SeqRecord
 from pydantic import BaseModel
 from pytest_mock import MockerFixture
 
-from easyhla.easyhla import EXON_NAME, HLA_LOCI, EasyHLA
+from easyhla.easyhla import EXON_NAME, HLA_LOCUS, EasyHLA
 from easyhla.models import (
     HLACombinedStandard,
     HLAInterpretation,
@@ -34,7 +34,7 @@ class DummyStandard(BaseModel):
     exon3: str
 
 
-HLA_STANDARDS: dict[HLA_LOCI, DummyStandard] = {
+HLA_STANDARDS: dict[HLA_LOCUS, DummyStandard] = {
     "A": DummyStandard(
         allele="A*01:01:01G",
         exon2=(
@@ -82,7 +82,7 @@ HLA_STANDARDS: dict[HLA_LOCI, DummyStandard] = {
     ),
 }
 
-HLA_FREQUENCIES: dict[HLA_LOCI, HLAProteinPair] = {
+HLA_FREQUENCIES: dict[HLA_LOCUS, HLAProteinPair] = {
     "A": HLAProteinPair(
         first_field_1="22",
         first_field_2="33",
@@ -104,7 +104,7 @@ HLA_FREQUENCIES: dict[HLA_LOCI, HLAProteinPair] = {
 }
 
 
-def get_dummy_easyhla(locus: HLA_LOCI) -> EasyHLA:
+def get_dummy_easyhla(locus: HLA_LOCUS) -> EasyHLA:
     # We only need one standard as it only uses the first standard to pad
     # our inputs against.
     current_standard: DummyStandard = HLA_STANDARDS[locus]
@@ -1273,7 +1273,7 @@ def test_pair_exons_helper(
 )
 def test_pair_exons(
     raw_sequence_records: list[tuple[str, str]],
-    locus: HLA_LOCI,
+    locus: HLA_LOCUS,
     expected_paired: list[HLASequence],
     expected_unmatched: dict[EXON_NAME, dict[str, Seq]],
 ):
@@ -1417,7 +1417,7 @@ def test_pair_exons(
 def test_get_mismatches_good_cases(
     std_bin: Iterable[int],
     seq_bin: Iterable[int],
-    locuses: Iterable[HLA_LOCI],
+    locuses: Iterable[HLA_LOCUS],
     expected_result: list[HLAMismatch],
 ):
     for locus in locuses:
@@ -1689,7 +1689,7 @@ def test_get_mismatches_errors(
 )
 def test_interpret_good_cases(
     sequence: HLASequence,
-    locus: HLA_LOCI,
+    locus: HLA_LOCUS,
     threshold: int,
     raw_standards: list[HLAStandard],
     expected_interpretation: HLAInterpretation,
@@ -1774,7 +1774,7 @@ def test_interpret_good_cases(
 )
 def test_interpret_error_cases(
     sequence: HLASequence,
-    locus: HLA_LOCI,
+    locus: HLA_LOCUS,
     threshold: int,
     raw_standards: list[HLAStandard],
     mocker: MockerFixture,
@@ -2130,7 +2130,7 @@ def test_read_hla_frequencies(
     mocker: MockerFixture,
 ):
     frequencies_str: str = "\n".join(raw_hlas_observed) + "\n"
-    expected_results: dict[HLA_LOCI, dict[HLAProteinPair, int]] = {
+    expected_results: dict[HLA_LOCUS, dict[HLAProteinPair, int]] = {
         "A": expected_locus_a,
         "B": expected_locus_b,
         "C": expected_locus_c,

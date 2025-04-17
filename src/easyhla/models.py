@@ -231,7 +231,7 @@ class AllelePairs(BaseModel):
         likewise for the second) are retained.
 
         :param locus: ...
-        :type locus: HLA_LOCI
+        :type locus: HLA_LOCUS
         :return: List of alleles filtered by HLA frequency.
         :rtype: list[tuple[str,str]]
         """

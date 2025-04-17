@@ -21,7 +21,7 @@ from .models import (
 )
 from .utils import BIN2NUC, calc_padding, check_bases, count_strict_mismatches, nuc2bin
 
-HLA_LOCI = Literal["A", "B", "C"]
+HLA_LOCUS = Literal["A", "B", "C"]
 
 EXON_NAME = Literal["exon2", "exon3"]
 EXON_AND_OTHER_EXON: list[tuple[EXON_NAME, EXON_NAME]] = [
@@ -51,7 +51,7 @@ class EasyHLA:
 
     def __init__(
         self,
-        locus: HLA_LOCI,
+        locus: HLA_LOCUS,
         hla_standards: Optional[dict[str, HLAStandard]] = None,
         hla_frequencies: Optional[dict[HLAProteinPair, int]] = None,
         last_modified: Optional[datetime] = None,
@@ -68,7 +68,7 @@ class EasyHLA:
         """
         if locus not in ["A", "B", "C"]:
             raise ValueError("Invalid HLA locus specified; must be A, B, or C")
-        self.locus: HLA_LOCI = locus
+        self.locus: HLA_LOCUS = locus
 
         self.hla_standards: dict[str, HLAStandard]
         if hla_standards is not None:
@@ -124,7 +124,7 @@ class EasyHLA:
 
     @staticmethod
     def read_hla_frequencies(
-        locus: HLA_LOCI,
+        locus: HLA_LOCUS,
         frequencies_io: TextIOBase,
     ) -> dict[HLAProteinPair, int]:
         """

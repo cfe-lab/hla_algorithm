@@ -1,6 +1,6 @@
 import re
 from collections.abc import Iterable, Sequence
-from typing import Final
+from typing import Final, Optional
 
 import numpy as np
 
@@ -175,3 +175,39 @@ def calc_padding(std: Sequence[int], seq: Sequence[int]) -> tuple[int, int]:
             best = mismatches
             left_pad = i
     return left_pad, pad - left_pad
+
+
+def get_acceptable_match(
+    sequence: str, reference: str, mismatch_threshold: int = 20
+) -> tuple[int, Optional[str]]:
+    """
+    Get an "acceptable match" between the sequence and reference.
+
+    For every possible "shift" of the sequence (i.e. comparing it against the
+    reference starting at every position between 0 and the difference in lengths
+    of the sequence and reference), we count the number of mismatches.  If the
+    score dips under the threshold, we return that score and sequence;
+    otherwise, we return the best score and sequence observed.
+
+    The sequence must be at least as long as the alignment.
+    """
+    if len(sequence) < len(reference):
+        raise ValueError("sequence must be at least as long as the reference")
+
+    score: int = len(reference)
+    best_match: Optional[str] = None
+
+    ref_np: np.ndarray = np.array(list(reference))
+    for shift in range(len(sequence) - len(reference)):
+        curr_sequence_window: str = sequence[shift : (shift + len(reference))]
+
+        curr_seq_np: np.ndarray = np.array(list(curr_sequence_window))
+        curr_score: int = np.count_nonzero(curr_seq_np != ref_np)
+        if curr_score < score:
+            score = curr_score
+            best_match = curr_sequence_window
+
+        if score < mismatch_threshold:
+            break
+
+    return (score, best_match)
