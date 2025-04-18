@@ -2,7 +2,6 @@ from typing import Optional
 
 import numpy as np
 import pytest
-from pytest_mock import MockerFixture
 
 from easyhla.models import (
     AllelePairs,

@@ -189,7 +189,7 @@ def get_acceptable_match(
     score dips under the threshold, we return that score and sequence;
     otherwise, we return the best score and sequence observed.
 
-    The sequence must be at least as long as the alignment.
+    The sequence must be at least as long as the reference.
     """
     if len(sequence) < len(reference):
         raise ValueError("sequence must be at least as long as the reference")
@@ -198,7 +198,7 @@ def get_acceptable_match(
     best_match: Optional[str] = None
 
     ref_np: np.ndarray = np.array(list(reference))
-    for shift in range(len(sequence) - len(reference)):
+    for shift in range(len(sequence) - len(reference) + 1):
         curr_sequence_window: str = sequence[shift : (shift + len(reference))]
 
         curr_seq_np: np.ndarray = np.array(list(curr_sequence_window))
@@ -211,3 +211,30 @@ def get_acceptable_match(
             break
 
     return (score, best_match)
+
+
+def allele_coordinates(
+    allele: str,
+    digits_only: bool = False,
+) -> list[str]:
+    """
+    Convert an allele string into a list of coordinates.
+
+    For example, allele "A*01:23:45N" gets converted to
+    ["A*01", "23", "45N"] or ["01", "23", "45] depending on the value of
+    digits_only.
+    """
+    clean_allele_str: str = allele
+    if digits_only:
+        clean_allele_str = re.sub(r"[^\d:]", "", allele)
+    return clean_allele_str.strip().split(":")
+
+
+def allele_integer_coordinates(allele: str) -> tuple[int, ...]:
+    """
+    Convert an allele string into a list of integer coordinates.
+
+    For example, allele "A*01:23:45N" gets converted to
+    (1, 23, 45)
+    """
+    return tuple(int(coord) for coord in allele_coordinates(allele, True))

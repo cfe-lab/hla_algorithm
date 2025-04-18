@@ -30,6 +30,7 @@ dependencies = [
   "pydantic>=2.10.6",
   "pydantic-numpy>=8.0.1",
   "pytz>=2025.1",
+  "requests>=2.32.3",
   "typer>=0.15.2",
 ]
 

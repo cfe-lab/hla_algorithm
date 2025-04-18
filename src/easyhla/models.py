@@ -6,7 +6,7 @@ from typing import Optional
 import numpy as np
 from pydantic import BaseModel, ConfigDict
 
-from .utils import bin2nuc, count_forgiving_mismatches
+from .utils import allele_coordinates, bin2nuc, count_forgiving_mismatches
 
 
 class HLASequence(BaseModel):
@@ -154,23 +154,6 @@ class AllelePairs(BaseModel):
         }
         return len(paired_allele_groups) != 1
 
-    @staticmethod
-    def _allele_coordinates(
-        allele: str,
-        digits_only: bool = False,
-    ) -> list[str]:
-        """
-        Convert an allele string into a list of coordinates.
-
-        For example, allele "A*01:23:45N" gets converted to
-        ["A*01", "23", "45N"] or ["01", "23", "45] depending on the value of
-        digits_only.
-        """
-        clean_allele_str: str = allele
-        if digits_only:
-            clean_allele_str = re.sub(r"[^\d:]", "", allele)
-        return clean_allele_str.strip().split(":")
-
     def get_paired_gene_coordinates(
         self, digits_only: bool = False
     ) -> list[tuple[list[str], list[str]]]:
@@ -184,8 +167,8 @@ class AllelePairs(BaseModel):
         """
         return [
             (
-                self._allele_coordinates(allele_pair[0], digits_only),
-                self._allele_coordinates(allele_pair[1], digits_only),
+                allele_coordinates(allele_pair[0], digits_only),
+                allele_coordinates(allele_pair[1], digits_only),
             )
             for allele_pair in self.allele_pairs
         ]
