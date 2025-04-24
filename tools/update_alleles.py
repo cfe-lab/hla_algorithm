@@ -6,8 +6,6 @@ import hashlib
 import logging
 import os
 import time
-from collections import defaultdict
-from dataclasses import dataclass
 from io import StringIO
 from typing import Final
 
@@ -18,8 +16,8 @@ from easyhla.utils import (
     EXON_NAME,
     HLA_LOCUS,
     GroupedAllele,
+    collate_standards,
     group_identical_alleles,
-    parse_standards,
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -195,8 +193,8 @@ def main():
     with open(args.checksum, "w") as f:
         f.write(f"{md5_calc.hexdigest()} {HLA_ALLELES_FILENAME}\n")
 
-    standards: dict[HLA_LOCUS, list[tuple[str, str, str]]] = parse_standards(
-        Bio.SeqIO.parse(StringIO(alleles_str), "fasta"),
+    standards: dict[HLA_LOCUS, list[tuple[str, str, str]]] = collate_standards(
+        list(Bio.SeqIO.parse(StringIO(alleles_str), "fasta")),
         EXON_REFERENCES,
         logger,
         args.mismatch_threshold,

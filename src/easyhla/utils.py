@@ -248,7 +248,7 @@ def allele_integer_coordinates(allele: str) -> tuple[int, ...]:
 
 
 def collate_standards(
-    allele_srs: Iterable[Bio.SeqIO.SeqRecord],
+    allele_srs: Sequence[Bio.SeqIO.SeqRecord],
     exon_references: dict[HLA_LOCUS, dict[EXON_NAME, str]],
     logger: Optional[logging.Logger] = None,
     overall_mismatch_threshold: int = 32,
@@ -299,7 +299,8 @@ def collate_standards(
             standards[locus].append((allele_name, exon2_match[1], exon3_match[1]))
         elif logger is not None:
             logger.info(
-                f"Rejecting {allele_name}: exon2 mismatches {exon2_match[0]}, exon3 mismatches {exon3_match[0]}."
+                f'Rejecting "{allele_name}": {exon2_match[0]} exon2 mismatches,'
+                f" {exon3_match[0]} exon3 mismatches."
             )
 
     for locus in ("A", "B", "C"):

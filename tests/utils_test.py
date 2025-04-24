@@ -5,10 +5,12 @@ import numpy as np
 import pytest
 from Bio.Seq import Seq
 from Bio.SeqIO import SeqRecord
+from pytest_mock import MockerFixture
 
 from easyhla.utils import (
     EXON_NAME,
     HLA_LOCUS,
+    GroupedAllele,
     allele_integer_coordinates,
     bin2nuc,
     calc_padding,
@@ -17,6 +19,7 @@ from easyhla.utils import (
     count_forgiving_mismatches,
     count_strict_mismatches,
     get_acceptable_match,
+    group_identical_alleles,
     nuc2bin,
 )
 
@@ -405,8 +408,8 @@ EXON_REFERENCES: dict[HLA_LOCUS, dict[EXON_NAME, str]] = {
 @pytest.mark.parametrize(
     (
         "srs, exon_references, overall_mismatch_threshold, "
-        "acceptable_match_search_threshold, report_interval, "
-        "expected_a, expected_b, expected_c"
+        "acceptable_match_search_threshold, report_interval, use_logging, "
+        "expected_a, expected_b, expected_c, expected_logging_calls"
     ),
     [
         pytest.param(
@@ -421,10 +424,50 @@ EXON_REFERENCES: dict[HLA_LOCUS, dict[EXON_NAME, str]] = {
             32,
             0,
             1000,
+            False,
             [("A*01:01:01:01", "ACGT" * 10, "TGCA" * 10)],
             [],
             [],
+            [],
             id="one_good_a_standard",
+        ),
+        pytest.param(
+            [
+                SeqRecord(
+                    Seq("ACGT" * 10 + "TGCA" * 10),
+                    id="HLA_1",
+                    description="HLA_1 A*01:01:01:01 80 bp",
+                ),
+            ],
+            EXON_REFERENCES,
+            32,
+            0,
+            1000,
+            True,
+            [("A*01:01:01:01", "ACGT" * 10, "TGCA" * 10)],
+            [],
+            [],
+            [],
+            id="one_good_a_standard_with_logging_but_no_messages",
+        ),
+        pytest.param(
+            [
+                SeqRecord(
+                    Seq("ACGT" * 10 + "TGCA" * 10),
+                    id="HLA_1",
+                    description="HLA_1 A*01:01:01:01 80 bp",
+                ),
+            ],
+            EXON_REFERENCES,
+            32,
+            0,
+            1,
+            True,
+            [("A*01:01:01:01", "ACGT" * 10, "TGCA" * 10)],
+            [],
+            [],
+            ["Processing sequence 1 of 1...."],
+            id="one_good_a_standard_with_logging_and_status_update_message",
         ),
         pytest.param(
             [
@@ -438,8 +481,10 @@ EXON_REFERENCES: dict[HLA_LOCUS, dict[EXON_NAME, str]] = {
             32,
             0,
             1000,
+            False,
             [],
             [("B*57:01:04", "CGTA" * 10, "ATGC" * 10)],
+            [],
             [],
             id="one_good_b_standard",
         ),
@@ -455,9 +500,11 @@ EXON_REFERENCES: dict[HLA_LOCUS, dict[EXON_NAME, str]] = {
             32,
             0,
             1000,
+            False,
             [],
             [],
             [("C*22:33:44:55N", "TACG" * 10, "GCAT" * 10)],
+            [],
             id="one_good_c_standard",
         ),
         pytest.param(
@@ -472,10 +519,53 @@ EXON_REFERENCES: dict[HLA_LOCUS, dict[EXON_NAME, str]] = {
             5,
             0,
             1000,
+            False,
+            [],
             [],
             [],
             [],
             id="one_bad_a_standard",
+        ),
+        pytest.param(
+            [
+                SeqRecord(
+                    Seq("TTTT" * 10 + "AAAA" * 10),
+                    id="HLA_1",
+                    description="HLA_1 A*01:01:01:01 80 bp",
+                ),
+            ],
+            EXON_REFERENCES,
+            5,
+            0,
+            1000,
+            True,
+            [],
+            [],
+            [],
+            ['Rejecting "A*01:01:01:01": 30 exon2 mismatches, 29 exon3 mismatches.'],
+            id="one_bad_a_standard_with_logging_and_no_status_update",
+        ),
+        pytest.param(
+            [
+                SeqRecord(
+                    Seq("TTTT" * 10 + "AAAA" * 10),
+                    id="HLA_1",
+                    description="HLA_1 A*01:01:01:01 80 bp",
+                ),
+            ],
+            EXON_REFERENCES,
+            5,
+            0,
+            1,
+            True,
+            [],
+            [],
+            [],
+            [
+                "Processing sequence 1 of 1....",
+                'Rejecting "A*01:01:01:01": 30 exon2 mismatches, 29 exon3 mismatches.',
+            ],
+            id="one_bad_a_standard_with_logging_and_with_status_update",
         ),
         pytest.param(
             [
@@ -489,6 +579,8 @@ EXON_REFERENCES: dict[HLA_LOCUS, dict[EXON_NAME, str]] = {
             5,
             0,
             1000,
+            False,
+            [],
             [],
             [],
             [],
@@ -506,12 +598,278 @@ EXON_REFERENCES: dict[HLA_LOCUS, dict[EXON_NAME, str]] = {
             5,
             0,
             1000,
+            False,
+            [],
             [],
             [],
             [],
             id="one_bad_c_standard",
         ),
-        # FIXME tomorrow add some more testing, especially with the logger mocked
+        pytest.param(
+            [
+                SeqRecord(
+                    Seq("ACGT" * 40),
+                    id="HLA_1",
+                    description="HLA_1 D*01:01:01:01 80 bp",
+                ),
+            ],
+            EXON_REFERENCES,
+            5,
+            0,
+            1000,
+            False,
+            [],
+            [],
+            [],
+            [],
+            id="non_abc_standard_skipped",
+        ),
+        pytest.param(
+            [
+                SeqRecord(
+                    Seq("ACGT" * 10 + "TTTT" * 10),
+                    id="HLA_1",
+                    description="HLA_1 A*01:01:01:01 80 bp",
+                ),
+            ],
+            EXON_REFERENCES,
+            5,
+            0,
+            1000,
+            False,
+            [],
+            [],
+            [],
+            [],
+            id="good_exon2_bad_exon3_no_logging",
+        ),
+        pytest.param(
+            [
+                SeqRecord(
+                    Seq("ACGT" * 10 + "TTTT" * 10),
+                    id="HLA_1",
+                    description="HLA_1 A*01:01:01:01 80 bp",
+                ),
+            ],
+            EXON_REFERENCES,
+            5,
+            0,
+            1000,
+            True,
+            [],
+            [],
+            [],
+            ['Rejecting "A*01:01:01:01": 0 exon2 mismatches, 21 exon3 mismatches.'],
+            id="good_exon2_bad_exon3_with_logging_no_status_update",
+        ),
+        pytest.param(
+            [
+                SeqRecord(
+                    Seq("ACGT" * 10 + "TTTT" * 10),
+                    id="HLA_1",
+                    description="HLA_1 A*01:01:01:01 80 bp",
+                ),
+            ],
+            EXON_REFERENCES,
+            5,
+            0,
+            1,
+            True,
+            [],
+            [],
+            [],
+            [
+                "Processing sequence 1 of 1....",
+                'Rejecting "A*01:01:01:01": 0 exon2 mismatches, 21 exon3 mismatches.',
+            ],
+            id="good_exon2_bad_exon3_with_logging_with_status_update",
+        ),
+        pytest.param(
+            [
+                SeqRecord(
+                    Seq("C" * 80 + "ATGC" * 10),
+                    id="HLA_1",
+                    description="HLA_1 B*57:01:04 120 bp",
+                ),
+            ],
+            EXON_REFERENCES,
+            5,
+            0,
+            1000,
+            False,
+            [],
+            [],
+            [],
+            [],
+            id="good_exon3_bad_exon2_no_logging",
+        ),
+        pytest.param(
+            [
+                SeqRecord(
+                    Seq("C" * 80 + "ATGC" * 10),
+                    id="HLA_1",
+                    description="HLA_1 B*57:01:04 120 bp",
+                ),
+            ],
+            EXON_REFERENCES,
+            5,
+            0,
+            1000,
+            True,
+            [],
+            [],
+            [],
+            ['Rejecting "B*57:01:04": 20 exon2 mismatches, 0 exon3 mismatches.'],
+            id="good_exon3_bad_exon2_with_logging_no_status_update",
+        ),
+        pytest.param(
+            [
+                SeqRecord(
+                    Seq("ACGT" * 10 + "TGCA" * 10),
+                    id="HLA_1",
+                    description="HLA_1 A*01:01:01:01 80 bp",
+                ),
+                SeqRecord(
+                    Seq("C" * 80 + "ATGC" * 10),
+                    id="HLA_2",
+                    description="HLA_2 B*57:01:04 120 bp",
+                ),
+                SeqRecord(
+                    Seq("TACG" * 10 + "C" * 40 + "GCAT" * 10 + "AAAA" * 10),
+                    id="HLA_3",
+                    description="HLA_3 C*22:33:43 160bp",
+                ),
+                SeqRecord(
+                    Seq("TACG" * 10 + "C" * 40 + "GCAT" * 9 + "GCAA"),
+                    id="HLA_4",
+                    description="HLA_4 C*22:33:44 120bp",
+                ),
+                SeqRecord(
+                    Seq("C" * 20 + "AGTA" + "CGTA" * 9 + "T" * 80 + "ATGC" * 10),
+                    id="HLA_5",
+                    description="HLA_5 B*57:01:06 180 bp",
+                ),
+                SeqRecord(
+                    Seq("ACGT" * 80),
+                    id="HLA_6",
+                    description="HLA_5 E*101:11:10:11N 180 bp",
+                ),
+            ],
+            EXON_REFERENCES,
+            5,
+            0,
+            1000,
+            False,
+            [("A*01:01:01:01", "ACGT" * 10, "TGCA" * 10)],
+            [("B*57:01:06", "AGTA" + "CGTA" * 9, "ATGC" * 10)],
+            [
+                ("C*22:33:43", "TACG" * 10, "GCAT" * 10),
+                ("C*22:33:44", "TACG" * 10, "GCAT" * 9 + "GCAA"),
+            ],
+            [],
+            id="typical_case_no_logging",
+        ),
+        pytest.param(
+            [
+                SeqRecord(
+                    Seq("ACGT" * 10 + "TGCA" * 10),
+                    id="HLA_1",
+                    description="HLA_1 A*01:01:01:01 80 bp",
+                ),
+                SeqRecord(
+                    Seq("C" * 80 + "ATGC" * 10),
+                    id="HLA_2",
+                    description="HLA_2 B*57:01:04 120 bp",
+                ),
+                SeqRecord(
+                    Seq("TACG" * 10 + "C" * 40 + "GCAT" * 10 + "AAAA" * 10),
+                    id="HLA_3",
+                    description="HLA_3 C*22:33:43 160bp",
+                ),
+                SeqRecord(
+                    Seq("TACG" * 10 + "C" * 40 + "GCAT" * 9 + "GCAA"),
+                    id="HLA_4",
+                    description="HLA_4 C*22:33:44 120bp",
+                ),
+                SeqRecord(
+                    Seq("C" * 20 + "AGTA" + "CGTA" * 9 + "T" * 80 + "ATGC" * 10),
+                    id="HLA_5",
+                    description="HLA_5 B*57:01:06 180 bp",
+                ),
+                SeqRecord(
+                    Seq("ACGT" * 80),
+                    id="HLA_6",
+                    description="HLA_5 E*101:11:10:11N 180 bp",
+                ),
+            ],
+            EXON_REFERENCES,
+            5,
+            0,
+            1000,
+            False,
+            [("A*01:01:01:01", "ACGT" * 10, "TGCA" * 10)],
+            [("B*57:01:06", "AGTA" + "CGTA" * 9, "ATGC" * 10)],
+            [
+                ("C*22:33:43", "TACG" * 10, "GCAT" * 10),
+                ("C*22:33:44", "TACG" * 10, "GCAT" * 9 + "GCAA"),
+            ],
+            [
+                'Rejecting "B*57:01:04": 20 exon2 mismatches, 0 exon3 mismatches.',
+            ],
+            id="typical_case_with_logging_no_status_updates",
+        ),
+        pytest.param(
+            [
+                SeqRecord(
+                    Seq("ACGT" * 10 + "TGCA" * 10),
+                    id="HLA_1",
+                    description="HLA_1 A*01:01:01:01 80 bp",
+                ),
+                SeqRecord(
+                    Seq("C" * 80 + "ATGC" * 10),
+                    id="HLA_2",
+                    description="HLA_2 B*57:01:04 120 bp",
+                ),
+                SeqRecord(
+                    Seq("TACG" * 10 + "C" * 40 + "GCAT" * 10 + "AAAA" * 10),
+                    id="HLA_3",
+                    description="HLA_3 C*22:33:43 160bp",
+                ),
+                SeqRecord(
+                    Seq("TACG" * 10 + "C" * 40 + "GCAT" * 9 + "GCAA"),
+                    id="HLA_4",
+                    description="HLA_4 C*22:33:44 120bp",
+                ),
+                SeqRecord(
+                    Seq("C" * 20 + "AGTA" + "CGTA" * 9 + "T" * 80 + "ATGC" * 10),
+                    id="HLA_5",
+                    description="HLA_5 B*57:01:06 180 bp",
+                ),
+                SeqRecord(
+                    Seq("ACGT" * 80),
+                    id="HLA_6",
+                    description="HLA_5 E*101:11:10:11N 180 bp",
+                ),
+            ],
+            EXON_REFERENCES,
+            5,
+            0,
+            2,
+            False,
+            [("A*01:01:01:01", "ACGT" * 10, "TGCA" * 10)],
+            [("B*57:01:06", "AGTA" + "CGTA" * 9, "ATGC" * 10)],
+            [
+                ("C*22:33:43", "TACG" * 10, "GCAT" * 10),
+                ("C*22:33:44", "TACG" * 10, "GCAT" * 9 + "GCAA"),
+            ],
+            [
+                "Processing sequence 2 of 6....",
+                'Rejecting "B*57:01:04": 20 exon2 mismatches, 0 exon3 mismatches.',
+                "Processing sequence 4 of 6....",
+                "Processing sequence 6 of 6....",
+            ],
+            id="typical_case_with_logging_with_status_updates",
+        ),
     ],
 )
 def test_collate_standards(
@@ -520,14 +878,20 @@ def test_collate_standards(
     overall_mismatch_threshold: int,
     acceptable_match_search_threshold: int,
     report_interval: Optional[int],
+    use_logging: bool,
     expected_a: list[tuple[str, str, str]],
     expected_b: list[tuple[str, str, str]],
     expected_c: list[tuple[str, str, str]],
+    expected_logging_calls: list[str],
+    mocker: MockerFixture,
 ):
+    mock_logger: Optional[mocker.MagicMock] = None
+    if use_logging:
+        mock_logger = mocker.MagicMock()
     result: dict[HLA_LOCUS, list[tuple[str, str, str]]] = collate_standards(
         srs,
         exon_references,
-        None,
+        mock_logger,
         overall_mismatch_threshold,
         acceptable_match_search_threshold,
         report_interval,
@@ -535,3 +899,189 @@ def test_collate_standards(
     assert result["A"] == expected_a
     assert result["B"] == expected_b
     assert result["C"] == expected_c
+
+    if use_logging:
+        if len(expected_logging_calls) > 0:
+            mock_logger.info.assert_has_calls(
+                [mocker.call(x) for x in expected_logging_calls],
+                any_order=False,
+            )
+        else:
+            mock_logger.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "alleles, expected_result",
+    [
+        pytest.param(
+            ["C*25:26:49:33N"],
+            "C*25:26:49:33N",
+            id="single_allele_four_coordinates",
+        ),
+        pytest.param(
+            ["B*01:22:43"],
+            "B*01:22:43",
+            id="single_allele_three_coordinates",
+        ),
+        pytest.param(
+            ["B*01:22:43", "B*01:1145:233"],
+            "B*01:22:43G",
+            id="two_alleles_no_shortening_edge_case",
+        ),
+        pytest.param(
+            ["B*01:122", "B*01:125N"],
+            "B*01:122G",
+            id="two_alleles_no_shortening_normal_case",
+        ),
+        pytest.param(
+            ["B*01:02:03:04N", "B*01:125N"],
+            "B*01:02:03G",
+            id="two_alleles_with_shortening",
+        ),
+    ],
+)
+def test_grouped_allele_get_group_name(
+    alleles: list[str],
+    expected_result: str,
+):
+    ga: GroupedAllele = GroupedAllele("AGCTAGCTAGCT", "TGCATGCATGCA", alleles)
+    assert ga.get_group_name() == expected_result
+
+
+@pytest.mark.parametrize(
+    "allele_infos, use_logging, expected_result, expected_logging_calls",
+    [
+        pytest.param(
+            [("A*01:01:01:01", "AAA", "CCC")],
+            False,
+            {
+                "A*01:01:01:01": GroupedAllele("AAA", "CCC", ["A*01:01:01:01"]),
+            },
+            [],
+            id="single_allele_no_logging",
+        ),
+        pytest.param(
+            [("A*01:01:01:01", "AAA", "CCC")],
+            True,
+            {
+                "A*01:01:01:01": GroupedAllele("AAA", "CCC", ["A*01:01:01:01"]),
+            },
+            [],
+            id="single_allele_with_logging",
+        ),
+        pytest.param(
+            [
+                ("B*01:01:01:01", "AAA", "CCC"),
+                ("B*57:01:02", "TTT", "CCT"),
+            ],
+            False,
+            {
+                "B*01:01:01:01": GroupedAllele("AAA", "CCC", ["B*01:01:01:01"]),
+                "B*57:01:02": GroupedAllele("TTT", "CCT", ["B*57:01:02"]),
+            },
+            [],
+            id="two_alleles_no_grouping_no_logging",
+        ),
+        pytest.param(
+            [
+                ("B*01:01:01:01", "AAA", "CCC"),
+                ("B*57:01:02", "TTT", "CCT"),
+            ],
+            True,
+            {
+                "B*01:01:01:01": GroupedAllele("AAA", "CCC", ["B*01:01:01:01"]),
+                "B*57:01:02": GroupedAllele("TTT", "CCT", ["B*57:01:02"]),
+            },
+            [],
+            id="two_alleles_no_grouping_with_logging",
+        ),
+        pytest.param(
+            [
+                ("B*01:01:01:01", "AAA", "CCC"),
+                ("B*57:01:02", "AAA", "CCC"),
+            ],
+            False,
+            {
+                "B*01:01:01G": GroupedAllele(
+                    "AAA",
+                    "CCC",
+                    ["B*01:01:01:01", "B*57:01:02"],
+                ),
+            },
+            [],
+            id="two_alleles_grouped_no_logging",
+        ),
+        pytest.param(
+            [
+                ("B*01:01:01:01", "AAA", "CCC"),
+                ("B*57:01:02", "AAA", "CCC"),
+            ],
+            True,
+            {
+                "B*01:01:01G": GroupedAllele(
+                    "AAA",
+                    "CCC",
+                    ["B*01:01:01:01", "B*57:01:02"],
+                ),
+            },
+            ["[B*01:01:01:01, B*57:01:02] -> B*01:01:01G"],
+            id="two_alleles_grouped_with_logging",
+        ),
+        pytest.param(
+            [
+                ("B*01:01:01:01", "AAA", "CCC"),
+                ("B*01:02:07", "ACT", "TAT"),
+                ("B*57:01:02", "AAA", "CCC"),
+                ("B*58:02:02:02N", "TAC", "TTT"),
+                ("B*59:112", "ACT", "TAT"),
+                ("B*101:101:101:101", "AAA", "CCC"),
+            ],
+            True,
+            {
+                "B*01:01:01G": GroupedAllele(
+                    "AAA",
+                    "CCC",
+                    ["B*01:01:01:01", "B*57:01:02", "B*101:101:101:101"],
+                ),
+                "B*01:02:07G": GroupedAllele(
+                    "ACT",
+                    "TAT",
+                    ["B*01:02:07", "B*59:112"],
+                ),
+                "B*58:02:02:02N": GroupedAllele(
+                    "TAC",
+                    "TTT",
+                    ["B*58:02:02:02N"],
+                ),
+            },
+            [
+                "[B*01:01:01:01, B*57:01:02, B*101:101:101:101] -> B*01:01:01G",
+                "[B*01:02:07, B*59:112] -> B*01:02:07G",
+            ],
+            id="typical_case",
+        ),
+    ],
+)
+def test_group_identical_alleles(
+    allele_infos: list[tuple[str, str, str]],
+    use_logging: bool,
+    expected_result: dict[str, GroupedAllele],
+    expected_logging_calls: list[str],
+    mocker: MockerFixture,
+):
+    mock_logger: Optional[mocker.MagicMock] = None
+    if use_logging:
+        mock_logger = mocker.MagicMock()
+    result: dict[str, GroupedAllele] = group_identical_alleles(
+        allele_infos, mock_logger
+    )
+    assert result == expected_result
+
+    if use_logging:
+        if len(expected_logging_calls) > 0:
+            mock_logger.info.assert_has_calls(
+                [mocker.call(x) for x in expected_logging_calls],
+                any_order=False,
+            )
+        else:
+            mock_logger.assert_not_called()
