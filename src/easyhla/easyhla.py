@@ -19,11 +19,16 @@ from .models import (
     HLAStandard,
     HLAStandardMatch,
 )
-from .utils import BIN2NUC, calc_padding, check_bases, count_strict_mismatches, nuc2bin
+from .utils import (
+    BIN2NUC,
+    EXON_NAME,
+    HLA_LOCUS,
+    calc_padding,
+    check_bases,
+    count_strict_mismatches,
+    nuc2bin,
+)
 
-HLA_LOCUS = Literal["A", "B", "C"]
-
-EXON_NAME = Literal["exon2", "exon3"]
 EXON_AND_OTHER_EXON: list[tuple[EXON_NAME, EXON_NAME]] = [
     ("exon2", "exon3"),
     ("exon3", "exon2"),

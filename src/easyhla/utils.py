@@ -1,7 +1,11 @@
+import logging
 import re
+from collections import defaultdict
 from collections.abc import Iterable, Sequence
-from typing import Final, Optional
+from dataclasses import dataclass
+from typing import Final, Literal, Optional
 
+import Bio
 import numpy as np
 
 # A lookup table of translations from ambiguous nucleotides to unambiguous
@@ -56,6 +60,9 @@ NUC2BIN: Final[dict[str, int]] = {
     for k, v in AMBIG.items()
 }
 BIN2NUC: Final[dict[int, str]] = {v: k for k, v in NUC2BIN.items()}
+
+HLA_LOCUS = Literal["A", "B", "C"]
+EXON_NAME = Literal["exon2", "exon3"]
 
 
 def nuc2bin(seq: str) -> tuple[int, ...]:
@@ -238,3 +245,115 @@ def allele_integer_coordinates(allele: str) -> tuple[int, ...]:
     (1, 23, 45)
     """
     return tuple(int(coord) for coord in allele_coordinates(allele, True))
+
+
+def collate_standards(
+    allele_srs: Iterable[Bio.SeqIO.SeqRecord],
+    exon_references: dict[HLA_LOCUS, dict[EXON_NAME, str]],
+    logger: Optional[logging.Logger] = None,
+    overall_mismatch_threshold: int = 32,
+    acceptable_match_search_threshold: int = 20,
+    report_interval: Optional[int] = 1000,
+) -> dict[HLA_LOCUS, list[tuple[str, str, str]]]:
+    """
+    Collate and sort HLA-A, -B, and -C standards from the specified source.
+
+    SequenceRecords are parsed to get their name and locus, and the sequence is
+    checked to see if it has acceptable matches for both exon2 and exon3.
+    """
+    output_status_updates: bool = False
+    if logger is not None and report_interval is not None and report_interval > 0:
+        output_status_updates = True
+
+    standards: dict[HLA_LOCUS, list[tuple[str, str, str]]] = {
+        "A": [],
+        "B": [],
+        "C": [],
+    }
+    for idx, allele_sr in enumerate(allele_srs, start=1):
+        if output_status_updates and idx % report_interval == 0:
+            logger.info(f"Processing sequence {idx} of {len(allele_srs)}....")
+
+        # The FASTA headers look like:
+        # >HLA:HLA00001 A*01:01:01:01 1098 bp
+        allele_name: str = allele_sr.description.split(" ")[1]
+        locus: HLA_LOCUS = allele_name[0]
+
+        if locus not in ("A", "B", "C"):
+            continue
+
+        exon2_match: tuple[int, Optional[str]] = get_acceptable_match(
+            str(allele_sr.seq),
+            exon_references[locus]["exon2"],
+            mismatch_threshold=acceptable_match_search_threshold,
+        )
+        exon3_match: tuple[int, Optional[str]] = get_acceptable_match(
+            str(allele_sr.seq),
+            exon_references[locus]["exon3"],
+            mismatch_threshold=acceptable_match_search_threshold,
+        )
+        if (
+            exon2_match[0] <= overall_mismatch_threshold
+            and exon3_match[0] <= overall_mismatch_threshold
+        ):
+            standards[locus].append((allele_name, exon2_match[1], exon3_match[1]))
+        elif logger is not None:
+            logger.info(
+                f"Rejecting {allele_name}: exon2 mismatches {exon2_match[0]}, exon3 mismatches {exon3_match[0]}."
+            )
+
+    for locus in ("A", "B", "C"):
+        standards[locus].sort(key=lambda x: allele_integer_coordinates(x[0]))
+
+    return standards
+
+
+@dataclass
+class GroupedAllele:
+    exon2: str
+    exon3: str
+    alleles: list[str]
+
+    def get_group_name(self) -> str:
+        """
+        Get the "group name" of this grouped allele.
+
+        From the "original allele", create the name of the grouped allele
+        by taking (up to) the first 3 coordinates and adding a "G" at the
+        end.  (This makes the most sense if these alleles are sorted.)
+        """
+        orig_allele: str = self.alleles[0]
+        if len(self.alleles) == 1:
+            return orig_allele
+
+        coords: list[str] = allele_coordinates(orig_allele, digits_only=False)
+        if len(coords) > 3:
+            coords = coords[:3]
+        return ":".join(coords) + "G"
+
+
+def group_identical_alleles(
+    allele_infos: list[tuple[str, str, str]],
+    logger: Optional[logging.Logger] = None,
+) -> dict[str, GroupedAllele]:
+    """
+    Collapse common alleles into single entries.
+    """
+    seq_to_name: defaultdict[tuple[str, str], list[str]] = defaultdict(list)
+    for name, exon2, exon3 in allele_infos:
+        seq_to_name[(exon2, exon3)].append(name)
+
+    grouped_alleles: dict[str, GroupedAllele] = {}
+    for exon2, exon3 in seq_to_name:
+        alleles: list[str] = seq_to_name[(exon2, exon3)]
+        grouped_allele: GroupedAllele = GroupedAllele(
+            exon2,
+            exon3,
+            alleles,
+        )
+        grouped_name: str = grouped_allele.get_group_name()
+        grouped_alleles[grouped_name] = grouped_allele
+        if logger is not None and len(alleles) > 1:
+            logger.info(f"[{', '.join(grouped_allele.alleles)}] -> {grouped_name}")
+
+    return grouped_alleles

@@ -1,14 +1,22 @@
 from collections.abc import Iterable, Sequence
+from typing import Optional
 
 import numpy as np
 import pytest
+from Bio.Seq import Seq
+from Bio.SeqIO import SeqRecord
 
 from easyhla.utils import (
+    EXON_NAME,
+    HLA_LOCUS,
+    allele_integer_coordinates,
     bin2nuc,
     calc_padding,
     check_bases,
+    collate_standards,
     count_forgiving_mismatches,
     count_strict_mismatches,
+    get_acceptable_match,
     nuc2bin,
 )
 
@@ -276,3 +284,254 @@ def test_calc_padding(
     left_pad, right_pad = calc_padding(std, seq)
     assert left_pad == exp_left_pad
     assert right_pad == exp_right_pad
+
+
+@pytest.mark.parametrize(
+    "sequence, reference, mismatch_threshold, expected_score, expected_best_match",
+    [
+        pytest.param(
+            "",
+            "",
+            20,
+            0,
+            None,
+            id="empty_sequence_and_reference",
+        ),
+        pytest.param(
+            "A" * 100,
+            "A" * 100,
+            20,
+            0,
+            "A" * 100,
+            id="exact_match_same_length",
+        ),
+        pytest.param(
+            "A" * 20 + "CTCT" * 20,
+            "A" * 20,
+            20,
+            0,
+            "A" * 20,
+            id="exact_match_at_beginning",
+        ),
+        pytest.param(
+            "CTCT" * 20 + "A" * 20,
+            "A" * 20,
+            0,
+            0,
+            "A" * 20,
+            id="exact_match_at_end",
+        ),
+        pytest.param(
+            "CTCT" * 10 + "A" * 20 + "CTCT" * 10,
+            "A" * 20,
+            0,
+            0,
+            "A" * 20,
+            id="exact_match_in_middle",
+        ),
+        pytest.param(
+            "C" * 40 + "A" * 20 + "T" * 40,
+            "A" * 20,
+            20,
+            19,
+            "C" * 19 + "A",
+            id="acceptable_match_gives_up_quickly",
+        ),
+        pytest.param(
+            "T" * 40 + "ACGT" * 5 + "C" * 40,
+            "ACGT" * 5,
+            3,
+            0,
+            "ACGT" * 5,
+            id="typical_case",
+        ),
+    ],
+)
+def test_get_acceptable_match(
+    sequence: str,
+    reference: str,
+    mismatch_threshold: int,
+    expected_score: int,
+    expected_best_match: str,
+):
+    score: int
+    best_match: Optional[str]
+    score, best_match = get_acceptable_match(sequence, reference, mismatch_threshold)
+    assert score == expected_score
+    assert best_match == expected_best_match
+
+
+@pytest.mark.parametrize(
+    "sequence, reference",
+    [
+        pytest.param("A" * 100, "A" * 101, id="reference_too_long_edge_case"),
+        pytest.param("A" * 100, "A" * 150, id="reference_too_long_typical_case"),
+    ],
+)
+def test_get_acceptable_match_error_case(sequence: str, reference: str):
+    with pytest.raises(ValueError):
+        get_acceptable_match("A" * 100, "A" * 101, 20)
+
+
+@pytest.mark.parametrize(
+    "allele, expected_coords",
+    [
+        pytest.param("A*01", (1,), id="single_coordinate"),
+        pytest.param("B*57:02", (57, 2), id="two_coordinates"),
+        pytest.param("B*57:02:15G", (57, 2, 15), id="three_coordinates"),
+        pytest.param("B*57:02:15:02", (57, 2, 15, 2), id="four_coordinates"),
+    ],
+)
+def test_allele_integer_coordinates(allele: str, expected_coords: tuple[int, ...]):
+    assert allele_integer_coordinates(allele) == expected_coords
+
+
+EXON_REFERENCES: dict[HLA_LOCUS, dict[EXON_NAME, str]] = {
+    "A": {
+        "exon2": "ACGT" * 10,
+        "exon3": "TGCA" * 10,
+    },
+    "B": {
+        "exon2": "CGTA" * 10,
+        "exon3": "ATGC" * 10,
+    },
+    "C": {
+        "exon2": "TACG" * 10,
+        "exon3": "GCAT" * 10,
+    },
+}
+
+
+@pytest.mark.parametrize(
+    (
+        "srs, exon_references, overall_mismatch_threshold, "
+        "acceptable_match_search_threshold, report_interval, "
+        "expected_a, expected_b, expected_c"
+    ),
+    [
+        pytest.param(
+            [
+                SeqRecord(
+                    Seq("ACGT" * 10 + "TGCA" * 10),
+                    id="HLA_1",
+                    description="HLA_1 A*01:01:01:01 80 bp",
+                ),
+            ],
+            EXON_REFERENCES,
+            32,
+            0,
+            1000,
+            [("A*01:01:01:01", "ACGT" * 10, "TGCA" * 10)],
+            [],
+            [],
+            id="one_good_a_standard",
+        ),
+        pytest.param(
+            [
+                SeqRecord(
+                    Seq("CGTA" * 10 + "C" * 40 + "ATGC" * 10),
+                    id="HLA_1",
+                    description="HLA_1 B*57:01:04 120 bp",
+                ),
+            ],
+            EXON_REFERENCES,
+            32,
+            0,
+            1000,
+            [],
+            [("B*57:01:04", "CGTA" * 10, "ATGC" * 10)],
+            [],
+            id="one_good_b_standard",
+        ),
+        pytest.param(
+            [
+                SeqRecord(
+                    Seq("TACG" * 10 + "A" * 117 + "GCAT" * 10 + "A" * 10),
+                    id="HLA_1",
+                    description="HLA_1 C*22:33:44:55N 207 bp",
+                ),
+            ],
+            EXON_REFERENCES,
+            32,
+            0,
+            1000,
+            [],
+            [],
+            [("C*22:33:44:55N", "TACG" * 10, "GCAT" * 10)],
+            id="one_good_c_standard",
+        ),
+        pytest.param(
+            [
+                SeqRecord(
+                    Seq("TTTT" * 10 + "CCCC" * 10),
+                    id="HLA_1",
+                    description="HLA_1 A*01:01:01:01 80 bp",
+                ),
+            ],
+            EXON_REFERENCES,
+            5,
+            0,
+            1000,
+            [],
+            [],
+            [],
+            id="one_bad_a_standard",
+        ),
+        pytest.param(
+            [
+                SeqRecord(
+                    Seq("TTTT" * 10 + "CCCC" * 10),
+                    id="HLA_1",
+                    description="HLA_1 B*01:01:01:01 80 bp",
+                ),
+            ],
+            EXON_REFERENCES,
+            5,
+            0,
+            1000,
+            [],
+            [],
+            [],
+            id="one_bad_b_standard",
+        ),
+        pytest.param(
+            [
+                SeqRecord(
+                    Seq("TTTT" * 10 + "CCCC" * 10),
+                    id="HLA_1",
+                    description="HLA_1 C*01:01:01:01 80 bp",
+                ),
+            ],
+            EXON_REFERENCES,
+            5,
+            0,
+            1000,
+            [],
+            [],
+            [],
+            id="one_bad_c_standard",
+        ),
+        # FIXME tomorrow add some more testing, especially with the logger mocked
+    ],
+)
+def test_collate_standards(
+    srs: Iterable[SeqRecord],
+    exon_references: dict[HLA_LOCUS, dict[EXON_NAME, str]],
+    overall_mismatch_threshold: int,
+    acceptable_match_search_threshold: int,
+    report_interval: Optional[int],
+    expected_a: list[tuple[str, str, str]],
+    expected_b: list[tuple[str, str, str]],
+    expected_c: list[tuple[str, str, str]],
+):
+    result: dict[HLA_LOCUS, list[tuple[str, str, str]]] = collate_standards(
+        srs,
+        exon_references,
+        None,
+        overall_mismatch_threshold,
+        acceptable_match_search_threshold,
+        report_interval,
+    )
+    assert result["A"] == expected_a
+    assert result["B"] == expected_b
+    assert result["C"] == expected_c

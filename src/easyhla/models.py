@@ -213,8 +213,8 @@ class AllelePairs(BaseModel):
         allele has the same first "coordinate" as the top first allele, and
         likewise for the second) are retained.
 
-        :param locus: ...
-        :type locus: HLA_LOCUS
+        :param frequencies: a table mapping protein pairs to their frequency
+        :type frequencies: dict[HLAProteinPair, int]
         :return: List of alleles filtered by HLA frequency.
         :rtype: list[tuple[str,str]]
         """

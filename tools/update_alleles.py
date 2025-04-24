@@ -3,19 +3,29 @@
 import argparse
 import csv
 import hashlib
+import logging
+import os
 import time
 from collections import defaultdict
+from dataclasses import dataclass
 from io import StringIO
-from typing import Final, Optional
+from typing import Final
 
 import Bio
 import requests
 
-from easyhla.easyhla import EXON_NAME, HLA_LOCUS
-from easyhla.utils import allele_integer_coordinates, get_acceptable_match
+from easyhla.utils import (
+    EXON_NAME,
+    HLA_LOCUS,
+    GroupedAllele,
+    group_identical_alleles,
+    parse_standards,
+)
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 # Exon sequences used for scoring/"aligning" the sequences in the source file.
-EXON_SEQUENCES: Final[dict[HLA_LOCUS, dict[EXON_NAME, str]]] = {
+EXON_REFERENCES: Final[dict[HLA_LOCUS, dict[EXON_NAME, str]]] = {
     "A": {
         "exon2": (
             "GCTCCCACTCCATGAGGTATTTCTTCACATCCGTGTCCCGGCCCGGCCGCGGGGAGCCCCGCTTCA"
@@ -67,10 +77,16 @@ EXON_SEQUENCES: Final[dict[HLA_LOCUS, dict[EXON_NAME, str]]] = {
 }
 
 
-# Find all releases of the HLA data at
+# Find all releases (and their corresponding tags) of the HLA data at
 # https://github.com/ANHIG/IMGTHLA/releases
-REPO_PATH: Final[str] = "https://raw.githubusercontent.com/ANHIG/IMGTHLA"
-HLA_ALLELES_FILENAME: Final[str] = "hla_nuc.fasta"
+REPO_PATH: Final[str] = os.environ.get(
+    "EASYHLA_REPO_PATH",
+    "https://raw.githubusercontent.com/ANHIG/IMGTHLA",
+)
+HLA_ALLELES_FILENAME: Final[str] = os.environ.get(
+    "EASYHLA_REPO_ALLELES_FILENAME",
+    "hla_nuc.fasta",
+)
 
 
 class RetrieveAllelesError(Exception):
@@ -78,28 +94,18 @@ class RetrieveAllelesError(Exception):
 
 
 def get_alleles_file(
-    release: str,
+    tag: str,
     base_url: str = REPO_PATH,
     alleles_filename: str = HLA_ALLELES_FILENAME,
 ) -> str:
     """
-    Retrieve the HLA alleles file from the specified release.
+    Retrieve the HLA alleles file from the specified tag.
     """
-    url: str = f"{base_url}/{release}/{alleles_filename}"
+    url: str = f"{base_url}/{tag}/{alleles_filename}"
     response: requests.Response = requests.get(url)
     if response.status_code != requests.codes.ok:
         raise RetrieveAllelesError()
     return response.text
-
-
-def collapse_alleles(allele_infos: list[tuple[str, str, str]]):
-    """
-    Collapse common alleles into single entries.
-    """
-    seq_to_name: defaultdict[tuple[str, str], list[str]] = defaultdict(list)
-    for name, exon2, exon3 in allele_infos:
-        seq_to_name[(exon2, exon3)].append(name)
-    # FIXME continue from here
 
 
 def main():
@@ -107,46 +113,25 @@ def main():
         "Retrieve HLA alleles from IPD-IMGT/HLA."
     )
     parser.add_argument(
-        "release",
-        help="release to pull the data from",
+        "tag",
+        help="Git tag to pull the data from",
         type=str,
     )
-    parser.add_argument(
-        "--output_a",
-        help="filename to store the HLA-A data in",
-        type=str,
-        default="hla_a_std.csv",
-    )
-    parser.add_argument(
-        "--output_b",
-        help="filename to store the HLA-B data in",
-        type=str,
-        default="hla_b_std.csv",
-    )
-    parser.add_argument(
-        "--output_c",
-        help="filename to store the HLA-C data in",
-        type=str,
-        default="hla_c_std.csv",
-    )
-    parser.add_argument(
-        "--output_a_reduced",
-        help="filename to store the reduced HLA-A data in",
-        type=str,
-        default="hla_a_std_reduced.csv",
-    )
-    parser.add_argument(
-        "--output_b_reduced",
-        help="filename to store the reduced HLA-B data in",
-        type=str,
-        default="hla_b_std_reduced.csv",
-    )
-    parser.add_argument(
-        "--output_c_reduced",
-        help="filename to store the reduced HLA-C data in",
-        type=str,
-        default="hla_c_std_reduced.csv",
-    )
+
+    for locus in ("A", "B", "C"):
+        parser.add_argument(
+            f"--output_{locus.lower()}",
+            help="filename to store the HLA-{locus} data in",
+            type=str,
+            default=f"hla_{locus.lower()}_std.csv",
+        )
+        parser.add_argument(
+            f"--output_{locus.lower()}_reduced",
+            help="filename to store the reduced HLA-{locus} data in",
+            type=str,
+            default=f"hla_{locus.lower()}_std_reduced.csv",
+        )
+
     parser.add_argument(
         "--checksum",
         help="filename to store the MD5 checksum of the retrieved data in",
@@ -159,64 +144,65 @@ def main():
         type=int,
         default=32,
     )
+    parser.add_argument(
+        "--acceptable_match_search_threshold",
+        help=(
+            "number of mismatches to tolerate when searching for matches "
+            "(note that this differs from --mismatch_threshold)"
+        ),
+        type=int,
+        default=20,
+    )
+    parser.add_argument(
+        "--dump_full_fasta_to",
+        help="if specified, the full original FASTA file is dumped to the specified path",
+        type=str,
+        default="",
+    )
+    parser.add_argument(
+        "--standard_report_interval",
+        help=(
+            "number of standards between status updates while parsing "
+            "sequences; set to a number less than 1 to silence these updates"
+        ),
+        type=int,
+        default=1000,
+    )
     args = parser.parse_args()
 
-    print(f"Retrieving alleles from release {args.release}....")
+    logger.info(f"Retrieving alleles from tag {args.tag}....")
     alleles_str: str
     for i in range(5):
         try:
-            alleles_str = get_alleles_file(args.release)
+            alleles_str = get_alleles_file(args.tag)
         except RetrieveAllelesError:
-            print("Failed to retrieve alleles; retrying in 20 seconds....")
-            time.sleep(20)
+            if i < 4:
+                logger.info("Failed to retrieve alleles; retrying in 20 seconds....")
+                time.sleep(20)
+            else:
+                raise
         else:
             break
+
+    if args.dump_full_fasta_to != "":
+        logger.info(f"Dumping the full FASTA file to {args.dump_full_fasta_to}.")
+        with open(args.dump_full_fasta_to, "w") as f:
+            f.write(alleles_str)
 
     # Compute the checksum.
     md5_calc = hashlib.md5()
     md5_calc.update(alleles_str.encode())
     with open(args.checksum, "w") as f:
-        f.write(f"{md5_calc.hexdigest()}  {HLA_ALLELES_FILENAME}\n")
+        f.write(f"{md5_calc.hexdigest()} {HLA_ALLELES_FILENAME}\n")
 
-    standards: dict[HLA_LOCUS, list[tuple[str, str, str]]] = {
-        "A": [],
-        "B": [],
-        "C": [],
-    }
-    allele_srs: list[Bio.SeqIO.SeqRecord] = list(
-        Bio.SeqIO.parse(StringIO(alleles_str), "fasta")
+    standards: dict[HLA_LOCUS, list[tuple[str, str, str]]] = parse_standards(
+        Bio.SeqIO.parse(StringIO(alleles_str), "fasta"),
+        EXON_REFERENCES,
+        logger,
+        args.mismatch_threshold,
+        args.acceptable_match_search_threshold,
+        args.standard_report_interval,
     )
-    for idx, allele_sr in enumerate(allele_srs, start=1):
-        if idx % 1000 == 0:
-            print(f"Processing sequence {idx} of {len(allele_srs)}....")
-        # The FASTA headers look like:
-        # >HLA:HLA00001 A*01:01:01:01 1098 bp
-        allele_name: str = allele_sr.description.split(" ")[1]
-        locus: HLA_LOCUS = allele_name[0]
-
-        if locus not in ("A", "B", "C"):
-            continue
-
-        exon2_match: tuple[int, Optional[str]] = get_acceptable_match(
-            str(allele_sr.seq),
-            EXON_SEQUENCES[locus]["exon2"],
-        )
-        exon3_match: tuple[int, Optional[str]] = get_acceptable_match(
-            str(allele_sr.seq),
-            EXON_SEQUENCES[locus]["exon3"],
-        )
-        if (
-            exon2_match[0] <= args.mismatch_threshold
-            and exon3_match[0] <= args.mismatch_threshold
-        ):
-            standards[locus].append((allele_name, exon2_match[1], exon3_match[1]))
-        else:
-            print(
-                f"Rejecting {allele_name}: exon2 mismatches {exon2_match[0]}, exon3 mismatches {exon3_match[0]}."
-            )
-
-    for locus in ("A", "B", "C"):
-        standards[locus].sort(key=lambda x: allele_integer_coordinates(x[0]))
 
     output_files: dict[HLA_LOCUS, str] = {
         "A": args.output_a,
@@ -224,13 +210,38 @@ def main():
         "C": args.output_c,
     }
     for locus in ("A", "B", "C"):
-        print(f"Writing the HLA-{locus} sequences to {output_files[locus]}....")
+        logger.info(f"Writing the HLA-{locus} sequences to {output_files[locus]}....")
         with open(output_files[locus], "w") as f:
             unreduced_output_csv: csv.writer = csv.writer(f)
             unreduced_output_csv.writerow(("allele", "exon2", "exon3"))
             unreduced_output_csv.writerows(standards[locus])
 
-    print("Done.")
+    reduced_output_files: dict[HLA_LOCUS, str] = {
+        "A": args.output_a_reduced,
+        "B": args.output_b_reduced,
+        "C": args.output_c_reduced,
+    }
+    for locus in ("A", "B", "C"):
+        logger.info(
+            "Writing the reduced HLA-{locus} sequences to "
+            f"{reduced_output_files[locus]}...."
+        )
+        reduced_standards: dict[str, GroupedAllele] = group_identical_alleles(
+            standards[locus]
+        )
+        with open(reduced_output_files[locus], "w") as f:
+            reduced_output_csv: csv.writer = csv.writer(f)
+            reduced_output_csv.writerow(("reduced_allele", "exon2", "exon3"))
+            for grouped_name, grouped_allele in reduced_standards.items():
+                reduced_output_csv.writerow(
+                    (
+                        grouped_name,
+                        grouped_allele.exon2,
+                        grouped_allele.exon3,
+                    )
+                )
+
+    logger.info("Done.")
 
 
 if __name__ == "__main__":
