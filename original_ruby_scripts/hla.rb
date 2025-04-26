@@ -405,14 +405,14 @@ begin
     File.open(fname) do |fin|
       text = fin.gets(nil)
       if (text.size != 787)
-	log.puts "#{samp} HLA A's sequence is the wrong size, expected 547 characters but found #{text.size}"
-	log.puts "Skipping sequence"
-	next
+        log.puts "#{samp} HLA A's sequence is the wrong size, expected 547 characters but found #{text.size}"
+        log.puts "Skipping sequence"
+        next
       end
       if (!(text =~ /^[atgcrykmswnbdhv]{787,787}$/i))
-	log.puts "#{samp} HLA A's sequence has invalid characters."
-	log.puts "Skipping sequence"
-	next
+        log.puts "#{samp} HLA A's sequence has invalid characters."
+        log.puts "Skipping sequence"
+        next
       end
     end
     hla_a_processing.push([fname, samp,
@@ -427,19 +427,19 @@ begin
       text = fin.gets(nil)
       text_pieces = text.split(',')
       if (text_pieces[0].size != 270)
-	log.puts "#{samp} HLA B's segment 1 sequence is the wrong size, expected 270 characters but found #{text_pieces[0].size}"
-	log.puts "Skipping sequence"
-	next
+        log.puts "#{samp} HLA B's segment 1 sequence is the wrong size, expected 270 characters but found #{text_pieces[0].size}"
+        log.puts "Skipping sequence"
+        next
       end
       if (text_pieces[1].size != 276)
-	log.puts "#{samp} HLA B's segment 2 sequence is the wrong size, expected 276 characters but found #{text_pieces[1].size}"
-	log.puts "Skipping sequence"
-	next
+        log.puts "#{samp} HLA B's segment 2 sequence is the wrong size, expected 276 characters but found #{text_pieces[1].size}"
+        log.puts "Skipping sequence"
+        next
       end
       if (!(text =~ /^[atgcrykmswnbdhv]{270,270},[atgcrykmswnbdhv]{276,276}$/i))
-	log.puts "#{samp} HLA B's sequence has invalid characters."
-	log.puts "Skipping sequence"
-	next
+        log.puts "#{samp} HLA B's sequence has invalid characters."
+        log.puts "Skipping sequence"
+        next
       end
     end
     hla_b_processing.push([fname, samp, text, text.gsub(',','')])
@@ -453,19 +453,19 @@ begin
       text = fin.gets(nil)
       text_pieces = text.split(',')
       if (text_pieces[0].size != 270)
-	log.puts "#{samp} HLA C's segment 1 sequence is the wrong size, expected 270 characters but found #{text_pieces[0].size}"
-	log.puts 'Skipping sequence'
-	next
+        log.puts "#{samp} HLA C's segment 1 sequence is the wrong size, expected 270 characters but found #{text_pieces[0].size}"
+        log.puts 'Skipping sequence'
+        next
       end
       if (text_pieces[1].size != 276)
-	log.puts "#{samp} HLA C's segment 2 sequence is the wrong size, expected 276 characters but found #{text_pieces[1].size}"
-	log.puts 'Skipping sequence'
-	next
+        log.puts "#{samp} HLA C's segment 2 sequence is the wrong size, expected 276 characters but found #{text_pieces[1].size}"
+        log.puts 'Skipping sequence'
+        next
       end
       if (!(text =~ /^[atgcrykmswnbdhv]{270,270},[atgcrykmswnbdhv]{276,276}$/i))
-	log.puts "#{samp} HLA C's sequence has invalid characters."
-	log.puts 'Skipping sequence'
-	next
+        log.puts "#{samp} HLA C's sequence has invalid characters."
+        log.puts 'Skipping sequence'
+        next
       end
     end
     hla_c_processing.push([fname, samp, text, text.gsub(',','')])
@@ -629,8 +629,8 @@ end
       min[1].each do |cons|  # really, we should just pick one, right?
         0.upto(cons[0].size - 1) do |dex|
           if (cons[0][dex, 1] != entry_seq_reduced[dex, 1])
-	    mislist.push("#{((dex + ((letter == 'a' and dex > 270) ? 241 : 0)) + 1).to_s}:#{entry[3][dex, 1]}")
-	  end
+      	    mislist.push("#{((dex + ((letter == 'a' and dex > 270) ? 241 : 0)) + 1).to_s}:#{entry[3][dex, 1]}")
+	        end
         end
         break
       end
@@ -979,19 +979,19 @@ end
         puts "Moving files to processed directory with date string #{date_str}"
         [
           {
-	    dir: File.join(HLA_PROCESSED_DIR, "text", date_str),
-	    wc: File.join(HLA_WORKTEXT_DIR, "*")
+            dir: File.join(HLA_PROCESSED_DIR, "text", date_str),
+            wc: File.join(HLA_WORKTEXT_DIR, "*")
           },
           {
-	    dir: File.join(HLA_PROCESSED_DIR, "final", date_str),
-	    wc: File.join(HLA_WORKFINAL_DIR, "*")
+            dir: File.join(HLA_PROCESSED_DIR, "final", date_str),
+            wc: File.join(HLA_WORKFINAL_DIR, "*")
           },
         ].each{|file_kind|
           puts "   Copying #{wc}  to #{dir}" if options[:verbose]
           FileUtils.mkdir_p(file_kind[:dir])
           FileUtils.copy(Dir[file_kind[:wc]], file_kind[:dir])
           FileUtils.rm(Dir[file_kind[:wc]])
-     }
+        }
       end
     rescue => e
       puts "Database upload failed: #{e}"
