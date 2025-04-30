@@ -721,13 +721,13 @@ end
       # puts collectiona.inspect
       0.upto(0) do
         if (collectiona.map{|a| a[0, 4]}.uniq.size == 1)
-	  clean_allele += prefix + collectiona[0][0,4].join(':') + " - "
+          clean_allele += prefix + collectiona[0][0,4].join(':') + " - "
         elsif (collectiona.map{|a| a[0, 3]}.uniq.size == 1)
-	  clean_allele += prefix + collectiona[0][0,3].join(':') + " - "
+          clean_allele += prefix + collectiona[0][0,3].join(':') + " - "
         elsif (collectiona.map{|a| a[0, 2]}.uniq.size == 1)
-	  clean_allele += prefix + collectiona[0][0,2].join(':') + " - "
+          clean_allele += prefix + collectiona[0][0,2].join(':') + " - "
         elsif (collectiona.map{|a| a[0, 1]}.uniq.size == 1)
-	  clean_allele += prefix + collectiona[0][0,1].join(':') + " - "
+          clean_allele += prefix + collectiona[0][0,1].join(':') + " - "
         else # darn, ambiguous
           raise 'Code problem, this shouldnt happen'
 	  ambig = '1'
@@ -749,19 +749,19 @@ end
       collectionb.delete_if {|a| a == nil }
       0.upto(0) do
         if (collectionb.map{|a| a[0,4]}.uniq.size == 1)
-	  clean_allele += prefix + collectionb[0][0,4].join(':')
+          clean_allele += prefix + collectionb[0][0,4].join(':')
         elsif (collectionb.map{|a| a[0,3]}.uniq.size == 1)
-	  clean_allele += prefix + collectionb[0][0,3].join(':')
+          clean_allele += prefix + collectionb[0][0,3].join(':')
         elsif (collectionb.map{|a| a[0,2]}.uniq.size == 1)
-	  clean_allele += prefix + collectionb[0][0,2].join(':')
+          clean_allele += prefix + collectionb[0][0,2].join(':')
         elsif (collectionb.map{|a| a[0,1]}.uniq.size == 1)
-	  clean_allele += prefix + collectionb[0][0,1].join(':')
+          clean_allele += prefix + collectionb[0][0,1].join(':')
         else #darn, ambiguous
           raise 'Code problem, this shouldnt happen'
-	  ambig = '1'
-	  collectionb.sort!
-	  collectionb.pop
-	  # retry #hopefully this works.
+          ambig = '1'
+          collectionb.sort!
+          collectionb.pop
+          # retry #hopefully this works.
         end
       end
       clean_allele.gsub!("\\", '')

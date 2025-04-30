@@ -151,6 +151,60 @@ def check_bases(seq: str) -> None:
         raise ValueError("Sequence has invalid characters")
 
 
+HLA_A_LENGTH: Final[int] = 787
+MIN_HLA_BC_LENGTH: Final[int] = 787
+MAX_HLA_BC_LENGTH: Final[int] = 796
+EXON2_LENGTH: Final[int] = 270
+EXON3_LENGTH: Final[int] = 276
+
+
+def check_length(locus: HLA_LOCUS, seq: str, name: str) -> None:
+    """
+    Validates the length of a sequence. This asserts a sequence either
+    exactly a certain size, or is within an allowed range.
+
+    See the following values in utils:
+        - HLA_A_LENGTH
+        - EXON2_LENGTH
+        - EXON3_LENGTH
+        - MAX_HLA_BC_LENGTH
+        - MIN_HLA_BC_LENGTH
+
+    :param seq: Sequence to be validated.
+    :type seq: str
+    :param name: Name of sequence. This will commonly be the ID in the fasta
+    file.
+    :type name: str
+    :raises ValueError: Raised if length of sequence is outside allowed
+    parameters.
+    :return: Returns true if sequence is within allowed parameters.
+    :rtype: bool
+    """
+    error_condition: bool = False
+    if name.lower().endswith("short"):
+        if locus == "A":
+            error_condition = len(seq) >= HLA_A_LENGTH
+        elif "exon2" in name.lower():
+            error_condition = len(seq) >= EXON2_LENGTH
+        elif "exon3" in name.lower():
+            error_condition = len(seq) >= EXON3_LENGTH
+        else:
+            error_condition = len(seq) >= MAX_HLA_BC_LENGTH
+    elif locus == "A":
+        error_condition = len(seq) != HLA_A_LENGTH
+    elif "exon2" in name.lower():
+        error_condition = len(seq) != EXON2_LENGTH
+    elif "exon3" in name.lower():
+        error_condition = len(seq) != EXON3_LENGTH
+    else:
+        error_condition = not (MIN_HLA_BC_LENGTH <= len(seq) <= MAX_HLA_BC_LENGTH)
+
+    if error_condition:
+        raise ValueError(
+            f"Sequence {name} is the wrong length ({len(seq)}bp). Check the locus {locus}"
+        )
+
+
 def calc_padding(std: Sequence[int], seq: Sequence[int]) -> tuple[int, int]:
     """
     Calculate the number of units to pad a sequence.
