@@ -38,6 +38,7 @@ dependencies = [
 dev = [
   "mypy>=1.15.0",
   "mypy-extensions>=1.0.0",
+  "oracledb>=3.1.0",
   "pandas>=2.2.3",
   "pandas-stubs>=2.2.3.241126",
   "pre-commit>=4.1.0",
@@ -47,6 +48,7 @@ dev = [
   "pytest-mock>=3.14.0",
   "pytest-xdist>=3.6.1",
   "ruff>=0.9.9",
+  "sqlalchemy>=2.0.40",
   "types-pytz>=2025.1.0.20250204",
 ]
 
@@ -57,6 +59,12 @@ Source = "https://github.com/unknown/easyhla"
 
 [project.scripts]
 easyhla = "easyhla:run"
+
+[project.optional-dependencies]
+database = [
+    "oracledb>=3.1.0",
+    "sqlalchemy>=2.0.40",
+]
 
 [tool.hatch.version]
 path = "src/easyhla/__about__.py"
