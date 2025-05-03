@@ -21,13 +21,8 @@ from .models import (
 )
 from .utils import (
     BIN2NUC,
-    EXON2_LENGTH,
-    EXON3_LENGTH,
     EXON_NAME,
-    HLA_A_LENGTH,
     HLA_LOCUS,
-    MAX_HLA_BC_LENGTH,
-    MIN_HLA_BC_LENGTH,
     calc_padding,
     check_bases,
     check_length,

@@ -1,19 +1,43 @@
 #! /usr/bin/env python
 
+import argparse
 import logging
 import os
 import re
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal, Optional, Final
 
 from sqlalchemy import DateTime, Integer, String, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from ..src.easyhla.easyhla import EasyHLA
-from ..src.easyhla.models import HLASequence
+from ..src.easyhla.models import HLAProteinPair, HLASequence, HLAStandard, HLAInterpretation
 from ..src.easyhla.utils import EXON_NAME, HLA_LOCUS, check_bases, check_length, nuc2bin
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+CFE_SCRIPTS_OUTPUT: Final[str] = os.environ.get("CFE_SCRIPTS_OUTPUT", "/output")
+DEFAULT_INPUT_DIR: Final[str] = os.path.join(
+    CFE_SCRIPTS_OUTPUT,
+    "sanger_runs_dest",
+)
+
+# Database connection parameters:
+HLA_DB_USER: Final[str] = os.environ.get("HLA_DB_USER")
+HLA_DB_PASSWORD: Final[str] = os.environ.get("HLA_DB_PASSWORD")
+HLA_DB_HOST: Final[str] = os.environ.get("HLA_DB_HOST", "192.168.67.7")
+HLA_DB_PORT: Final[int] = os.environ.get("HLA_DB_PORT", 1521)
+HLA_DB_SERVICE_NAME: Final[str] = os.environ.get("HLA_DB_SERVICE_NAME", "cfe")
+
+# These are the "configuration files" that the algorithm uses; these are or may
+# be updated, in which case you specify the path to the new version in the
+# environment.
+HLA_STANDARDS: Final[dict[HLA_LOCUS, Optional[str]]] = {
+    "A": os.environ.get("HLA_STANDARDS_A"),
+    "B": os.environ.get("HLA_STANDARDS_B"),
+    "C": os.environ.get("HLA_STANDARDS_C"),
+}
+HLA_FREQUENCIES: Final[str] = os.environ.get("HLA_FREQUENCIES")
 
 
 # As I understand it, this creates a "registry" for our application and is
@@ -261,7 +285,75 @@ def read_bc_sequences(
 
 
 def main():
-    pass
+    parser: argparse.ArgumentParser = argparse.ArgumentParser(
+        description="Generate HLA interpretations as part of the CfE clinical pipeline",
+    )
+    parser.add_argument(
+        "--input_dir",
+        help="Directory to scan for input sequences",
+        type=str,
+        default=DEFAULT_INPUT_DIR,
+    )
+    for locus in ("A", "B", "C"):
+        parser.add_argument(
+            f"--hla_{locus.lower()}_standards",
+            help=f"CSV file containing the (reduced) HLA-{locus} standards to use",
+            type="str",
+            default=None,
+        )
+    parser.add_argument(
+        "--hla_frequencies",
+        help=(
+            "CSV file containing the HLA allele frequencies to reference when "
+            "making interpretations"
+        ),
+        type="str",
+        default=None,
+    )
+    # FIXME what to do about "last modified"?
+    args: argparse.Namespace = parser.parse_args()
+
+    sequences: dict[HLA_LOCUS, list[HLASequence]] = {
+        "A": read_a_sequences(args.input_dir),
+        "B": [],
+        "C": [],
+    }
+    for locus in ("B", "C"):
+        sequences[locus] = read_bc_sequences(args.input_dir, locus)
+
+    standards_files: dict[HLA_LOCUS, Optional[str]] = {
+        "A": args.hla_a_standards,
+        "B": args.hla_b_standards,
+        "C": args.hla_c_standards,
+    }
+    interpretations: dict[HLA_LOCUS], list[HLAInterpretation] = {
+        "A": [],
+        "B": [],
+        "C": [],
+    }
+    for locus in ("A", "B", "C"):
+        curr_standards: Optional[dict[str, HLAStandard]] = None
+        curr_frequencies: Optional[dict[HLAProteinPair, int]] = None
+        if args.hla_frequencies is not None:
+            with open(args.hla_frequencies) as f:
+                curr_frequencies = EasyHLA.read_hla_frequencies(locus, f)
+        if standards_files[locus] is not None:
+            with open(standards_files[locus]) as f:
+                curr_standards = EasyHLA.read_hla_standards(f)
+        easyhla: EasyHLA = EasyHLA(
+            locus,
+            hla_standards=curr_standards,
+            hla_frequencies=curr_frequencies,
+        )
+        for sequence in sequences[locus]:
+            try:
+                interpretations[locus].append(easyhla.interpret(sequence))
+            except EasyHLA.NoMatchingStandards:
+                pass
+
+
+
+
 
 
 if __name__ == "__main__":
