@@ -963,10 +963,22 @@ class TestAllelePairs:
                 id="single_pair_name_present_as_first_inexact_match",
             ),
             pytest.param(
+                [("B*57:01:03", "B*59:03")],
+                "B*57",
+                True,
+                id="single_pair_name_present_as_first_inexact_match_only_one_coordinate",
+            ),
+            pytest.param(
                 [("B*57:01", "B*59:03:02:11G")],
                 "B*59:03:02",
                 True,
                 id="single_pair_name_present_as_second_inexact_match",
+            ),
+            pytest.param(
+                [("B*57:01", "B*59:03:02:11G")],
+                "B*5",
+                True,
+                id="single_pair_name_present_as_second_inexact_match_only_one_coordinate",
             ),
             pytest.param(
                 [("A*57:01", "A*59:03")],
@@ -989,6 +1001,16 @@ class TestAllelePairs:
                 "C*55:01",
                 True,
                 id="typical_case_with_match",
+            ),
+            pytest.param(
+                [
+                    ("B*11:22:33", "B*57:01:01:03G"),
+                    ("B*111:112:01", "B*55:02:88:89"),
+                    ("B*52:25:52", "B*55:01:54"),
+                ],
+                "B*57",
+                True,
+                id="typical_case_with_match_only_one_coordinate",
             ),
             pytest.param(
                 [

@@ -3,7 +3,7 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime
 from io import TextIOBase
 from operator import attrgetter
-from typing import Final, Literal, Optional
+from typing import Final, Optional
 
 import numpy as np
 from Bio.Seq import Seq
@@ -21,6 +21,8 @@ from .models import (
 )
 from .utils import (
     BIN2NUC,
+    EXON2_LENGTH,
+    EXON3_LENGTH,
     EXON_NAME,
     HLA_LOCUS,
     calc_padding,
@@ -207,8 +209,8 @@ class EasyHLA:
     ) -> np.ndarray:
         left_pad: int
         right_pad: int
-        exon2_std_bin: np.ndarray = np.array(std_bin[: EasyHLA.EXON2_LENGTH])
-        exon3_std_bin: np.ndarray = np.array(std_bin[-EasyHLA.EXON3_LENGTH :])
+        exon2_std_bin: np.ndarray = np.array(std_bin[:EXON2_LENGTH])
+        exon3_std_bin: np.ndarray = np.array(std_bin[-EXON3_LENGTH:])
         if exon == "exon2":
             left_pad, right_pad = calc_padding(
                 exon2_std_bin,
@@ -222,11 +224,11 @@ class EasyHLA:
         else:  # i.e. this is a full sequence possibly with intron
             left_pad, _ = calc_padding(
                 exon2_std_bin,
-                seq_bin[: int(EasyHLA.EXON2_LENGTH / 2)],
+                seq_bin[: int(EXON2_LENGTH / 2)],
             )
             _, right_pad = calc_padding(
                 exon3_std_bin,
-                seq_bin[-int(EasyHLA.EXON3_LENGTH / 2) :],
+                seq_bin[-int(EXON3_LENGTH / 2) :],
             )
         return np.concatenate(
             (
@@ -504,9 +506,9 @@ class EasyHLA:
                 seq: tuple[int] = tuple(int(x) for x in seq_numpy)
                 matched_sequences.append(
                     HLASequence(
-                        two=seq[: EasyHLA.EXON2_LENGTH],
-                        intron=seq[EasyHLA.EXON2_LENGTH : -EasyHLA.EXON3_LENGTH],
-                        three=seq[-EasyHLA.EXON3_LENGTH :],
+                        two=seq[:EXON2_LENGTH],
+                        intron=seq[EXON2_LENGTH:-EXON3_LENGTH],
+                        three=seq[-EXON3_LENGTH:],
                         name=identifier,
                         num_sequences_used=1,
                     )

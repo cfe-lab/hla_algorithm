@@ -23,7 +23,7 @@ from easyhla.models import (
     HLAStandard,
     HLAStandardMatch,
 )
-from easyhla.utils import nuc2bin
+from easyhla.utils import EXON2_LENGTH, EXON3_LENGTH, nuc2bin
 
 # from .conftest import compare_ref_vs_test
 
@@ -2234,19 +2234,19 @@ def test_init_all_defaults(mocker: MockerFixture):
         ),
         # Integration tests with exon2:
         (
-            [1, 2, 4, 8] + [1] * (266 + EasyHLA.EXON3_LENGTH),
+            [1, 2, 4, 8] + [1] * (266 + EXON3_LENGTH),
             [1, 2, 4, 8],
             "exon2",
             [1, 2, 4, 8, *([15] * 266)],
         ),
         (
-            [1] * 100 + [5, 6, 4, 12] + [1] * (166 + EasyHLA.EXON3_LENGTH),
+            [1] * 100 + [5, 6, 4, 12] + [1] * (166 + EXON3_LENGTH),
             [4, 4, 4, 4],
             "exon2",
             [*([15] * 100), 4, 4, 4, 4, *([15] * 166)],
         ),
         (
-            [1] * 266 + [6, 6, 6, 6] + [1] * EasyHLA.EXON3_LENGTH,
+            [1] * 266 + [6, 6, 6, 6] + [1] * EXON3_LENGTH,
             [4, 5, 4, 5],
             "exon2",
             [*([15] * 266), 4, 5, 4, 5],
@@ -2260,11 +2260,7 @@ def test_init_all_defaults(mocker: MockerFixture):
         ),
         # The better match is picked:
         (
-            [1] * 22
-            + [4, 4, 4]
-            + [1] * 46
-            + [4, 4, 4, 4]
-            + [1] * (195 + EasyHLA.EXON3_LENGTH),
+            [1] * 22 + [4, 4, 4] + [1] * 46 + [4, 4, 4, 4] + [1] * (195 + EXON3_LENGTH),
             [4, 4, 4, 4],
             "exon2",
             [*([15] * 71), 4, 4, 4, 4, *([15] * 195)],
@@ -2274,26 +2270,26 @@ def test_init_all_defaults(mocker: MockerFixture):
             + [4, 6, 4, 7]
             + [1] * 46
             + [4, 4, 2, 4]
-            + [1] * (195 + EasyHLA.EXON3_LENGTH),
+            + [1] * (195 + EXON3_LENGTH),
             [5, 5, 5, 7],
             "exon2",
             [*([15] * 21), 5, 5, 5, 7, *([15] * (50 + 195))],
         ),
         # Integration tests with exon3
         (
-            [4] * EasyHLA.EXON2_LENGTH + [1, 2, 4, 8] + [1] * 272,
+            [4] * EXON2_LENGTH + [1, 2, 4, 8] + [1] * 272,
             [1, 2, 4, 8],
             "exon3",
             [1, 2, 4, 8, *([15] * 272)],
         ),
         (
-            [4] * (EasyHLA.EXON2_LENGTH + 50) + [1, 2, 4, 8] + [1] * 222,
+            [4] * (EXON2_LENGTH + 50) + [1, 2, 4, 8] + [1] * 222,
             [1, 2, 4, 8],
             "exon3",
             [*([15] * 50), 1, 2, 4, 8, *([15] * 222)],
         ),
         (
-            [4] * EasyHLA.EXON2_LENGTH + [1] * 272 + [1, 2, 4, 8],
+            [4] * EXON2_LENGTH + [1] * 272 + [1, 2, 4, 8],
             [1, 2, 4, 8],
             "exon3",
             [*([15] * 272), 1, 2, 4, 8],

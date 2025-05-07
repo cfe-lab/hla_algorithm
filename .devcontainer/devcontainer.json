@@ -1,7 +1,7 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
 {
-	"build": { "dockerfile": "Dockerfile" },
+	"image": "python:3.13.3-bookworm",
 	"features": {
 		"ghcr.io/devcontainers/features/git:1": {
 			"ppa": true,
@@ -19,7 +19,9 @@
 	"updateRemoteUserUID": true,
 	"containerEnv": {
 		"WORKON_HOME": "${containerWorkspaceFolder}/.venv",
-		"PYTHONPATH": "${containerWorkspaceFolder}"
+		"PYTHONPATH": "${containerWorkspaceFolder}",
+		"ORACLE_HOME": "/opt/oracle/instantclient_23_7",
+		"LD_LIBRARY_PATH": "/opt/oracle/instantclient_23_7"
 	},
 	"onCreateCommand": {
 		"update apt": [
@@ -38,8 +40,18 @@
 			"install",
 			"--no-install-recommends",
 			"-y",
-			"openssh-client"
-		]
+			"openssh-client",
+			"libaio-dev",
+			"unzip"
+		],
+		"copy Instant Client into place": "cp vendor/instantclient-basic-linux.x64-23.7.0.25.01.zip /tmp/vendor",
+		"unzip Instant Client": [
+			"unzip",
+			"/tmp/vendor/instantclient-basic-linux.x64-23.7.0.25.01.zip",
+			"-d",
+			"/opt/oracle"
+		],
+		"remove Instant Client zip file": "rm -rf /tmp/vendor"
 	},
 	"postAttachCommand": {
 		"message": [

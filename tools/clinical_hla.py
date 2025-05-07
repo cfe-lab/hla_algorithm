@@ -1,18 +1,36 @@
 #! /usr/bin/env python
 
 import argparse
+import csv
+import dataclasses
 import logging
 import os
-import re
 from datetime import datetime
-from typing import Literal, Optional, Final
+from typing import Final, Optional, TypedDict
 
-from sqlalchemy import DateTime, Integer, String, create_engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session
 
-from ..src.easyhla.easyhla import EasyHLA
-from ..src.easyhla.models import HLAProteinPair, HLASequence, HLAStandard, HLAInterpretation
-from ..src.easyhla.utils import EXON_NAME, HLA_LOCUS, check_bases, check_length, nuc2bin
+from easyhla.clinical_hla_lib import (
+    HLADBBase,
+    HLASequenceA,
+    HLASequenceB,
+    HLASequenceC,
+    read_a_sequences,
+    read_bc_sequences,
+)
+from easyhla.easyhla import EasyHLA
+from easyhla.models import (
+    AllelePairs,
+    HLACombinedStandard,
+    HLAInterpretation,
+    HLAMatchDetails,
+    HLAProteinPair,
+    HLASequence,
+    HLAStandard,
+)
+from easyhla.utils import HLA_LOCUS
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -29,6 +47,8 @@ HLA_DB_HOST: Final[str] = os.environ.get("HLA_DB_HOST", "192.168.67.7")
 HLA_DB_PORT: Final[int] = os.environ.get("HLA_DB_PORT", 1521)
 HLA_DB_SERVICE_NAME: Final[str] = os.environ.get("HLA_DB_SERVICE_NAME", "cfe")
 
+HLA_ORACLE_LIB_PATH: Final[str] = os.environ.get("HLA_ORACLE_LIB_PATH")
+
 # These are the "configuration files" that the algorithm uses; these are or may
 # be updated, in which case you specify the path to the new version in the
 # environment.
@@ -40,248 +60,189 @@ HLA_STANDARDS: Final[dict[HLA_LOCUS, Optional[str]]] = {
 HLA_FREQUENCIES: Final[str] = os.environ.get("HLA_FREQUENCIES")
 
 
-# As I understand it, this creates a "registry" for our application and is
-# necessary (i.e. we can't just have all of our classes inherit from
-# DeclarativeBase).
-class Base(DeclarativeBase):
-    pass
-
-
-class HLASequenceA(Base):
-    __tablename__ = "hla_alleles_a"
-    __table_args__ = {"schema": "specimen"}
-
-    # Note that we explicitly do *not* include the length of the VARCHAR fields
-    # that we're mapping; this is to make it impossible for us to attempt to
-    # perform a "create table" operation.
-    enum: Mapped[str] = mapped_column(String, primary_key=True)
-    alleles_clean: Mapped[Optional[str]] = mapped_column(String)
-    alleles_all: Mapped[Optional[str]] = mapped_column(String)
-    ambiguous: Mapped[Optional[str]] = mapped_column(String)
-    homozygous: Mapped[Optional[str]] = mapped_column(String)
-    mismatch_count: Mapped[Optional[str]] = mapped_column(Integer)
-    mismatches: Mapped[Optional[str]] = mapped_column(String)
-    seq: Mapped[Optional[str]] = mapped_column(String)
-    enterdate: Mapped[Optional[datetime]] = mapped_column(DateTime)
-    # We omit the "comments" column as it isn't pertinent to us.
-
-
-class HLASequenceB(Base):
-    __tablename__ = "hla_alleles_b"
-    __table_args__ = {"schema": "specimen"}
-
-    enum: Mapped[str] = mapped_column(String, primary_key=True)
-    alleles_clean: Mapped[Optional[str]] = mapped_column(String)
-    alleles_all: Mapped[Optional[str]] = mapped_column(String)
-    ambiguous: Mapped[Optional[str]] = mapped_column(String)
-    homozygous: Mapped[Optional[str]] = mapped_column(String)
-    mismatch_count: Mapped[Optional[str]] = mapped_column(Integer)
-    mismatches: Mapped[Optional[str]] = mapped_column(String)
-    b5701: Mapped[Optional[str]] = mapped_column(String)
-    b5701_dist: Mapped[Optional[int]] = mapped_column(Integer)
-    seqa: Mapped[Optional[str]] = mapped_column(String)
-    seqb: Mapped[Optional[str]] = mapped_column(String)
-    reso_status: Mapped[Optional[str]] = mapped_column(String)
-    enterdate: Mapped[Optional[datetime]] = mapped_column(DateTime)
-
-
-class HLASequenceC(Base):
-    __tablename__ = "hla_alleles_c"
-    __table_args__ = {"schema": "specimen"}
-
-    enum: Mapped[str] = mapped_column(String, primary_key=True)
-    alleles_clean: Mapped[Optional[str]] = mapped_column(String)
-    alleles_all: Mapped[Optional[str]] = mapped_column(String)
-    ambiguous: Mapped[Optional[str]] = mapped_column(String)
-    homozygous: Mapped[Optional[str]] = mapped_column(String)
-    mismatch_count: Mapped[Optional[str]] = mapped_column(Integer)
-    mismatches: Mapped[Optional[str]] = mapped_column(String)
-    seqa: Mapped[Optional[str]] = mapped_column(String)
-    seqb: Mapped[Optional[str]] = mapped_column(String)
-    enterdate: Mapped[Optional[datetime]] = mapped_column(DateTime)
-
-
-def sanitize_sequence(
-    raw_contents: str,
+def interpret_sequences(
+    sequences: list[HLASequence],
     locus: HLA_LOCUS,
-    sample_name: str,
-) -> str:
-    """
-    Sanitize "raw" sequence data to give the sequence without stray information.
-
-    If this is in a FASTA format for some reason, do away with the header;
-    then strip all whitespace, and perform some sanity checks.
-    """
-    # If this is in a FASTA format for some reason, do away with the header.
-    # Then remove all whitespace.
-    sanitized_contents: str = re.sub(r"^>.+\n", "", raw_contents.strip())
-    sanitized_contents = re.sub(r"\s", "", sanitized_contents)
-
-    try:
-        check_length(locus, sanitized_contents, sample_name)
-    except ValueError:
-        error_message: str = (
-            f"HLA-A sequence {sample_name} is the incorrect size; "
-            f"expected 787 characters, found {len(sanitized_contents)}."
-        )
-        raise ValueError(error_message)
-
-    try:
-        check_bases(sanitized_contents)
-    except ValueError:
-        error_message: str = (
-            f"HLA-A sequence {sample_name} contains invalid characters."
-        )
-        raise ValueError(error_message)
-
-    return sanitized_contents
-
-
-def read_a_sequences(input_directory: str) -> list[HLASequence]:
-    """
-    Read all HLA-A sequences from the input directory.
-
-    The sequences will each be in their own file named "[sample name].A.txt",
-    where the first period may be a "-" or a "_"; we read them all in and
-    prepare HLASequence objects for further processing.
-    """
-    a_seq_file: re.Pattern = re.compile(r"^(.+)[_\-\.][aA].(?:txt|TXT)")
-    all_files: list[str] = os.listdir(input_directory)
-    sequence_file_matches: list[Optional[re.Match]] = [
-        a_seq_file.match(x) for x in all_files
-    ]
-    sample_names_and_filenames: list[tuple[str, str]] = [
-        (x.group(1), x.group(0)) for x in sequence_file_matches if x is not None
-    ]
-
-    sequences: list[HLASequence] = []
-
-    for sample_name, filename in sample_names_and_filenames:
-        contents: str = ""
-        with open(filename) as f:
-            contents = f.read()
-
-        sanitized_contents: str = ""
+    standards_file: Optional[str] = None,
+    frequencies_file: Optional[str] = None,
+) -> tuple[list[HLAInterpretation], dict[HLAProteinPair, int]]:
+    curr_standards: Optional[dict[str, HLAStandard]] = None
+    curr_frequencies: Optional[dict[HLAProteinPair, int]] = None
+    if frequencies_file is not None:
+        with open(frequencies_file) as f:
+            curr_frequencies = EasyHLA.read_hla_frequencies(locus, f)
+    if standards_file is not None:
+        with open(standards_file) as f:
+            curr_standards = EasyHLA.read_hla_standards(f)
+    easyhla: EasyHLA = EasyHLA(
+        locus,
+        hla_standards=curr_standards,
+        hla_frequencies=curr_frequencies,
+    )
+    interpretations: list[HLAInterpretation] = []
+    for sequence in sequences:
         try:
-            sanitized_contents = sanitize_sequence(contents, "A", sample_name)
-        except ValueError as e:
-            logger.info(e.msg)
-            logger.info("Skipping sequence.")
-            continue
+            interpretations.append(easyhla.interpret(sequence))
+        except EasyHLA.NoMatchingStandards:
+            pass
+    return interpretations, easyhla.hla_frequencies
 
-        sequences.append(
-            HLASequence(
-                two=nuc2bin(sanitized_contents[:270]),
-                intron=(),
-                three=nuc2bin(sanitized_contents[512:]),
-                name=sample_name,
-                num_sequences_used=1,
-            )
+
+def prepare_interpretation_for_serialization(
+    interpretation: HLAInterpretation,
+    locus: HLA_LOCUS,
+    hla_frequencies: dict[HLAProteinPair, int],
+    processing_datetime: datetime,
+) -> HLASequenceA | HLASequenceB | HLASequenceC:
+    """
+    Prepare an HLA interpretation for output.
+    """
+    hla_sequence: HLASequence = interpretation.hla_sequence
+    ap: AllelePairs = interpretation.best_matching_allele_pairs()
+    best_matches: set[HLACombinedStandard] = interpretation.best_matches()
+
+    # For the mismatches, we arbitrarily choose one of the best matches
+    # and get the mismatches from that.
+    arbitrary_best: HLAMatchDetails = interpretation.matches[best_matches.pop()]
+
+    db_values_to_insert = {
+        "enum": interpretation.hla_sequence.name,
+        "alleles_clean": ap.best_common_allele_pair_str(hla_frequencies),
+        "alleles_all": ap.stringify(),
+        "ambiguous": ap.is_ambiguous(),
+        "homozygous": ap.is_homozygous(),
+        "mismatch_count": interpretation.lowest_mismatch_count(),
+        "mismatches": ";".join(str(x) for x in arbitrary_best.mismatches),
+        "enterdate": processing_datetime,
+    }
+
+    result: HLASequenceA | HLASequenceB | HLASequenceC
+    if locus == "A":
+        result = HLASequenceA(
+            seq=hla_sequence.exon2_str + hla_sequence.exon3_str,
+            **db_values_to_insert,
         )
-
-    return sequences
-
-
-def identify_bc_sequence_files(
-    input_directory: str, locus: Literal["B", "C"]
-) -> dict[str, dict[EXON_NAME, str]]:
-    """
-    Identify all HLA-B or -C sequences in the input directory.
-
-    These sequences will come in *pairs* of files, e.g. "S12345.BA.txt" and
-    "S12345.BB.txt"; the former will contain exon2 and the latter will contain
-    exon3.
-    """
-    locus_pattern: str = f"[{locus.lower()}{locus}]"
-    fn_pattern: re.Pattern = re.compile(
-        f"^(.+)[_\\-\\.]{locus_pattern}([aAbB]).(?:txt|TXT)"
-    )
-    all_files: list[str] = os.listdir(input_directory)
-    sample_matches: list[Optional[re.Match]] = [fn_pattern.match(x) for x in all_files]
-    sample_names: list[str] = list(
-        {x.group(1) for x in sample_matches if x is not None}
-    )
-
-    sample_files: dict[str, dict[EXON_NAME, str]] = {}
-    for sample_name in sample_names:
-        sample_files[sample_name] = {
-            "exon2": "",
-            "exon3": "",
-        }
-
-    for idx, filename in enumerate(all_files):
-        sample_match: Optional[re.Match] = sample_matches[idx]
-        if sample_match is None:
-            logger.info(f"Skipping file {filename}.")
-            continue
-        sample_name: str = sample_match.group(1)
-        sample_exon: EXON_NAME = (
-            "exon2" if sample_match.group(2).upper() == "A" else "exon3"
+    elif locus == "B":
+        reso_status: Optional[str] = "pending" if ap.contains_allele("B*57") else None
+        result = HLASequenceB(
+            b5701=interpretation.is_b5701(),
+            b5701_dist=interpretation.distance_from_b7501(),
+            seqa=hla_sequence.exon2_str,
+            seqb=hla_sequence.exon3_str,
+            reso_status=reso_status,
+            **db_values_to_insert,
         )
-        sample_files[sample_name][sample_exon] = filename
+    else:
+        result = HLASequenceC(
+            seqa=hla_sequence.exon2_str,
+            seqb=hla_sequence.exon3_str,
+            **db_values_to_insert,
+        )
+    return result
 
-    return sample_files
+
+class SequencesByLocus(TypedDict):
+    A: list[HLASequenceA]
+    B: list[HLASequenceB]
+    C: list[HLASequenceC]
 
 
-def read_bc_sequences(
-    input_directory: str, locus: Literal["B", "C"]
-) -> list[HLASequence]:
-    """
-    Read all HLA-B or -C sequences from the input directory.
+def clinical_hla_driver(
+    input_dir: str,
+    db_engine: Optional[Engine] = None,
+    hla_a_standards: Optional[str] = None,
+    hla_a_results: Optional[str] = None,
+    hla_b_standards: Optional[str] = None,
+    hla_b_results: Optional[str] = None,
+    hla_c_standards: Optional[str] = None,
+    hla_c_results: Optional[str] = None,
+    hla_frequencies: Optional[str] = None,
+) -> None:
+    # Read in the sequences:
+    sequences: dict[HLA_LOCUS, list[HLASequence]] = {
+        "A": read_a_sequences(input_dir, logger),
+        "B": [],
+        "C": [],
+    }
+    for locus in ("B", "C"):
+        sequences[locus] = read_bc_sequences(input_dir, locus, logger)
 
-    These sequences will come in *pairs* of files, e.g. "S12345.BA.txt" and
-    "S12345.BB.txt"; the former will contain exon2 and the latter will contain
-    exon3.
-    """
-    sample_files: dict[str, dict[EXON_NAME, str]] = identify_bc_sequence_files(
-        input_directory, locus
-    )
+    # Perform interpretations:
+    standards_files: dict[HLA_LOCUS, Optional[str]] = {
+        "A": hla_a_standards,
+        "B": hla_b_standards,
+        "C": hla_c_standards,
+    }
+    interpretations: dict[HLA_LOCUS, list[HLAInterpretation]] = {
+        "A": [],
+        "B": [],
+        "C": [],
+    }
+    frequencies: dict[HLA_LOCUS, dict[HLAProteinPair, int]] = {
+        "A": {},
+        "B": {},
+        "C": {},
+    }
 
-    sequences: list[HLASequence] = []
-    for sample_name, files_for_sample in sample_files.items():
-        if files_for_sample["exon2"] == "" or files_for_sample["exon3"] == "":
-            logger.info(
-                f"Skipping sample {sample_name}; could not find matching exon2 "
-                "and exon3 sequences."
-            )
-            continue
-        curr_sequences: dict[EXON_NAME, str] = {"exon2": "", "exon3": ""}
+    processing_datetime: datetime = datetime.now()
 
-        skip_sample: bool = False
-        for exon_name in ("exon2", "exon3"):
-            raw_contents: str = ""
-            with open(files_for_sample[exon_name]) as f:
-                raw_contents = f.read()
+    for locus in ("A", "B", "C"):
+        curr_interps: list[HLAInterpretation]
+        curr_freqs: dict[HLAProteinPair, int]
+        curr_interps, curr_freqs = interpret_sequences(
+            sequences[locus],
+            locus,
+            standards_files[locus],
+            hla_frequencies,
+        )
+        interpretations[locus] = curr_interps
+        frequencies[locus] = curr_freqs
 
-            try:
-                curr_sequences[exon_name] = sanitize_sequence(
-                    raw_contents,
+    # Prepare the interpretations for output:
+    seqs_for_db: SequencesByLocus = {
+        "A": [],
+        "B": [],
+        "C": [],
+    }
+    for locus in ("A", "B", "C"):
+        # Each locus has a slightly different schema in the database, so we
+        # customize for each one.
+        for interp in interpretations[locus]:
+            seqs_for_db[locus].append(
+                prepare_interpretation_for_serialization(
+                    interp,
                     locus,
-                    exon_name,
+                    frequencies[locus],
+                    processing_datetime,
                 )
-            except ValueError as e:
-                logger.info(
-                    f"Skipping sequence {sample_name}; error encountered while "
-                    f"processing {exon_name}:"
-                )
-                logger.info(e.msg)
-                skip_sample = True
-                break
-
-        if skip_sample:
-            continue
-
-        sequences.append(
-            HLASequence(
-                two=nuc2bin(curr_sequences["exon2"]),
-                intron=(),
-                three=nuc2bin(curr_sequences["exon3"]),
-                name=sample_name,
-                num_sequences_used=2,
             )
-        )
 
-    return sequences
+    # First, write to the output files:
+    output_files: dict[HLA_LOCUS, str] = {
+        "A": hla_a_results,
+        "B": hla_b_results,
+        "C": hla_c_results,
+    }
+    csv_headers: dict[HLA_LOCUS, tuple[str, ...]] = {
+        "A": HLASequenceA.CSV_HEADER,
+        "B": HLASequenceB.CSV_HEADER,
+        "C": HLASequenceC.CSV_HEADER,
+    }
+    for locus in ("A", "B", "C"):
+        if len(seqs_for_db[locus]) > 0:
+            with open(output_files[locus], "w") as f:
+                result_csv: csv.DictWriter = csv.DictWriter(
+                    f, fieldnames=csv_headers[locus], extrasaction="ignore"
+                )
+                result_csv.writeheader()
+                result_csv.writerows(dataclasses.asdict(x) for x in seqs_for_db[locus])
+
+    # Finally, write to the DB.
+    if db_engine is not None:
+        with Session(db_engine) as session:
+            for locus in ("A", "B", "C"):
+                session.add_all(seqs_for_db[locus])
+            session.commit()
 
 
 def main():
@@ -298,8 +259,14 @@ def main():
         parser.add_argument(
             f"--hla_{locus.lower()}_standards",
             help=f"CSV file containing the (reduced) HLA-{locus} standards to use",
-            type="str",
+            type=str,
             default=None,
+        )
+        parser.add_argument(
+            f"--hla_{locus.lower()}_results",
+            help=f"CSV file containing the HLA-{locus} results",
+            type=str,
+            default=f"hla_{locus.lower()}_seq.csv",
         )
     parser.add_argument(
         "--hla_frequencies",
@@ -307,53 +274,58 @@ def main():
             "CSV file containing the HLA allele frequencies to reference when "
             "making interpretations"
         ),
-        type="str",
+        type=str,
         default=None,
+    )
+    parser.add_argument(
+        "--sqlite",
+        help=(
+            "File path of a SQLite database to use instead of connecting to "
+            "Oracle.  The required database tables will be created if necessary."
+        ),
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--nodb",
+        help="If set, skip connecting to the database entirely (overrules --sqlite)",
+        action="store_true",
     )
     # FIXME what to do about "last modified"?
     args: argparse.Namespace = parser.parse_args()
 
-    sequences: dict[HLA_LOCUS, list[HLASequence]] = {
-        "A": read_a_sequences(args.input_dir),
-        "B": [],
-        "C": [],
-    }
-    for locus in ("B", "C"):
-        sequences[locus] = read_bc_sequences(args.input_dir, locus)
+    # Connect to the database:
+    db_engine: Optional[Engine] = None
+    if not args.nodb:
+        if args.sqlite is not None:
+            db_engine = create_engine(f"sqlite+pysqlite:///{args.sqlite}")
+            # Create the tables if necessary; this will do nothing if the tables
+            # already exist.
+            HLADBBase.metadata.create_all(db_engine, checkfirst=True)
+        else:
+            db_engine = create_engine(
+                "oracle+oracledb://@",
+                thick_mode={"lib_dir": HLA_ORACLE_LIB_PATH},
+                connect_args={
+                    "user": HLA_DB_USER,
+                    "password": HLA_DB_PASSWORD,
+                    "host": HLA_DB_HOST,
+                    "port": HLA_DB_PORT,
+                    "service_name": HLA_DB_SERVICE_NAME,
+                },
+            )
 
-    standards_files: dict[HLA_LOCUS, Optional[str]] = {
-        "A": args.hla_a_standards,
-        "B": args.hla_b_standards,
-        "C": args.hla_c_standards,
-    }
-    interpretations: dict[HLA_LOCUS], list[HLAInterpretation] = {
-        "A": [],
-        "B": [],
-        "C": [],
-    }
-    for locus in ("A", "B", "C"):
-        curr_standards: Optional[dict[str, HLAStandard]] = None
-        curr_frequencies: Optional[dict[HLAProteinPair, int]] = None
-        if args.hla_frequencies is not None:
-            with open(args.hla_frequencies) as f:
-                curr_frequencies = EasyHLA.read_hla_frequencies(locus, f)
-        if standards_files[locus] is not None:
-            with open(standards_files[locus]) as f:
-                curr_standards = EasyHLA.read_hla_standards(f)
-        easyhla: EasyHLA = EasyHLA(
-            locus,
-            hla_standards=curr_standards,
-            hla_frequencies=curr_frequencies,
-        )
-        for sequence in sequences[locus]:
-            try:
-                interpretations[locus].append(easyhla.interpret(sequence))
-            except EasyHLA.NoMatchingStandards:
-                pass
-
-
-
-
+    clinical_hla_driver(
+        args.input_dir,
+        db_engine,
+        args.hla_a_standards,
+        args.hla_a_results,
+        args.hla_b_standards,
+        args.hla_b_results,
+        args.hla_c_standards,
+        args.hla_c_results,
+        args.hla_frequencies,
+    )
 
 
 if __name__ == "__main__":
