@@ -238,6 +238,43 @@ def calc_padding(std: Sequence[int], seq: Sequence[int]) -> tuple[int, int]:
     return left_pad, pad - left_pad
 
 
+def pad_short(
+    std_bin: Sequence[int],
+    seq_bin: Sequence[int],
+    exon: Optional[EXON_NAME],
+) -> np.ndarray:
+    left_pad: int
+    right_pad: int
+    exon2_std_bin: np.ndarray = np.array(std_bin[:EXON2_LENGTH])
+    exon3_std_bin: np.ndarray = np.array(std_bin[-EXON3_LENGTH:])
+    if exon == "exon2":
+        left_pad, right_pad = calc_padding(
+            exon2_std_bin,
+            seq_bin,
+        )
+    elif exon == "exon3":
+        left_pad, right_pad = calc_padding(
+            exon3_std_bin,
+            seq_bin,
+        )
+    else:  # i.e. this is a full sequence possibly with intron
+        left_pad, _ = calc_padding(
+            exon2_std_bin,
+            seq_bin[: int(EXON2_LENGTH / 2)],
+        )
+        _, right_pad = calc_padding(
+            exon3_std_bin,
+            seq_bin[-int(EXON3_LENGTH / 2) :],
+        )
+    return np.concatenate(
+        (
+            nuc2bin("N" * left_pad),
+            seq_bin,
+            nuc2bin("N" * right_pad),
+        )
+    )
+
+
 def get_acceptable_match(
     sequence: str, reference: str, mismatch_threshold: int = 20
 ) -> tuple[int, Optional[str]]:

@@ -6,8 +6,6 @@ from operator import attrgetter
 from typing import Final, Optional
 
 import numpy as np
-from Bio.Seq import Seq
-from Bio.SeqIO import SeqRecord
 
 from .models import (
     HLACombinedStandard,
@@ -21,32 +19,15 @@ from .models import (
 )
 from .utils import (
     BIN2NUC,
-    EXON2_LENGTH,
-    EXON3_LENGTH,
-    EXON_NAME,
     HLA_LOCUS,
-    calc_padding,
-    check_bases,
-    check_length,
     count_strict_mismatches,
     nuc2bin,
 )
-
-EXON_AND_OTHER_EXON: list[tuple[EXON_NAME, EXON_NAME]] = [
-    ("exon2", "exon3"),
-    ("exon3", "exon2"),
-]
 
 DATE_FORMAT = "%a %b %d %H:%M:%S %Z %Y"
 
 
 class EasyHLA:
-    # HLA_A_LENGTH: Final[int] = 787
-    # MIN_HLA_BC_LENGTH: Final[int] = 787
-    # MAX_HLA_BC_LENGTH: Final[int] = 796
-    # EXON2_LENGTH: Final[int] = 270
-    # EXON3_LENGTH: Final[int] = 276
-
     # For HLA-B interpretations, these alleles are the ones we use to determine
     # how close a sequence is to "B*57:01".
     B5701_ALLELES: Final[list[str]] = [
@@ -202,43 +183,6 @@ class EasyHLA:
         return datetime.strptime(last_mod_date, DATE_FORMAT)
 
     @staticmethod
-    def pad_short(
-        std_bin: Sequence[int],
-        seq_bin: Sequence[int],
-        exon: Optional[EXON_NAME],
-    ) -> np.ndarray:
-        left_pad: int
-        right_pad: int
-        exon2_std_bin: np.ndarray = np.array(std_bin[:EXON2_LENGTH])
-        exon3_std_bin: np.ndarray = np.array(std_bin[-EXON3_LENGTH:])
-        if exon == "exon2":
-            left_pad, right_pad = calc_padding(
-                exon2_std_bin,
-                seq_bin,
-            )
-        elif exon == "exon3":
-            left_pad, right_pad = calc_padding(
-                exon3_std_bin,
-                seq_bin,
-            )
-        else:  # i.e. this is a full sequence possibly with intron
-            left_pad, _ = calc_padding(
-                exon2_std_bin,
-                seq_bin[: int(EXON2_LENGTH / 2)],
-            )
-            _, right_pad = calc_padding(
-                exon3_std_bin,
-                seq_bin[-int(EXON3_LENGTH / 2) :],
-            )
-        return np.concatenate(
-            (
-                nuc2bin("N" * left_pad),
-                seq_bin,
-                nuc2bin("N" * right_pad),
-            )
-        )
-
-    @staticmethod
     def get_matching_standards(
         seq: Sequence[int],
         hla_stds: Iterable[HLAStandard],
@@ -376,145 +320,6 @@ class EasyHLA:
 
         return result
 
-    @staticmethod
-    def pair_exons_helper(
-        sequence_record: SeqRecord,
-        unmatched: dict[EXON_NAME, dict[str, Seq]],
-    ) -> tuple[str, bool, bool, str, str]:
-        """
-        Helper that attempts to match the given sequence with a "partner" exon.
-
-        `sequence_record` represents a sequence that may be an exon2 or exon3
-        sequence (or neither).  It determines which of these cases it is by
-        examining its `id` string; then it either finds a partner for it
-        from `unmatched`, or adds it to `unmatched`.
-
-        Returns None if it cannot find a match; otherwise, it returns a tuple
-        containing:
-        - identifier
-        - is exon?  (True/False)
-        - did we find a match?  (True/False)
-        - exon2 sequence
-        - exon3 sequence
-        """
-        # The `id`` field is expected to hold the sample name.
-        samp: str = sequence_record.id
-        is_exon: bool = False
-        matched: bool = False
-        exon2: str = ""
-        exon3: str = ""
-        identifier: str = samp
-
-        # Check if the sequence is an exon2 or exon3. If so, try to match it
-        # with an existing other exon.
-        for exon, other_exon in EXON_AND_OTHER_EXON:
-            if exon in samp.lower():
-                is_exon = True
-                identifier = samp.split("_")[0]
-                for other_id, other_seq in unmatched[other_exon].items():
-                    if identifier.lower() in other_id.lower():
-                        matched = True
-                        if exon == "exon2":
-                            exon2 = str(sequence_record.seq)
-                            exon3 = str(other_seq)
-                        else:
-                            exon2 = str(other_seq)
-                            exon3 = str(sequence_record.seq)
-
-                        unmatched[other_exon].pop(other_id)
-                        break
-                # If we can't match the exon, put the entry in the list we
-                # weren't looking in.
-                if not matched:
-                    unmatched[exon][samp] = sequence_record.seq
-
-        return (
-            identifier,
-            is_exon,
-            matched,
-            exon2,
-            exon3,
-        )
-
-    def pair_exons(
-        self,
-        sequence_records: Iterable[SeqRecord],
-    ) -> tuple[list[HLASequence], dict[EXON_NAME, dict[str, Seq]]]:
-        """
-        Pair exons in the given input sequences.
-
-        The section of HLA we sequence looks like
-        exon2 - intron - exon3
-        and is typically sequenced in two parts, one covering exon2 and exon3
-        (the intron is not used in our testing).  We iterate through the
-        sequences and attempt to match them up.
-        """
-        matched_sequences: list[HLASequence] = []
-        unmatched: dict[EXON_NAME, dict[str, Seq]] = {
-            "exon2": {},
-            "exon3": {},
-        }
-
-        example_standard: HLAStandard = list(self.hla_standards.values())[0]
-
-        for sr in sequence_records:
-            # Skip over any sequences that aren't the right length or contain
-            # bad bases.
-            try:
-                check_length(self.locus, str(sr.seq), sr.id)
-                check_bases(str(sr.seq))
-            except ValueError:
-                continue
-
-            is_exon: bool = False
-            matched: bool = False
-            exon2: str = ""
-            exon3: str = ""
-            identifier: str = ""
-
-            identifier, is_exon, matched, exon2, exon3 = self.pair_exons_helper(
-                sr,
-                unmatched,
-            )
-
-            # If it was an exon2 or 3 but didn't have a pair, keep going.
-            if is_exon and not matched:
-                continue
-
-            if is_exon:
-                exon2_bin = self.pad_short(
-                    example_standard.sequence, nuc2bin(exon2), "exon2"
-                )
-                exon3_bin = self.pad_short(
-                    example_standard.sequence, nuc2bin(exon3), "exon3"
-                )
-                matched_sequences.append(
-                    HLASequence(
-                        two=(int(x) for x in exon2_bin),
-                        intron=(),
-                        three=(int(x) for x in exon3_bin),
-                        name=identifier,
-                        num_sequences_used=2,
-                    )
-                )
-            else:
-                seq_numpy: np.array = self.pad_short(
-                    example_standard.sequence,
-                    nuc2bin(sr.seq),  # type: ignore
-                    None,
-                )
-                seq: tuple[int] = tuple(int(x) for x in seq_numpy)
-                matched_sequences.append(
-                    HLASequence(
-                        two=seq[:EXON2_LENGTH],
-                        intron=seq[EXON2_LENGTH:-EXON3_LENGTH],
-                        three=seq[-EXON3_LENGTH:],
-                        name=identifier,
-                        num_sequences_used=1,
-                    )
-                )
-        return matched_sequences, unmatched
-
     def get_mismatches(
         self,
         standard_bin: Sequence[int],
@@ -617,5 +422,6 @@ class EasyHLA:
                 )
                 for combined_std, mismatch_count in all_combos.items()
             },
+            allele_frequencies=self.hla_frequencies,
             b5701_standards=b5701_standards,
         )

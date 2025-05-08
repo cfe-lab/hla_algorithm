@@ -8,9 +8,9 @@ from typing import Any, Optional
 import Bio
 import typer
 
-from .easyhla import DATE_FORMAT, EXON_AND_OTHER_EXON, EXON_NAME, EasyHLA
-from .formatting import HLAInterpretationRow, HLAMismatchRow
-from .models import HLAInterpretation, HLASequence
+from easyhla.easyhla import DATE_FORMAT, EXON_AND_OTHER_EXON, EXON_NAME, EasyHLA
+from easyhla.bblab_lib import HLAInterpretationRow, HLAMismatchRow, pair_exons
+from easyhla.models import HLAInterpretation, HLASequence
 
 logger = logging.Logger(__name__, logging.ERROR)
 
@@ -90,7 +90,11 @@ def process_from_file_to_files(
     unmatched: dict[EXON_NAME, dict[str, Bio.SeqIO.SeqRecord]]
 
     with open(filename, "r", encoding="utf-8") as f:
-        matched_sequences, unmatched = hla_alg.pair_exons(Bio.SeqIO.parse(f, "fasta"))
+        matched_sequences, unmatched = pair_exons(
+            Bio.SeqIO.parse(f, "fasta"),
+            hla_alg.locus,
+            list(hla_alg.standards.values())[0],
+        )
 
     for hla_sequence in matched_sequences:
         try:
@@ -120,9 +124,7 @@ def process_from_file_to_files(
                 to_stdout=to_stdout,
             )
 
-        row: HLAInterpretationRow = HLAInterpretationRow.summary_row(
-            result, hla_alg.hla_frequencies
-        )
+        row: HLAInterpretationRow = HLAInterpretationRow.summary_row(result)
         rows.append(row)
 
         mismatch_rows.extend(result.mismatch_rows())

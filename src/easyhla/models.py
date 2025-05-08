@@ -6,7 +6,7 @@ from typing import Optional
 import numpy as np
 from pydantic import BaseModel, ConfigDict
 
-from .utils import allele_coordinates, bin2nuc, count_forgiving_mismatches
+from .utils import allele_coordinates, bin2nuc, count_forgiving_mismatches, HLA_LOCUS
 
 
 class HLASequence(BaseModel):
@@ -14,6 +14,7 @@ class HLASequence(BaseModel):
     intron: tuple[int, ...]
     three: tuple[int, ...]
     name: str
+    locus: HLA_LOCUS
     num_sequences_used: int = 1
 
     @property
@@ -343,7 +344,12 @@ class AllelePairs(BaseModel):
 class HLAInterpretation(BaseModel):
     hla_sequence: HLASequence
     matches: dict[HLACombinedStandard, HLAMatchDetails]
+    allele_frequencies: dict[HLAProteinPair, int]
     b5701_standards: Optional[list[HLAStandard]] = None
+
+    @property
+    def locus(self) -> HLA_LOCUS:
+        return self.hla_sequence.locus
 
     def lowest_mismatch_count(self) -> int:
         return min([x.mismatch_count for x in self.matches.values()])
@@ -358,6 +364,10 @@ class HLAInterpretation(BaseModel):
 
     def best_matching_allele_pairs(self) -> AllelePairs:
         return AllelePairs.get_allele_pairs(self.best_matches())
+
+    def best_common_allele_pair_str(self) -> str:
+        best_matches: AllelePairs = self.best_matching_allele_pairs()
+        return best_matches.best_common_allele_pair_str(self.allele_frequencies)
 
     def distance_from_b7501(self) -> Optional[int]:
         """

@@ -8,7 +8,7 @@ import os
 from datetime import datetime
 from typing import Final, Optional, TypedDict
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
@@ -22,10 +22,7 @@ from easyhla.clinical_hla_lib import (
 )
 from easyhla.easyhla import EasyHLA
 from easyhla.models import (
-    AllelePairs,
-    HLACombinedStandard,
     HLAInterpretation,
-    HLAMatchDetails,
     HLAProteinPair,
     HLASequence,
     HLAStandard,
@@ -91,55 +88,22 @@ def interpret_sequences(
 def prepare_interpretation_for_serialization(
     interpretation: HLAInterpretation,
     locus: HLA_LOCUS,
-    hla_frequencies: dict[HLAProteinPair, int],
     processing_datetime: datetime,
 ) -> HLASequenceA | HLASequenceB | HLASequenceC:
     """
     Prepare an HLA interpretation for output.
     """
-    hla_sequence: HLASequence = interpretation.hla_sequence
-    ap: AllelePairs = interpretation.best_matching_allele_pairs()
-    best_matches: set[HLACombinedStandard] = interpretation.best_matches()
-
-    # For the mismatches, we arbitrarily choose one of the best matches
-    # and get the mismatches from that.
-    arbitrary_best: HLAMatchDetails = interpretation.matches[best_matches.pop()]
-
-    db_values_to_insert = {
-        "enum": interpretation.hla_sequence.name,
-        "alleles_clean": ap.best_common_allele_pair_str(hla_frequencies),
-        "alleles_all": ap.stringify(),
-        "ambiguous": ap.is_ambiguous(),
-        "homozygous": ap.is_homozygous(),
-        "mismatch_count": interpretation.lowest_mismatch_count(),
-        "mismatches": ";".join(str(x) for x in arbitrary_best.mismatches),
-        "enterdate": processing_datetime,
-    }
-
-    result: HLASequenceA | HLASequenceB | HLASequenceC
     if locus == "A":
-        result = HLASequenceA(
-            seq=hla_sequence.exon2_str + hla_sequence.exon3_str,
-            **db_values_to_insert,
+        return HLASequenceA.build_from_interpretation(
+            interpretation, processing_datetime
         )
     elif locus == "B":
-        reso_status: Optional[str] = "pending" if ap.contains_allele("B*57") else None
-        result = HLASequenceB(
-            b5701=interpretation.is_b5701(),
-            b5701_dist=interpretation.distance_from_b7501(),
-            seqa=hla_sequence.exon2_str,
-            seqb=hla_sequence.exon3_str,
-            reso_status=reso_status,
-            **db_values_to_insert,
+        return HLASequenceB.build_from_interpretation(
+            interpretation, processing_datetime
         )
-    else:
-        result = HLASequenceC(
-            seqa=hla_sequence.exon2_str,
-            seqb=hla_sequence.exon3_str,
-            **db_values_to_insert,
-        )
-    return result
-
+    return HLASequenceC.build_from_interpretation(
+        interpretation, processing_datetime
+    )
 
 class SequencesByLocus(TypedDict):
     A: list[HLASequenceA]
@@ -212,7 +176,6 @@ def clinical_hla_driver(
                 prepare_interpretation_for_serialization(
                     interp,
                     locus,
-                    frequencies[locus],
                     processing_datetime,
                 )
             )
@@ -299,6 +262,19 @@ def main():
     if not args.nodb:
         if args.sqlite is not None:
             db_engine = create_engine(f"sqlite+pysqlite:///{args.sqlite}")
+
+            @event.listens_for(db_engine, "connect")
+            def schema_workaround(dbapi_connection, _):
+                # dbapi_connection is a DBAPI connection, not a SQLAlchemy
+                # Connection, so we get a cursor to execute a command.
+                try:
+                    cursor_obj = dbapi_connection.cursor()
+                    cursor_obj.execute(
+                        f"attach database {args.sqlite} as specimen;"
+                    )
+                finally:
+                    cursor_obj.close()
+
             # Create the tables if necessary; this will do nothing if the tables
             # already exist.
             HLADBBase.metadata.create_all(db_engine, checkfirst=True)

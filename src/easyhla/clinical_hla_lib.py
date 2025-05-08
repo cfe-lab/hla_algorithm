@@ -1,17 +1,14 @@
-import csv
 import logging
 import os
 import re
 from datetime import datetime
-from typing import Final, Literal, Optional
+from typing import Final, Literal, Optional, TypedDict
 
-from sqlalchemy import DateTime, Integer, String, create_engine
-from sqlalchemy.engine import Engine
+from sqlalchemy import DateTime, Integer, String
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
     MappedAsDataclass,
-    Session,
     mapped_column,
 )
 
@@ -21,23 +18,57 @@ from easyhla.models import (
     HLACombinedStandard,
     HLAInterpretation,
     HLAMatchDetails,
-    HLAProteinPair,
     HLASequence,
-    HLAStandard,
 )
 from easyhla.utils import EXON_NAME, HLA_LOCUS, check_bases, check_length, nuc2bin
+
+
+class HLASequenceCommonFields(TypedDict):
+    enum: str
+    alleles_clean: str
+    alleles_all: str
+    ambiguous: bool
+    homozygous: bool
+    mismatch_count: int
+    mismatches: str
+    enterdate: datetime
+
 
 
 # As I understand it, this creates a "registry" for our application and is
 # necessary (i.e. we can't just have all of our classes inherit from
 # DeclarativeBase).
 class HLADBBase(MappedAsDataclass, DeclarativeBase):
-    pass
+    @staticmethod
+    def get_common_serialization_fields(
+        interpretation: HLAInterpretation,
+        processing_datetime: datetime,
+    ) -> HLASequenceCommonFields:
+        """
+        Prepare an HLA interpretation for output.
+        """
+        ap: AllelePairs = interpretation.best_matching_allele_pairs()
+        best_matches: set[HLACombinedStandard] = interpretation.best_matches()
+
+        # For the mismatches, we arbitrarily choose one of the best matches
+        # and get the mismatches from that.
+        arbitrary_best: HLAMatchDetails = interpretation.matches[best_matches.pop()]
+
+        return {
+            "enum": interpretation.hla_sequence.name,
+            "alleles_clean": interpretation.best_common_allele_pair_str(),
+            "alleles_all": ap.stringify(),
+            "ambiguous": ap.is_ambiguous(),
+            "homozygous": ap.is_homozygous(),
+            "mismatch_count": interpretation.lowest_mismatch_count(),
+            "mismatches": ";".join(str(x) for x in arbitrary_best.mismatches),
+            "enterdate": processing_datetime,
+        }
 
 
 class HLASequenceA(HLADBBase):
     __tablename__ = "hla_alleles_a"
-    # __table_args__ = {"schema": "specimen"}
+    __table_args__ = {"schema": "specimen"}
 
     # Note that we explicitly do *not* include the length of the VARCHAR fields
     # that we're mapping; this is to make it impossible for us to attempt to
@@ -65,10 +96,29 @@ class HLASequenceA(HLADBBase):
         "enterdate",
     )
 
+    @classmethod
+    def build_from_interpretation(
+        cls,
+        interp: HLAInterpretation,
+        processing_datetime: datetime,
+    ) -> "HLASequenceA":
+        """
+        Build an instance from an HLAInterpretation object.
+        """
+        db_values_to_insert: HLASequenceCommonFields = cls.get_common_serialization_fields(
+            interp,
+            processing_datetime
+        )
+        hla_sequence: HLASequence = interp.hla_sequence
+        return HLASequenceA(
+            seq=hla_sequence.exon2_str + hla_sequence.exon3_str,
+            **db_values_to_insert,
+        )
+
 
 class HLASequenceB(HLADBBase):
     __tablename__ = "hla_alleles_b"
-    # __table_args__ = {"schema": "specimen"}
+    __table_args__ = {"schema": "specimen"}
 
     enum: Mapped[str] = mapped_column(String, primary_key=True)
     alleles_clean: Mapped[Optional[str]] = mapped_column(String)
@@ -102,10 +152,35 @@ class HLASequenceB(HLADBBase):
         "enterdate",
     )
 
+    @classmethod
+    def build_from_interpretation(
+        cls,
+        interp: HLAInterpretation,
+        processing_datetime: datetime,
+    ) -> "HLASequenceB":
+        """
+        Build an instance from an HLAInterpretation object.
+        """
+        db_values_to_insert: HLASequenceCommonFields = cls.get_common_serialization_fields(
+            interp,
+            processing_datetime
+        )
+        hla_sequence: HLASequence = interp.hla_sequence
+        ap: AllelePairs = interp.best_matching_allele_pairs()
+        reso_status: Optional[str] = "pending" if ap.contains_allele("B*57") else None
+        return cls(
+            b5701=interp.is_b5701(),
+            b5701_dist=interp.distance_from_b7501(),
+            seqa=hla_sequence.exon2_str,
+            seqb=hla_sequence.exon3_str,
+            reso_status=reso_status,
+            **db_values_to_insert,
+        )
+
 
 class HLASequenceC(HLADBBase):
     __tablename__ = "hla_alleles_c"
-    # __table_args__ = {"schema": "specimen"}
+    __table_args__ = {"schema": "specimen"}
 
     enum: Mapped[str] = mapped_column(String, primary_key=True)
     alleles_clean: Mapped[Optional[str]] = mapped_column(String)
@@ -130,6 +205,26 @@ class HLASequenceC(HLADBBase):
         "seqb",
         "enterdate",
     )
+
+    @classmethod
+    def build_from_interpretation(
+        cls,
+        interp: HLAInterpretation,
+        processing_datetime: datetime,
+    ) -> "HLASequenceC":
+        """
+        Build an instance from an HLAInterpretation object.
+        """
+        db_values_to_insert: HLASequenceCommonFields = cls.get_common_serialization_fields(
+            interp,
+            processing_datetime
+        )
+        hla_sequence: HLASequence = interp.hla_sequence
+        return cls(
+            seqa=hla_sequence.exon2_str,
+            seqb=hla_sequence.exon3_str,
+            **db_values_to_insert,
+        )
 
 
 def sanitize_sequence(

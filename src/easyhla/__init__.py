@@ -1,2 +1,2 @@
 from .easyhla import EasyHLA as EasyHLA
-from .entrypoint import run as run
+from ...tools.bblab import run as run
