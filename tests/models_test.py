@@ -28,6 +28,7 @@ class TestHLASequence:
                     intron=(),
                     three=(14, 13, 11, 7),
                     name="test_sequence",
+                    locus="B",
                     num_sequences_used=1,
                 ),
                 (1, 2, 4, 8, 14, 13, 11, 7),
@@ -42,6 +43,7 @@ class TestHLASequence:
                     intron=(2, 4, 5, 6),
                     three=(14, 13, 11, 7),
                     name="test_sequence",
+                    locus="A",
                     num_sequences_used=1,
                 ),
                 (1, 2, 4, 8, 14, 13, 11, 7),
@@ -740,7 +742,7 @@ class TestAllelePairs:
             ),
         ],
     )
-    def test_best_common_allele_pair(
+    def test_best_common_allele_pair_str(
         self,
         raw_allele_pairs: list[tuple[str, str]],
         frequencies: dict[HLAProteinPair, int],
@@ -1041,20 +1043,39 @@ def hla_sequence() -> HLASequence:
         intron=(),
         three=(1, 4, 4, 2, 8),  # "AGGCT"
         name="dummy_seq",
+        locus="B",
         num_sequences_used=1,
     )
 
 
 class TestHLAInterpretation:
     @pytest.mark.parametrize(
-        "raw_matches, expected_mismatch_count, expected_best_matches, expected_allele_pairs",
+        (
+            "raw_matches, frequencies, expected_mismatch_count, "
+            "expected_best_matches, expected_allele_pairs, "
+            "expected_best_common_allele_pair_str"
+        ),
         [
-            (
+            pytest.param(
                 {
                     HLACombinedStandard(
                         standard_bin=(1, 4, 9, 4),
                         possible_allele_pairs=(("A*01:01:01", "A*02:02:02"),),
                     ): HLAMatchDetails(mismatch_count=5, mismatches=[]),
+                },
+                {
+                    HLAProteinPair(
+                        first_field_1="01",
+                        first_field_2="01",
+                        second_field_1="02",
+                        second_field_2="02",
+                    ): 150,
+                    HLAProteinPair(
+                        first_field_1="22",
+                        first_field_2="33",
+                        second_field_1="22",
+                        second_field_2="34",
+                    ): 15,
                 },
                 5,
                 {
@@ -1064,8 +1085,10 @@ class TestHLAInterpretation:
                     )
                 },
                 {("A*01:01:01", "A*02:02:02")},
+                "A*01:01:01 - A*02:02:02",
+                id="single_matching_combined_standard",
             ),
-            (
+            pytest.param(
                 {
                     HLACombinedStandard(
                         standard_bin=(1, 4, 9, 4),
@@ -1076,6 +1099,20 @@ class TestHLAInterpretation:
                         possible_allele_pairs=(("A*10:01:01", "A*20:02:02"),),
                     ): HLAMatchDetails(mismatch_count=2, mismatches=[]),
                 },
+                {
+                    HLAProteinPair(
+                        first_field_1="01",
+                        first_field_2="01",
+                        second_field_1="02",
+                        second_field_2="02",
+                    ): 150,
+                    HLAProteinPair(
+                        first_field_1="22",
+                        first_field_2="33",
+                        second_field_1="22",
+                        second_field_2="34",
+                    ): 15,
+                },
                 2,
                 {
                     HLACombinedStandard(
@@ -1084,8 +1121,10 @@ class TestHLAInterpretation:
                     )
                 },
                 {("A*10:01:01", "A*20:02:02")},
+                "A*10:01:01 - A*20:02:02",
+                id="two_matches_no_tie",
             ),
-            (
+            pytest.param(
                 {
                     HLACombinedStandard(
                         standard_bin=(1, 4, 9, 4),
@@ -1093,16 +1132,30 @@ class TestHLAInterpretation:
                     ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
                     HLACombinedStandard(
                         standard_bin=(1, 4, 9, 2),
-                        possible_allele_pairs=(("A*10:01:01", "A*20:02:02"),),
+                        possible_allele_pairs=(("A*10:01:01", "A*20:02:03"),),
                     ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
                     HLACombinedStandard(
                         standard_bin=(2, 4, 9, 2),
-                        possible_allele_pairs=(("A*10:01:01", "A*20:02:02"),),
+                        possible_allele_pairs=(("A*10:01:10", "A*20:22:20"),),
                     ): HLAMatchDetails(mismatch_count=3, mismatches=[]),
                     HLACombinedStandard(
                         standard_bin=(2, 4, 10, 2),
-                        possible_allele_pairs=(("A*10:01:01", "A*20:02:02"),),
+                        possible_allele_pairs=(("A*10:01:10", "A*22:22:22"),),
                     ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
+                },
+                {
+                    HLAProteinPair(
+                        first_field_1="01",
+                        first_field_2="01",
+                        second_field_1="02",
+                        second_field_2="02",
+                    ): 150,
+                    HLAProteinPair(
+                        first_field_1="10",
+                        first_field_2="01",
+                        second_field_1="20",
+                        second_field_2="02",
+                    ): 1500,
                 },
                 1,
                 {
@@ -1112,38 +1165,47 @@ class TestHLAInterpretation:
                     ),
                     HLACombinedStandard(
                         standard_bin=(1, 4, 9, 2),
-                        possible_allele_pairs=(("A*10:01:01", "A*20:02:02"),),
+                        possible_allele_pairs=(("A*10:01:01", "A*20:02:03"),),
                     ),
                     HLACombinedStandard(
                         standard_bin=(2, 4, 10, 2),
-                        possible_allele_pairs=(("A*10:01:01", "A*20:02:02"),),
+                        possible_allele_pairs=(("A*10:01:10", "A*22:22:22"),),
                     ),
                 },
                 {
                     ("A*01:01:01", "A*02:02:02"),
-                    ("A*10:01:01", "A*20:02:02"),
-                    ("A*10:01:01", "A*20:02:02"),
+                    ("A*10:01:01", "A*20:02:03"),
+                    ("A*10:01:10", "A*22:22:22"),
                 },
+                "A*10:01:01 - A*20:02:03",
+                id="typical_case",
             ),
         ],
     )
     def test_basic_methods(
         self,
         hla_sequence: HLASequence,
+        frequencies: dict[HLAProteinPair, int],
         raw_matches: dict[HLACombinedStandard, HLAMatchDetails],
         expected_mismatch_count: int,
         expected_best_matches: set[HLACombinedStandard],
         expected_allele_pairs: set[tuple[str, str]],
+        expected_best_common_allele_pair_str: str,
     ):
         interp: HLAInterpretation = HLAInterpretation(
             hla_sequence=hla_sequence,
             matches=raw_matches,
+            allele_frequencies=frequencies,
         )
+        assert interp.locus == "B"
         assert interp.lowest_mismatch_count() == expected_mismatch_count
         assert interp.best_matches() == expected_best_matches
         assert (
             set(interp.best_matching_allele_pairs().allele_pairs)
             == expected_allele_pairs
+        )
+        assert (
+            interp.best_common_allele_pair_str() == expected_best_common_allele_pair_str
         )
 
     @pytest.mark.parametrize(
@@ -1230,6 +1292,7 @@ class TestHLAInterpretation:
         interp: HLAInterpretation = HLAInterpretation(
             hla_sequence=hla_sequence,
             matches={},
+            allele_frequencies={},
             b5701_standards=b5701_standards,
         )
         assert interp.distance_from_b7501() == expected_result
@@ -1299,6 +1362,7 @@ class TestHLAInterpretation:
         interp: HLAInterpretation = HLAInterpretation(
             hla_sequence=hla_sequence,
             matches=raw_matches,
+            allele_frequencies={},
             b5701_standards=None,
         )
         assert interp.is_b5701() == expected_result

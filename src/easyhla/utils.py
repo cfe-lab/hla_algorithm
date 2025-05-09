@@ -5,8 +5,8 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Final, Literal, Optional
 
-import Bio
 import numpy as np
+from Bio.SeqIO import SeqRecord
 
 # A lookup table of translations from ambiguous nucleotides to unambiguous
 # nucleotides.
@@ -339,7 +339,7 @@ def allele_integer_coordinates(allele: str) -> tuple[int, ...]:
 
 
 def collate_standards(
-    allele_srs: Sequence[Bio.SeqIO.SeqRecord],
+    allele_srs: Sequence[SeqRecord],
     exon_references: dict[HLA_LOCUS, dict[EXON_NAME, str]],
     logger: Optional[logging.Logger] = None,
     overall_mismatch_threshold: int = 32,

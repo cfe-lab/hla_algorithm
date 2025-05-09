@@ -12,7 +12,6 @@ from sqlalchemy.orm import (
     mapped_column,
 )
 
-from easyhla.easyhla import EasyHLA
 from easyhla.models import (
     AllelePairs,
     HLACombinedStandard,
@@ -32,7 +31,6 @@ class HLASequenceCommonFields(TypedDict):
     mismatch_count: int
     mismatches: str
     enterdate: datetime
-
 
 
 # As I understand it, this creates a "registry" for our application and is
@@ -105,9 +103,8 @@ class HLASequenceA(HLADBBase):
         """
         Build an instance from an HLAInterpretation object.
         """
-        db_values_to_insert: HLASequenceCommonFields = cls.get_common_serialization_fields(
-            interp,
-            processing_datetime
+        db_values_to_insert: HLASequenceCommonFields = (
+            cls.get_common_serialization_fields(interp, processing_datetime)
         )
         hla_sequence: HLASequence = interp.hla_sequence
         return HLASequenceA(
@@ -161,9 +158,8 @@ class HLASequenceB(HLADBBase):
         """
         Build an instance from an HLAInterpretation object.
         """
-        db_values_to_insert: HLASequenceCommonFields = cls.get_common_serialization_fields(
-            interp,
-            processing_datetime
+        db_values_to_insert: HLASequenceCommonFields = (
+            cls.get_common_serialization_fields(interp, processing_datetime)
         )
         hla_sequence: HLASequence = interp.hla_sequence
         ap: AllelePairs = interp.best_matching_allele_pairs()
@@ -215,9 +211,8 @@ class HLASequenceC(HLADBBase):
         """
         Build an instance from an HLAInterpretation object.
         """
-        db_values_to_insert: HLASequenceCommonFields = cls.get_common_serialization_fields(
-            interp,
-            processing_datetime
+        db_values_to_insert: HLASequenceCommonFields = (
+            cls.get_common_serialization_fields(interp, processing_datetime)
         )
         hla_sequence: HLASequence = interp.hla_sequence
         return cls(
@@ -301,6 +296,7 @@ def read_a_sequences(input_directory: str, logger: logging.Logger) -> list[HLASe
                 intron=(),
                 three=nuc2bin(sanitized_contents[512:]),
                 name=sample_name,
+                locus="A",
                 num_sequences_used=1,
             )
         )
@@ -403,6 +399,7 @@ def read_bc_sequences(
                 intron=(),
                 three=nuc2bin(curr_sequences["exon3"]),
                 name=sample_name,
+                locus=locus,
                 num_sequences_used=2,
             )
         )

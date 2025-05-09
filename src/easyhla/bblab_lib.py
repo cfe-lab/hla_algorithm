@@ -15,14 +15,14 @@ from .models import (
     HLAStandard,
 )
 from .utils import (
-    EXON_NAME,
-    check_length,
-    check_bases,
-    pad_short,
-    nuc2bin,
     EXON2_LENGTH,
     EXON3_LENGTH,
+    EXON_NAME,
     HLA_LOCUS,
+    check_bases,
+    check_length,
+    nuc2bin,
+    pad_short,
 )
 
 EXON_AND_OTHER_EXON: list[tuple[EXON_NAME, EXON_NAME]] = [
@@ -94,7 +94,7 @@ def pair_exons_helper(
 def pair_exons(
     sequence_records: Iterable[SeqRecord],
     locus: HLA_LOCUS,
-    example_standard: HLAStandard
+    example_standard: HLAStandard,
 ) -> tuple[list[HLASequence], dict[EXON_NAME, dict[str, Seq]]]:
     """
     Pair exons in the given input sequences.
@@ -136,18 +136,15 @@ def pair_exons(
             continue
 
         if is_exon:
-            exon2_bin = pad_short(
-                example_standard.sequence, nuc2bin(exon2), "exon2"
-            )
-            exon3_bin = pad_short(
-                example_standard.sequence, nuc2bin(exon3), "exon3"
-            )
+            exon2_bin = pad_short(example_standard.sequence, nuc2bin(exon2), "exon2")
+            exon3_bin = pad_short(example_standard.sequence, nuc2bin(exon3), "exon3")
             matched_sequences.append(
                 HLASequence(
                     two=(int(x) for x in exon2_bin),
                     intron=(),
                     three=(int(x) for x in exon3_bin),
                     name=identifier,
+                    locus=locus,
                     num_sequences_used=2,
                 )
             )
@@ -164,11 +161,11 @@ def pair_exons(
                     intron=seq[EXON2_LENGTH:-EXON3_LENGTH],
                     three=seq[-EXON3_LENGTH:],
                     name=identifier,
+                    locus=locus,
                     num_sequences_used=1,
                 )
             )
     return matched_sequences, unmatched
-
 
 
 class HLAInterpretationRow(BaseModel):
@@ -191,9 +188,7 @@ class HLAInterpretationRow(BaseModel):
     # matches; we should perhaps pick a "very best" of these matches and
     # only include those mismatches.
     @classmethod
-    def summary_row(
-        cls, interpretation: HLAInterpretation
-    ) -> "HLAInterpretationRow":
+    def summary_row(cls, interpretation: HLAInterpretation) -> "HLAInterpretationRow":
         best_match_mismatches: list[str] = []
         for best_match in interpretation.best_matches():
             best_match_mismatches.extend(

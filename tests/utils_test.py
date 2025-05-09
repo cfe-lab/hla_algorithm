@@ -27,6 +27,7 @@ from easyhla.utils import (
     get_acceptable_match,
     group_identical_alleles,
     nuc2bin,
+    pad_short,
 )
 
 
@@ -739,6 +740,141 @@ def test_calc_padding(
     left_pad, right_pad = calc_padding(std, seq)
     assert left_pad == exp_left_pad
     assert right_pad == exp_right_pad
+
+
+@pytest.mark.parametrize(
+    "std_bin, seq_bin, exon, exp_raw_result",
+    [
+        # Cases with zero padding introduced:
+        (
+            [1, 2, 4, 8],
+            [1, 2, 4, 8],
+            "exon2",
+            [1, 2, 4, 8],
+        ),
+        (
+            [1, 2, 4, 8],
+            [1, 2, 4, 8],
+            "exon3",
+            [1, 2, 4, 8],
+        ),
+        (
+            [1, 2, 4, 8],
+            [1, 2, 4, 8],
+            None,
+            [1, 2, 4, 8],
+        ),
+        # Integration tests with exon2:
+        (
+            [1, 2, 4, 8] + [1] * (266 + EXON3_LENGTH),
+            [1, 2, 4, 8],
+            "exon2",
+            [1, 2, 4, 8, *([15] * 266)],
+        ),
+        (
+            [1] * 100 + [5, 6, 4, 12] + [1] * (166 + EXON3_LENGTH),
+            [4, 4, 4, 4],
+            "exon2",
+            [*([15] * 100), 4, 4, 4, 4, *([15] * 166)],
+        ),
+        (
+            [1] * 266 + [6, 6, 6, 6] + [1] * EXON3_LENGTH,
+            [4, 5, 4, 5],
+            "exon2",
+            [*([15] * 266), 4, 5, 4, 5],
+        ),
+        # Only the exon2 portion of the standard is considered:
+        (
+            [1] * 47 + [1, 2, 4] + [1] * 220 + [2] * 150 + [1, 2, 4, 8] + [1] * 122,
+            [1, 2, 4, 8],
+            "exon2",
+            [*([15] * 47), 1, 2, 4, 8, *([15] * 219)],
+        ),
+        # The better match is picked:
+        (
+            [1] * 22 + [4, 4, 4] + [1] * 46 + [4, 4, 4, 4] + [1] * (195 + EXON3_LENGTH),
+            [4, 4, 4, 4],
+            "exon2",
+            [*([15] * 71), 4, 4, 4, 4, *([15] * 195)],
+        ),
+        (
+            [2] * 21
+            + [4, 6, 4, 7]
+            + [1] * 46
+            + [4, 4, 2, 4]
+            + [1] * (195 + EXON3_LENGTH),
+            [5, 5, 5, 7],
+            "exon2",
+            [*([15] * 21), 5, 5, 5, 7, *([15] * (50 + 195))],
+        ),
+        # Integration tests with exon3
+        (
+            [4] * EXON2_LENGTH + [1, 2, 4, 8] + [1] * 272,
+            [1, 2, 4, 8],
+            "exon3",
+            [1, 2, 4, 8, *([15] * 272)],
+        ),
+        (
+            [4] * (EXON2_LENGTH + 50) + [1, 2, 4, 8] + [1] * 222,
+            [1, 2, 4, 8],
+            "exon3",
+            [*([15] * 50), 1, 2, 4, 8, *([15] * 222)],
+        ),
+        (
+            [4] * EXON2_LENGTH + [1] * 272 + [1, 2, 4, 8],
+            [1, 2, 4, 8],
+            "exon3",
+            [*([15] * 272), 1, 2, 4, 8],
+        ),
+        # Only the exon3 portion of the standard is considered:
+        (
+            [1] * 46 + [1, 2, 4, 8] + [1] * 220 + [2] * 150 + [1, 2, 4, 8] + [1] * 122,
+            [1, 2, 4, 8],
+            "exon3",
+            [*([15] * 150), 1, 2, 4, 8, *([15] * 122)],
+        ),
+        # Integration test with intron:
+        (
+            [4] * 100 + [1, 2, 4, 8] + [1] * (166 + 296) + [8, 4, 2, 1] + [4] * 76,
+            [1, 2, 4, 8] + [1] * (166 + 296) + [8, 4, 2, 1],
+            None,
+            [
+                *([15] * 100),
+                1,
+                2,
+                4,
+                8,
+                *([1] * (166 + 296)),
+                8,
+                4,
+                2,
+                1,
+                *([15] * 76),
+            ],
+        ),
+    ],
+)
+def test_pad_short(
+    std_bin: Sequence[int],
+    seq_bin: Sequence[int],
+    exon: Optional[EXON_NAME],
+    exp_raw_result: Sequence[int],
+):
+    result = pad_short(std_bin, seq_bin, exon)
+    # Debug code for future users
+    print(
+        result,
+        sum([1 for a in result if a == 1]),
+        sum([1 for a in result if a == 15]),
+        len(result),
+    )
+    print(
+        np.array(exp_raw_result),
+        sum([1 for a in exp_raw_result if a == 1]),
+        sum([1 for a in exp_raw_result if a == 15]),
+        len(exp_raw_result),
+    )
+    assert np.array_equal(result, np.array(exp_raw_result))
 
 
 @pytest.mark.parametrize(

@@ -101,9 +101,8 @@ def prepare_interpretation_for_serialization(
         return HLASequenceB.build_from_interpretation(
             interpretation, processing_datetime
         )
-    return HLASequenceC.build_from_interpretation(
-        interpretation, processing_datetime
-    )
+    return HLASequenceC.build_from_interpretation(interpretation, processing_datetime)
+
 
 class SequencesByLocus(TypedDict):
     A: list[HLASequenceA]
@@ -269,9 +268,7 @@ def main():
                 # Connection, so we get a cursor to execute a command.
                 try:
                     cursor_obj = dbapi_connection.cursor()
-                    cursor_obj.execute(
-                        f"attach database {args.sqlite} as specimen;"
-                    )
+                    cursor_obj.execute(f"attach database '{args.sqlite}' as specimen;")
                 finally:
                     cursor_obj.close()
 

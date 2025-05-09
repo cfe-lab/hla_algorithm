@@ -2,13 +2,13 @@ import pytest
 from Bio.Seq import Seq
 from Bio.SeqIO import SeqRecord
 
-from easyhla.easyhla import EXON_NAME, HLA_LOCUS
+from easyhla.bblab_lib import pair_exons, pair_exons_helper
 from easyhla.models import (
     HLASequence,
     HLAStandard,
 )
-from easyhla.utils import nuc2bin
-from easyhla.bblab_lib import pair_exons_helper, pair_exons
+from easyhla.utils import EXON_NAME, HLA_LOCUS, nuc2bin
+
 from .easyhla_test import HLA_STANDARDS, DummyStandard
 
 
@@ -391,6 +391,7 @@ def test_pair_exons_helper(
                     intron=nuc2bin("A" * 241),
                     three=nuc2bin(HLA_STANDARDS["A"].exon3),
                     name="E1",
+                    locus="A",
                     num_sequences_used=1,
                 ),
             ],
@@ -425,6 +426,7 @@ def test_pair_exons_helper(
                     intron=nuc2bin("A" * 241),
                     three=nuc2bin(HLA_STANDARDS["B"].exon3),
                     name="E1",
+                    locus="B",
                     num_sequences_used=1,
                 ),
             ],
@@ -445,6 +447,7 @@ def test_pair_exons_helper(
                     intron=nuc2bin("A" * 250),
                     three=nuc2bin(HLA_STANDARDS["B"].exon3),
                     name="E1",
+                    locus="B",
                     num_sequences_used=1,
                 ),
             ],
@@ -465,6 +468,7 @@ def test_pair_exons_helper(
                     intron=nuc2bin("A" * 245),
                     three=nuc2bin(HLA_STANDARDS["B"].exon3),
                     name="E1",
+                    locus="B",
                     num_sequences_used=1,
                 ),
             ],
@@ -497,6 +501,7 @@ def test_pair_exons_helper(
                     intron=(),
                     three=nuc2bin(HLA_STANDARDS["B"].exon3),
                     name="E1",
+                    locus="B",
                     num_sequences_used=2,
                 ),
             ],
@@ -515,6 +520,7 @@ def test_pair_exons_helper(
                     intron=(),
                     three=nuc2bin(HLA_STANDARDS["B"].exon3),
                     name="E1",
+                    locus="B",
                     num_sequences_used=2,
                 ),
             ],
@@ -545,6 +551,7 @@ def test_pair_exons_helper(
                     intron=(),
                     three=nuc2bin(HLA_STANDARDS["C"].exon3),
                     name="E1",
+                    locus="C",
                     num_sequences_used=2,
                 ),
             ],
@@ -563,6 +570,7 @@ def test_pair_exons_helper(
                     intron=(),
                     three=nuc2bin(HLA_STANDARDS["C"].exon3[0:270] + "N" * 6),
                     name="E1",
+                    locus="C",
                     num_sequences_used=2,
                 ),
             ],
@@ -581,6 +589,7 @@ def test_pair_exons_helper(
                     intron=(),
                     three=nuc2bin(HLA_STANDARDS["C"].exon3[0:270] + "N" * 6),
                     name="E1",
+                    locus="C",
                     num_sequences_used=2,
                 ),
             ],
@@ -627,6 +636,7 @@ def test_pair_exons_helper(
                     intron=(1,) * 241,
                     three=nuc2bin(HLA_STANDARDS["B"].exon3[0:265] + "N" * 11),
                     name="E1_full_short",
+                    locus="B",
                     num_sequences_used=1,
                 ),
             ],
@@ -666,6 +676,7 @@ def test_pair_exons_helper(
                     intron=(1,) * 241,
                     three=nuc2bin(HLA_STANDARDS["B"].exon3[0:265] + "N" * 11),
                     name="E1_full_short",
+                    locus="B",
                     num_sequences_used=1,
                 ),
                 HLASequence(
@@ -673,6 +684,7 @@ def test_pair_exons_helper(
                     intron=(),
                     three=nuc2bin(HLA_STANDARDS["B"].exon3),
                     name="E2",
+                    locus="B",
                     num_sequences_used=2,
                 ),
                 HLASequence(
@@ -680,6 +692,7 @@ def test_pair_exons_helper(
                     intron=(1,) * 241,
                     three=nuc2bin(HLA_STANDARDS["B"].exon3),
                     name="E4_full",
+                    locus="B",
                     num_sequences_used=1,
                 ),
                 HLASequence(
@@ -687,6 +700,7 @@ def test_pair_exons_helper(
                     intron=(),
                     three=nuc2bin(HLA_STANDARDS["B"].exon3),
                     name="E6",
+                    locus="B",
                     num_sequences_used=2,
                 ),
             ],

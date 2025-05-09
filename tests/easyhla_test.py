@@ -1,5 +1,5 @@
 import os
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from datetime import datetime
 from io import StringIO
 from pathlib import Path
@@ -7,12 +7,10 @@ from typing import Optional
 
 import numpy as np
 import pytest
-from Bio.Seq import Seq
-from Bio.SeqIO import SeqRecord
 from pydantic import BaseModel
 from pytest_mock import MockerFixture
 
-from easyhla.easyhla import EXON_NAME, HLA_LOCUS, EasyHLA
+from easyhla.easyhla import HLA_LOCUS, EasyHLA
 from easyhla.models import (
     HLACombinedStandard,
     HLAInterpretation,
@@ -23,7 +21,7 @@ from easyhla.models import (
     HLAStandard,
     HLAStandardMatch,
 )
-from easyhla.utils import EXON2_LENGTH, EXON3_LENGTH, nuc2bin
+from easyhla.utils import nuc2bin
 
 # from .conftest import compare_ref_vs_test
 
@@ -774,6 +772,7 @@ def test_get_mismatches_errors(
                 intron=(),
                 three=(4, 8),
                 name="E1",
+                locus="C",
                 num_sequences_used=1,
             ),
             "C",
@@ -801,6 +800,7 @@ def test_get_mismatches_errors(
                     intron=(),
                     three=(4, 8),
                     name="E1",
+                    locus="C",
                     num_sequences_used=1,
                 ),
                 matches={
@@ -863,6 +863,7 @@ def test_get_mismatches_errors(
                         ],
                     ),
                 },
+                allele_frequencies={HLA_FREQUENCIES["C"]: 1},
             ),
             id="typical_case_non_b",
         ),
@@ -872,6 +873,7 @@ def test_get_mismatches_errors(
                 intron=(),
                 three=(4, 8),
                 name="E1",
+                locus="B",
                 num_sequences_used=1,
             ),
             "B",
@@ -899,6 +901,7 @@ def test_get_mismatches_errors(
                     intron=(),
                     three=(4, 8),
                     name="E1",
+                    locus="B",
                     num_sequences_used=1,
                 ),
                 matches={
@@ -961,6 +964,7 @@ def test_get_mismatches_errors(
                         ],
                     ),
                 },
+                allele_frequencies={HLA_FREQUENCIES["B"]: 1},
                 b5701_standards=[
                     HLAStandard(
                         allele="B*57:01:01G",
@@ -1043,6 +1047,7 @@ def test_interpret_good_cases(
                 intron=(),
                 three=(4, 8, 5, 7, 11, 1),
                 name="E1",
+                locus="C",
                 num_sequences_used=1,
             ),
             "B",
@@ -1504,141 +1509,6 @@ def test_init_all_defaults(mocker: MockerFixture):
         assert easyhla.hla_standards == fake_standards
         assert easyhla.hla_frequencies == fake_frequencies
         assert easyhla.last_modified == fake_last_modified
-
-
-@pytest.mark.parametrize(
-    "std_bin, seq_bin, exon, exp_raw_result",
-    [
-        # Cases with zero padding introduced:
-        (
-            [1, 2, 4, 8],
-            [1, 2, 4, 8],
-            "exon2",
-            [1, 2, 4, 8],
-        ),
-        (
-            [1, 2, 4, 8],
-            [1, 2, 4, 8],
-            "exon3",
-            [1, 2, 4, 8],
-        ),
-        (
-            [1, 2, 4, 8],
-            [1, 2, 4, 8],
-            None,
-            [1, 2, 4, 8],
-        ),
-        # Integration tests with exon2:
-        (
-            [1, 2, 4, 8] + [1] * (266 + EXON3_LENGTH),
-            [1, 2, 4, 8],
-            "exon2",
-            [1, 2, 4, 8, *([15] * 266)],
-        ),
-        (
-            [1] * 100 + [5, 6, 4, 12] + [1] * (166 + EXON3_LENGTH),
-            [4, 4, 4, 4],
-            "exon2",
-            [*([15] * 100), 4, 4, 4, 4, *([15] * 166)],
-        ),
-        (
-            [1] * 266 + [6, 6, 6, 6] + [1] * EXON3_LENGTH,
-            [4, 5, 4, 5],
-            "exon2",
-            [*([15] * 266), 4, 5, 4, 5],
-        ),
-        # Only the exon2 portion of the standard is considered:
-        (
-            [1] * 47 + [1, 2, 4] + [1] * 220 + [2] * 150 + [1, 2, 4, 8] + [1] * 122,
-            [1, 2, 4, 8],
-            "exon2",
-            [*([15] * 47), 1, 2, 4, 8, *([15] * 219)],
-        ),
-        # The better match is picked:
-        (
-            [1] * 22 + [4, 4, 4] + [1] * 46 + [4, 4, 4, 4] + [1] * (195 + EXON3_LENGTH),
-            [4, 4, 4, 4],
-            "exon2",
-            [*([15] * 71), 4, 4, 4, 4, *([15] * 195)],
-        ),
-        (
-            [2] * 21
-            + [4, 6, 4, 7]
-            + [1] * 46
-            + [4, 4, 2, 4]
-            + [1] * (195 + EXON3_LENGTH),
-            [5, 5, 5, 7],
-            "exon2",
-            [*([15] * 21), 5, 5, 5, 7, *([15] * (50 + 195))],
-        ),
-        # Integration tests with exon3
-        (
-            [4] * EXON2_LENGTH + [1, 2, 4, 8] + [1] * 272,
-            [1, 2, 4, 8],
-            "exon3",
-            [1, 2, 4, 8, *([15] * 272)],
-        ),
-        (
-            [4] * (EXON2_LENGTH + 50) + [1, 2, 4, 8] + [1] * 222,
-            [1, 2, 4, 8],
-            "exon3",
-            [*([15] * 50), 1, 2, 4, 8, *([15] * 222)],
-        ),
-        (
-            [4] * EXON2_LENGTH + [1] * 272 + [1, 2, 4, 8],
-            [1, 2, 4, 8],
-            "exon3",
-            [*([15] * 272), 1, 2, 4, 8],
-        ),
-        # Only the exon3 portion of the standard is considered:
-        (
-            [1] * 46 + [1, 2, 4, 8] + [1] * 220 + [2] * 150 + [1, 2, 4, 8] + [1] * 122,
-            [1, 2, 4, 8],
-            "exon3",
-            [*([15] * 150), 1, 2, 4, 8, *([15] * 122)],
-        ),
-        # Integration test with intron:
-        (
-            [4] * 100 + [1, 2, 4, 8] + [1] * (166 + 296) + [8, 4, 2, 1] + [4] * 76,
-            [1, 2, 4, 8] + [1] * (166 + 296) + [8, 4, 2, 1],
-            None,
-            [
-                *([15] * 100),
-                1,
-                2,
-                4,
-                8,
-                *([1] * (166 + 296)),
-                8,
-                4,
-                2,
-                1,
-                *([15] * 76),
-            ],
-        ),
-    ],
-)
-def test_pad_short(
-    std_bin: Sequence[int],
-    seq_bin: Sequence[int],
-    exon: Optional[EXON_NAME],
-    exp_raw_result: Sequence[int],
-):
-    result = EasyHLA.pad_short(std_bin, seq_bin, exon)
-    # Debug code for future users
-    print(
-        result,
-        sum([1 for a in result if a == 1]),
-        sum([1 for a in result if a == 15]),
-        len(result),
-    )
-    print(
-        np.array(exp_raw_result),
-        sum([1 for a in exp_raw_result if a == 1]),
-        sum([1 for a in exp_raw_result if a == 15]),
-        len(exp_raw_result),
-    )
-    assert np.array_equal(result, np.array(exp_raw_result))
 
 
 @pytest.mark.parametrize(

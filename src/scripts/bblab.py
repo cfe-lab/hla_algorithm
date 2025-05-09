@@ -8,8 +8,13 @@ from typing import Any, Optional
 import Bio
 import typer
 
-from easyhla.easyhla import DATE_FORMAT, EXON_AND_OTHER_EXON, EXON_NAME, EasyHLA
-from easyhla.bblab_lib import HLAInterpretationRow, HLAMismatchRow, pair_exons
+from easyhla.bblab_lib import (
+    EXON_AND_OTHER_EXON,
+    HLAInterpretationRow,
+    HLAMismatchRow,
+    pair_exons,
+)
+from easyhla.easyhla import DATE_FORMAT, EXON_NAME, EasyHLA
 from easyhla.models import HLAInterpretation, HLASequence
 
 logger = logging.Logger(__name__, logging.ERROR)
