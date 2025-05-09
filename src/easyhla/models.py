@@ -6,7 +6,7 @@ from typing import Optional
 import numpy as np
 from pydantic import BaseModel, ConfigDict
 
-from .utils import allele_coordinates, bin2nuc, count_forgiving_mismatches, HLA_LOCUS
+from .utils import HLA_LOCUS, allele_coordinates, bin2nuc, count_forgiving_mismatches
 
 
 class HLASequence(BaseModel):
@@ -240,6 +240,7 @@ class AllelePairs(BaseModel):
 
         return reduced_set
 
+    # FIXME see about cleaning this up; what parts would be best to preserve?
     def best_common_allele_pair_str(
         self,
         frequencies: dict[HLAProteinPair, int],
@@ -365,9 +366,63 @@ class HLAInterpretation(BaseModel):
     def best_matching_allele_pairs(self) -> AllelePairs:
         return AllelePairs.get_allele_pairs(self.best_matches())
 
-    def best_common_allele_pair_str(self) -> str:
-        best_matches: AllelePairs = self.best_matching_allele_pairs()
-        return best_matches.best_common_allele_pair_str(self.allele_frequencies)
+    def best_common_allele_pair(
+        self,
+    ) -> tuple[tuple[str, str], str, HLACombinedStandard]:
+        """
+        Find the (or *a*) "best common allele pair" for this interpretation.
+        """
+        # First, make a lookup table mapping allele pairs to the combined
+        # standards they come from.
+        best_matches: set[HLACombinedStandard] = self.best_matches()
+        ap_to_cs: dict[tuple[str, str], HLACombinedStandard] = {}
+        for cs in best_matches:
+            for ap in cs.possible_allele_pairs:
+                ap_to_cs[ap] = cs
+
+        # Get an unambiguous set of allele pairs from the best matches:
+        best_aps: AllelePairs = AllelePairs.get_allele_pairs(best_matches)
+        best_unambiguous: AllelePairs = best_aps.get_unambiguous_allele_pairs(
+            self.allele_frequencies
+        )
+
+        paired_gene_coordinates: list[tuple[list[str], list[str]]] = (
+            best_unambiguous.get_paired_gene_coordinates()
+        )
+
+        clean_allele: list[str] = []
+        for n in [0, 1]:
+            for i in [4, 3, 2, 1]:
+                all_leading_coordinates = {
+                    ":".join(a[n][0:i]) for a in paired_gene_coordinates
+                }
+                if len(all_leading_coordinates) == 1:
+                    best_common_coords = all_leading_coordinates.pop()
+                    clean_allele.append(
+                        re.sub(
+                            r"[A-Z]$",
+                            "",
+                            best_common_coords,
+                        )
+                    )
+                    if i > 1:
+                        # This branch is unnecessary but it gets us 100% code
+                        # coverage ¯\_(ツ)_/¯
+                        break
+
+        clean_allele_pair_str: str = " - ".join(clean_allele)
+
+        best_representative: tuple[str, str] = sorted(best_unambiguous.allele_pairs)[0]
+        return (
+            best_representative,
+            clean_allele_pair_str,
+            ap_to_cs[best_representative],
+        )
+
+    # FIXME clean up all uses of this method
+    # def best_common_allele_pair_str(self) -> str:
+    #     best_matches: AllelePairs = self.best_matching_allele_pairs()
+    #     return best_matches.best_common_allele_pair_str(self.allele_frequencies)
 
     def distance_from_b7501(self) -> Optional[int]:
         """
