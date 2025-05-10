@@ -240,11 +240,10 @@ class AllelePairs(BaseModel):
 
         return reduced_set
 
-    # FIXME see about cleaning this up; what parts would be best to preserve?
     def best_common_allele_pair_str(
         self,
         frequencies: dict[HLAProteinPair, int],
-    ) -> str:
+    ) -> tuple[str, set[tuple[str, str]]]:
         """
         Produce a string representation of the "best common allele pair".
 
@@ -261,16 +260,17 @@ class AllelePairs(BaseModel):
         ```
         we expect to get `A*11:02 - A*12`.
 
-        :return: A string representing the best common allele pair.
-        :rtype: str
+        :return: A string representing the best common allele pair, and the
+        unambiguous set this string represents.
+        :rtype: tuple[str, set[tuple[str, str]]]
         """
         # Starting with an unambiguous set assures that we will definitely get
         # a result.
-        unambiguous_set: AllelePairs = AllelePairs(
+        unambiguous_aps: AllelePairs = AllelePairs(
             allele_pairs=self.get_unambiguous_allele_pairs(frequencies)
         )
         paired_gene_coordinates: list[tuple[list[str], list[str]]] = (
-            unambiguous_set.get_paired_gene_coordinates()
+            unambiguous_aps.get_paired_gene_coordinates()
         )
 
         clean_allele: list[str] = []
@@ -294,7 +294,7 @@ class AllelePairs(BaseModel):
                         break
 
         clean_allele_pair_str: str = " - ".join(clean_allele)
-        return clean_allele_pair_str
+        return (clean_allele_pair_str, set(unambiguous_aps.allele_pairs))
 
     def stringify(self, max_length: int = 3900) -> str:
         """
@@ -382,47 +382,18 @@ class HLAInterpretation(BaseModel):
 
         # Get an unambiguous set of allele pairs from the best matches:
         best_aps: AllelePairs = AllelePairs.get_allele_pairs(best_matches)
-        best_unambiguous: AllelePairs = best_aps.get_unambiguous_allele_pairs(
+        clean_ap_str: str
+        best_unambiguous: AllelePairs
+        clean_ap_str, best_unambiguous = best_aps.best_common_allele_pair_str(
             self.allele_frequencies
         )
-
-        paired_gene_coordinates: list[tuple[list[str], list[str]]] = (
-            best_unambiguous.get_paired_gene_coordinates()
-        )
-
-        clean_allele: list[str] = []
-        for n in [0, 1]:
-            for i in [4, 3, 2, 1]:
-                all_leading_coordinates = {
-                    ":".join(a[n][0:i]) for a in paired_gene_coordinates
-                }
-                if len(all_leading_coordinates) == 1:
-                    best_common_coords = all_leading_coordinates.pop()
-                    clean_allele.append(
-                        re.sub(
-                            r"[A-Z]$",
-                            "",
-                            best_common_coords,
-                        )
-                    )
-                    if i > 1:
-                        # This branch is unnecessary but it gets us 100% code
-                        # coverage ¯\_(ツ)_/¯
-                        break
-
-        clean_allele_pair_str: str = " - ".join(clean_allele)
 
         best_representative: tuple[str, str] = sorted(best_unambiguous.allele_pairs)[0]
         return (
             best_representative,
-            clean_allele_pair_str,
+            clean_ap_str,
             ap_to_cs[best_representative],
         )
-
-    # FIXME clean up all uses of this method
-    # def best_common_allele_pair_str(self) -> str:
-    #     best_matches: AllelePairs = self.best_matching_allele_pairs()
-    #     return best_matches.best_common_allele_pair_str(self.allele_frequencies)
 
     def distance_from_b7501(self) -> Optional[int]:
         """

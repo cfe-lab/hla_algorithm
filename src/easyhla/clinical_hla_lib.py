@@ -46,20 +46,27 @@ class HLADBBase(MappedAsDataclass, DeclarativeBase):
         Prepare an HLA interpretation for output.
         """
         ap: AllelePairs = interpretation.best_matching_allele_pairs()
-        best_matches: set[HLACombinedStandard] = interpretation.best_matches()
 
-        # For the mismatches, we arbitrarily choose one of the best matches
-        # and get the mismatches from that.
-        arbitrary_best: HLAMatchDetails = interpretation.matches[best_matches.pop()]
+        # Pick one of the combined standards represented by what goes into
+        # "alleles_clean" and report the mismatches coming from that.
+        rep_ap: tuple[str, str]
+        alleles_clean: str
+        rep_cs: HLACombinedStandard
+        rep_ap, alleles_clean, rep_cs = interpretation.best_common_allele_pair()
+
+        mismatches_str: str = (
+            f"({rep_ap[0]} - {rep_ap[1]}) " +
+            ";".join(str(x) for x in rep_cs.mismatches)
+        )
 
         return {
             "enum": interpretation.hla_sequence.name,
-            "alleles_clean": interpretation.best_common_allele_pair_str(),
+            "alleles_clean": alleles_clean,
             "alleles_all": ap.stringify(),
             "ambiguous": ap.is_ambiguous(),
             "homozygous": ap.is_homozygous(),
             "mismatch_count": interpretation.lowest_mismatch_count(),
-            "mismatches": ";".join(str(x) for x in arbitrary_best.mismatches),
+            "mismatches": mismatches_str,
             "enterdate": processing_datetime,
         }
 

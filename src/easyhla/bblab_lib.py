@@ -198,9 +198,14 @@ class HLAInterpretationRow(BaseModel):
         allele_pairs: AllelePairs = interpretation.best_matching_allele_pairs()
         alleles_all_str = allele_pairs.stringify()
 
+        # FIXME: here is where you could get a single "representative" allele
+        # pair for the purposes of getting the mismatches.
+        alleles_clean: str
+        _, alleles_clean, __ = interpretation.best_common_allele_pair()
+
         return cls(
             enum=interpretation.hla_sequence.name,
-            alleles_clean=interpretation.best_common_allele_pair_str(),
+            alleles_clean=alleles_clean,
             alleles=alleles_all_str,
             ambig=int(allele_pairs.is_ambiguous()),
             homozygous=int(allele_pairs.is_homozygous()),

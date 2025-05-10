@@ -550,24 +550,58 @@ class TestAllelePairs:
         assert result == exp_result
 
     @pytest.mark.parametrize(
-        "raw_allele_pairs, frequencies, expected_result",
+        "raw_allele_pairs, frequencies, expected_result, expected_unambiguous_set",
         [
-            ([("B*57:01", "B*59:03")], {}, "B*57:01 - B*59:03"),
-            ([("C*01:02:03", "C*03:04:05")], {}, "C*01:02:03 - C*03:04:05"),
-            ([("C*01:02:03", "C*03:04")], {}, "C*01:02:03 - C*03:04"),
-            ([("C*01:02", "C*03:04:05:06")], {}, "C*01:02 - C*03:04:05:06"),
-            ([("C*01:02:03:04", "C*03:04:05:06")], {}, "C*01:02:03:04 - C*03:04:05:06"),
-            (
+            pytest.param(
+                [("B*57:01", "B*59:03")],
+                {},
+                "B*57:01 - B*59:03",
+                {("B*57:01", "B*59:03")},
+                id="single_allele_pair_two_coordinates",
+            ),
+            pytest.param(
+                [("C*01:02:03", "C*03:04:05")],
+                {},
+                "C*01:02:03 - C*03:04:05",
+                {("C*01:02:03", "C*03:04:05")},
+                id="single_allele_pair_three_coordinates",
+            ),
+            pytest.param(
+                [("C*01:02:03", "C*03:04")],
+                {},
+                "C*01:02:03 - C*03:04",
+                {("C*01:02:03", "C*03:04")},
+                id="single_allele_pair_three_and_two_coordinates",
+            ),
+            pytest.param(
+                [("C*01:02", "C*03:04:05:06")],
+                {},
+                "C*01:02 - C*03:04:05:06",
+                {("C*01:02", "C*03:04:05:06")},
+                id="single_allele_pair_two_and_four_coordinates",
+            ),
+            pytest.param(
+                [("C*01:02:03:04", "C*03:04:05:06")],
+                {},
+                "C*01:02:03:04 - C*03:04:05:06",
+                {("C*01:02:03:04", "C*03:04:05:06")},
+                id="single_allele_pair_four_coordinates",
+            ),
+            pytest.param(
                 [("A*01:02:03:04N", "A*11:22:33:44G")],
                 {},
                 "A*01:02:03:04 - A*11:22:33:44",
+                {("A*01:02:03:04N", "A*11:22:33:44G")},
+                id="single_allele_pair_strip_trailing_letters",
             ),
-            (
+            pytest.param(
                 [("B*57:02:03:04N", "B*59:01:03"), ("B*56:01:01", "B*58:03:03:03N")],
                 {},
                 "B*56:01:01 - B*58:03:03:03",
+                {("B*56:01:01", "B*58:03:03:03N")},
+                id="find_best_without_frequencies",
             ),
-            (
+            pytest.param(
                 [("B*57:02:03:04N", "B*59:01:03"), ("B*56:01:01", "B*58:03:03:03N")],
                 {
                     HLAProteinPair(
@@ -584,8 +618,10 @@ class TestAllelePairs:
                     ): 150,
                 },
                 "B*56:01:01 - B*58:03:03:03",
+                {("B*56:01:01", "B*58:03:03:03N")},
+                id="best_with_frequencies_matches_best_without",
             ),
-            (
+            pytest.param(
                 [("B*57:02:03:04N", "B*59:01:03"), ("B*56:01:01", "B*58:03:03:03N")],
                 {
                     HLAProteinPair(
@@ -602,8 +638,10 @@ class TestAllelePairs:
                     ): 15,
                 },
                 "B*57:02:03:04 - B*59:01:03",
+                {("B*57:02:03:04N", "B*59:01:03")},
+                id="best_with_frequencies_overrides_best_without",
             ),
-            (  # with no frequencies
+            pytest.param(
                 [
                     ("A*02:01", "A*03:01"),
                     ("A*02:01", "A*03:01"),
@@ -622,8 +660,22 @@ class TestAllelePairs:
                 ],
                 {},
                 "A*02 - A*03",
+                {
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:237", "A*03:05"),
+                    ("A*02:26", "A*03:07"),
+                    ("A*02:34", "A*03:08"),
+                    ("A*02:90", "A*03:09"),
+                    ("A*02:24", "A*03:17"),
+                    ("A*02:195", "A*03:23"),
+                    ("A*02:338", "A*03:95"),
+                    ("A*02:35", "A*03:108"),
+                    ("A*02:86", "A*03:123"),
+                    ("A*02:20", "A*03:157"),
+                },
+                id="several_pairs_no_frequencies"
             ),
-            (  # has frequencies, but they don't cover the alleles we see
+            pytest.param(
                 [
                     ("A*02:01", "A*03:01"),
                     ("A*02:01", "A*03:01"),
@@ -649,8 +701,25 @@ class TestAllelePairs:
                     ): 150,
                 },
                 "A*02 - A*03",
+                {
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:237", "A*03:05"),
+                    ("A*02:26", "A*03:07"),
+                    ("A*02:34", "A*03:08"),
+                    ("A*02:90", "A*03:09"),
+                    ("A*02:24", "A*03:17"),
+                    ("A*02:195", "A*03:23"),
+                    ("A*02:338", "A*03:95"),
+                    ("A*02:35", "A*03:108"),
+                    ("A*02:86", "A*03:123"),
+                    ("A*02:20", "A*03:157"),
+                },
+                id="frequencies_not_relevant"
             ),
-            (  # has frequencies but they don't affect the decision
+            pytest.param(
                 [
                     ("A*02:01", "A*03:01"),
                     ("A*02:01", "A*03:01"),
@@ -676,8 +745,25 @@ class TestAllelePairs:
                     ): 150,
                 },
                 "A*02 - A*03",
+                {
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:237", "A*03:05"),
+                    ("A*02:26", "A*03:07"),
+                    ("A*02:34", "A*03:08"),
+                    ("A*02:90", "A*03:09"),
+                    ("A*02:24", "A*03:17"),
+                    ("A*02:195", "A*03:23"),
+                    ("A*02:338", "A*03:95"),
+                    ("A*02:35", "A*03:108"),
+                    ("A*02:86", "A*03:123"),
+                    ("A*02:20", "A*03:157"),
+                },
+                id="frequencies_do_not_affect_decision",
             ),
-            (  # ambiguous set, no frequencies
+            pytest.param(
                 [
                     ("A*02:01", "A*03:01"),
                     ("A*02:237", "A*03:05"),
@@ -697,8 +783,17 @@ class TestAllelePairs:
                     ): 150,
                 },
                 "A*02 - A*03",
+                {
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:237", "A*03:05"),
+                    ("A*02:26", "A*03:07"),
+                    ("A*02:34", "A*03:08"),
+                    ("A*02:86", "A*03:123"),
+                    ("A*02:20", "A*03:157"),
+                },
+                id="ambiguous_set_no_frequencies",
             ),
-            (  # ambiguous set, has frequencies which happen to coincide with the lowest-numbering
+            pytest.param(
                 [
                     ("A*02:01", "A*03:01"),
                     ("A*02:237", "A*03:05"),
@@ -718,8 +813,17 @@ class TestAllelePairs:
                     ): 150,
                 },
                 "A*02 - A*03",
+                {
+                    ("A*02:01", "A*03:01"),
+                    ("A*02:237", "A*03:05"),
+                    ("A*02:26", "A*03:07"),
+                    ("A*02:34", "A*03:08"),
+                    ("A*02:86", "A*03:123"),
+                    ("A*02:20", "A*03:157"),
+                },
+                id="ambiguous_set_frequencies_agree_with_lowest_numbered",
             ),
-            (  # ambiguous set, has frequencies which dictate the "best allele" choice
+            pytest.param(
                 [
                     ("A*02:01", "A*03:01"),
                     ("A*02:237", "A*03:05"),
@@ -739,6 +843,11 @@ class TestAllelePairs:
                     ): 150,
                 },
                 "A*04:123 - A*22:33",
+                {
+                    ("A*04:123", "A*22:33"),
+                    ("A*04:123:22", "A*22:33:45:66N"),
+                },
+                id="ambiguous_set_frequencies_dictate_best_allele_choice"
             ),
         ],
     )
@@ -747,10 +856,14 @@ class TestAllelePairs:
         raw_allele_pairs: list[tuple[str, str]],
         frequencies: dict[HLAProteinPair, int],
         expected_result: str,
+        expected_unambiguous_set: set[tuple[str, str]],
     ):
         ap: AllelePairs = AllelePairs(allele_pairs=raw_allele_pairs)
-        result = ap.best_common_allele_pair_str(frequencies)
-        assert result == expected_result
+        result_pair_str: str
+        result_unambiguous_set: set[tuple[str, str]]
+        result_pair_str, result_unambiguous_set = ap.best_common_allele_pair_str(frequencies)
+        assert result_pair_str == expected_result
+        assert result_unambiguous_set == expected_unambiguous_set
 
     @pytest.mark.parametrize(
         "combined_standards, exp_alleles",
@@ -1053,7 +1166,7 @@ class TestHLAInterpretation:
         (
             "raw_matches, frequencies, expected_mismatch_count, "
             "expected_best_matches, expected_allele_pairs, "
-            "expected_best_common_allele_pair_str"
+            "expected_best_rep_ap, expected_common_ap_str, expected_best_rep_cs"
         ),
         [
             pytest.param(
@@ -1085,7 +1198,12 @@ class TestHLAInterpretation:
                     )
                 },
                 {("A*01:01:01", "A*02:02:02")},
+                ("A*01:01:01", "A*02:02:02"),
                 "A*01:01:01 - A*02:02:02",
+                HLACombinedStandard(
+                    standard_bin=(1, 4, 9, 4),
+                    possible_allele_pairs=(("A*01:01:01", "A*02:02:02"),),
+                ),
                 id="single_matching_combined_standard",
             ),
             pytest.param(
@@ -1121,7 +1239,12 @@ class TestHLAInterpretation:
                     )
                 },
                 {("A*10:01:01", "A*20:02:02")},
+                ("A*10:01:01", "A*20:02:02"),
                 "A*10:01:01 - A*20:02:02",
+                HLACombinedStandard(
+                    standard_bin=(1, 4, 9, 2),
+                    possible_allele_pairs=(("A*10:01:01", "A*20:02:02"),),
+                ),
                 id="two_matches_no_tie",
             ),
             pytest.param(
@@ -1177,8 +1300,84 @@ class TestHLAInterpretation:
                     ("A*10:01:01", "A*20:02:03"),
                     ("A*10:01:10", "A*22:22:22"),
                 },
+                ("A*10:01:01", "A*20:02:03"),
                 "A*10:01:01 - A*20:02:03",
-                id="typical_case",
+                HLACombinedStandard(
+                    standard_bin=(1, 4, 9, 2),
+                    possible_allele_pairs=(("A*10:01:01", "A*20:02:03"),),
+                )
+                id="typical_case_single_element_unambiguous_set_of_allele_pairs",
+            ),
+            pytest.param(
+                {
+                    HLACombinedStandard(
+                        standard_bin=(1, 4, 9, 4),
+                        possible_allele_pairs=(("A*01:01:01", "A*02:02:02"),),
+                    ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
+                    HLACombinedStandard(
+                        standard_bin=(1, 4, 9, 2),
+                        possible_allele_pairs=(("A*10:01:01", "A*20:02:03"),),
+                    ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
+                    HLACombinedStandard(
+                        standard_bin=(2, 4, 9, 2),
+                        possible_allele_pairs=(("A*10:01:10", "A*20:22:20"),),
+                    ): HLAMatchDetails(mismatch_count=3, mismatches=[]),
+                    HLACombinedStandard(
+                        standard_bin=(2, 4, 10, 2),
+                        possible_allele_pairs=(
+                            ("A*10:01:10", "A*20:01"),
+                            ("A*10:01:10", "A*22:22:22"),
+                        ),
+                    ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
+                },
+                {
+                    HLAProteinPair(
+                        first_field_1="01",
+                        first_field_2="01",
+                        second_field_1="02",
+                        second_field_2="02",
+                    ): 150,
+                    HLAProteinPair(
+                        first_field_1="10",
+                        first_field_2="01",
+                        second_field_1="20",
+                        second_field_2="02",
+                    ): 1500,
+                },
+                1,
+                {
+                    HLACombinedStandard(
+                        standard_bin=(1, 4, 9, 4),
+                        possible_allele_pairs=(("A*01:01:01", "A*02:02:02"),),
+                    ),
+                    HLACombinedStandard(
+                        standard_bin=(1, 4, 9, 2),
+                        possible_allele_pairs=(("A*10:01:01", "A*20:02:03"),),
+                    ),
+                    HLACombinedStandard(
+                        standard_bin=(2, 4, 10, 2),
+                        possible_allele_pairs=(
+                            ("A*10:01:10", "A*20:01"),
+                            ("A*10:01:10", "A*22:22:22"),
+                        ),
+                    ),
+                },
+                {
+                    ("A*01:01:01", "A*02:02:02"),
+                    ("A*10:01:01", "A*20:02:03"),
+                    ("A*10:01:10", "A*20:01"),
+                    ("A*10:01:10", "A*22:22:22"),
+                },
+                ("A*10:01:01", "A*20:01"),
+                "A*10:01 - A*20",
+                HLACombinedStandard(
+                    standard_bin=(2, 4, 10, 2),
+                    possible_allele_pairs=(
+                        ("A*10:01:10", "A*20:01"),
+                        ("A*10:01:10", "A*22:22:22"),
+                    ),
+                ),
+                id="typical_case_nontrivial_unambiguous_set_of_allele_pairs",
             ),
         ],
     )
@@ -1190,7 +1389,9 @@ class TestHLAInterpretation:
         expected_mismatch_count: int,
         expected_best_matches: set[HLACombinedStandard],
         expected_allele_pairs: set[tuple[str, str]],
-        expected_best_common_allele_pair_str: str,
+        expected_best_rep_ap: tuple[str, str],
+        expected_common_ap_str: str,
+        expected_best_rep_cs: HLACombinedStandard,
     ):
         interp: HLAInterpretation = HLAInterpretation(
             hla_sequence=hla_sequence,
@@ -1204,9 +1405,14 @@ class TestHLAInterpretation:
             set(interp.best_matching_allele_pairs().allele_pairs)
             == expected_allele_pairs
         )
-        assert (
-            interp.best_common_allele_pair_str() == expected_best_common_allele_pair_str
-        )
+
+        best_rep_ap: tuple[str, str]
+        common_ap_str: str
+        best_rep_cs: HLACombinedStandard
+        best_rep_ap, common_ap_str, best_rep_cs = interp.best_common_allele_pair()
+        assert best_rep_ap == expected_best_rep_ap
+        assert common_ap_str == expected_common_ap_str
+        assert best_rep_cs == expected_best_rep_cs
 
     @pytest.mark.parametrize(
         "b5701_standards, expected_result",
