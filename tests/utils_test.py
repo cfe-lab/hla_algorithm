@@ -15,7 +15,9 @@ from easyhla.utils import (
     HLA_LOCUS,
     MAX_HLA_BC_LENGTH,
     MIN_HLA_BC_LENGTH,
+    BadLengthException,
     GroupedAllele,
+    InvalidBaseException,
     allele_integer_coordinates,
     bin2nuc,
     calc_padding,
@@ -251,164 +253,207 @@ def test_check_bases(sequence: str, exp_good: bool):
     if exp_good:
         check_bases(seq=sequence)
     else:
-        with pytest.raises(ValueError):
+        with pytest.raises(InvalidBaseException):
             check_bases(seq=sequence)
 
 
 CHECK_LENGTH_HLA_A_TEST_CASES = [
-    pytest.param(HLA_A_LENGTH, "myseq_regular", True, id="regular_good_case"),
+    pytest.param(HLA_A_LENGTH, "myseq_regular", True, None, id="regular_good_case"),
     pytest.param(
         HLA_A_LENGTH,
         "myseq_exon2",
         True,
+        None,
         id="regular_good_case_ignores_exon2_name",
     ),
     pytest.param(
         HLA_A_LENGTH,
         "myseq_exon3",
         True,
+        None,
         id="regular_good_case_ignores_exon3_name",
     ),
-    pytest.param(1000, "myseq_regular", False, id="sequence_too_long"),
-    pytest.param(1000, "myseq_exon2", False, id="sequence_too_long_ignores_exon2_name"),
-    pytest.param(1000, "myseq_exon3", False, id="sequence_too_long_ignores_exon3_name"),
+    pytest.param(
+        1000, "myseq_regular", False, str(HLA_A_LENGTH), id="sequence_too_long"
+    ),
+    pytest.param(
+        1000,
+        "myseq_exon2",
+        False,
+        str(HLA_A_LENGTH),
+        id="sequence_too_long_ignores_exon2_name",
+    ),
+    pytest.param(
+        1000,
+        "myseq_exon3",
+        False,
+        str(HLA_A_LENGTH),
+        id="sequence_too_long_ignores_exon3_name",
+    ),
     pytest.param(
         HLA_A_LENGTH + 1,
         "myseq_regular",
         False,
+        str(HLA_A_LENGTH),
         id="sequence_too_long_edge_case",
     ),
     pytest.param(
         HLA_A_LENGTH + 1,
         "myseq_exon2",
         False,
+        str(HLA_A_LENGTH),
         id="sequence_too_long_edge_case_ignores_exon2_name",
     ),
     pytest.param(
         HLA_A_LENGTH + 1,
         "myseq_exon3",
         False,
+        str(HLA_A_LENGTH),
         id="sequence_too_long_edge_case_ignores_exon3_name",
     ),
-    pytest.param(300, "myseq_regular", False, id="sequence_too_short"),
+    pytest.param(
+        300, "myseq_regular", False, str(HLA_A_LENGTH), id="sequence_too_short"
+    ),
     pytest.param(
         EXON2_LENGTH,
         "myseq_exon2",
         False,
+        str(HLA_A_LENGTH),
         id="sequence_too_short_ignores_exon2_name",
     ),
     pytest.param(
         EXON3_LENGTH,
         "myseq_exon3",
         False,
+        str(HLA_A_LENGTH),
         id="sequence_too_short_ignores_exon3_name",
     ),
     pytest.param(
         HLA_A_LENGTH - 1,
         "myseq_regular",
         False,
+        str(HLA_A_LENGTH),
         id="sequence_too_short_edge_case",
     ),
     pytest.param(
         HLA_A_LENGTH - 1,
         "myseq_exon2",
         False,
+        str(HLA_A_LENGTH),
         id="sequence_too_short_edge_case_ignores_exon2_name",
     ),
     pytest.param(
         HLA_A_LENGTH - 1,
         "myseq_exon3",
         False,
+        str(HLA_A_LENGTH),
         id="sequence_too_short_edge_case_ignores_exon3_name",
     ),
     pytest.param(
         300,
         "myseq_short",
         True,
+        None,
         id="shortseq_good_case",
     ),
     pytest.param(
         300,
         "myseq_exon2_short",
         True,
+        None,
         id="shortseq_good_case_ignores_exon2_name",
     ),
     pytest.param(
         300,
         "myseq_exon3_short",
         True,
+        None,
         id="shortseq_good_case_ignores_exon3_name",
     ),
     pytest.param(
         HLA_A_LENGTH - 1,
         "myseq_short",
         True,
+        None,
         id="shortseq_good_case_edge_case",
     ),
     pytest.param(
         HLA_A_LENGTH - 1,
         "myseq_exon2_short",
         True,
+        None,
         id="shortseq_good_case_edge_case_ignores_exon2_name",
     ),
     pytest.param(
         HLA_A_LENGTH - 1,
         "myseq_exon3_short",
         True,
+        None,
         id="shortseq_good_case_edge_case_ignores_exon3_name",
     ),
     pytest.param(
         HLA_A_LENGTH + 100,
         "myseq_short",
         False,
+        f"<{HLA_A_LENGTH}",
         id="shortseq_too_long",
     ),
     pytest.param(
         HLA_A_LENGTH + 100,
         "myseq_short_exon2",
         False,
+        f"<{HLA_A_LENGTH}",
         id="shortseq_too_long_ignores_exon2_name",
     ),
     pytest.param(
         HLA_A_LENGTH + 100,
         "myseq_short_exon3",
         False,
+        f"<{HLA_A_LENGTH}",
         id="shortseq_too_long_ignores_exon3_name",
     ),
     pytest.param(
         HLA_A_LENGTH,
         "myseq_short",
         False,
+        f"<{HLA_A_LENGTH}",
         id="shortseq_too_long_edge_case",
     ),
     pytest.param(
         HLA_A_LENGTH,
         "myseq_exon2_short",
         False,
+        f"<{HLA_A_LENGTH}",
         id="shortseq_too_long_edge_case_ignores_exon2_name",
     ),
     pytest.param(
         HLA_A_LENGTH,
         "myseq_exon3_short",
         False,
+        f"<{HLA_A_LENGTH}",
         id="shortseq_too_long_edge_case_ignores_exon3_name",
     ),
 ]
 
 
 @pytest.mark.parametrize(
-    "sequence_length, name, expected_to_pass",
+    "sequence_length, name, expected_to_pass, expected_length",
     CHECK_LENGTH_HLA_A_TEST_CASES,
 )
 def test_check_length_hla_type_a(
-    sequence_length: int, name: str, expected_to_pass: bool
+    sequence_length: int,
+    name: str,
+    expected_to_pass: bool,
+    expected_length: Optional[str],
 ):
     sequence: str = "A" * sequence_length
     if expected_to_pass:
         check_length("A", seq=sequence, name=name)
     else:
-        with pytest.raises(ValueError):
+        with pytest.raises(BadLengthException) as e:
             check_length("A", seq=sequence, name=name)
+            assert e.expected_length == expected_length
+            assert e.actual_length == sequence_length
 
 
 CHECK_LENGTH_HLA_BC_TEST_CASES = [
@@ -417,48 +462,56 @@ CHECK_LENGTH_HLA_BC_TEST_CASES = [
         EXON2_LENGTH,
         "myseq_exon2",
         True,
+        None,
         id="regular_exon2_good_case",
     ),
     pytest.param(
         EXON2_LENGTH,
         "myseq_exon2_exon3",
         True,
+        None,
         id="regular_exon2_good_case_ignores_exon3_name",
     ),
     pytest.param(
         EXON2_LENGTH - 1,
         "myseq_exon2",
         False,
+        str(EXON2_LENGTH),
         id="regular_exon2_too_short_edge_case",
     ),
     pytest.param(
         EXON2_LENGTH - 100,
         "myseq_exon2",
         False,
+        str(EXON2_LENGTH),
         id="regular_exon2_too_short_typical_case",
     ),
     pytest.param(
         EXON2_LENGTH + 1,
         "myseq_exon2",
         False,
+        str(EXON2_LENGTH),
         id="regular_exon2_too_long_edge_case",
     ),
     pytest.param(
         EXON3_LENGTH,
         "myseq_exon2",
         False,
+        str(EXON2_LENGTH),
         id="regular_exon2_too_long_exon3_length",
     ),
     pytest.param(
         HLA_A_LENGTH,
         "myseq_exon2",
         False,
+        str(EXON2_LENGTH),
         id="regular_exon2_too_long_a_length",
     ),
     pytest.param(
         EXON2_LENGTH + 100,
         "myseq_exon2",
         False,
+        str(EXON2_LENGTH),
         id="regular_exon2_too_long_typical_case",
     ),
     # exon3 tests:
@@ -466,42 +519,49 @@ CHECK_LENGTH_HLA_BC_TEST_CASES = [
         EXON3_LENGTH,
         "myseq_exon3",
         True,
+        None,
         id="regular_exon3_good_case",
     ),
     pytest.param(
         EXON3_LENGTH - 1,
         "myseq_exon3",
         False,
+        str(EXON3_LENGTH),
         id="regular_exon3_too_short_edge_case",
     ),
     pytest.param(
         EXON2_LENGTH,
         "myseq_exon3",
         False,
+        str(EXON3_LENGTH),
         id="regular_exon3_too_short_exon2_length",
     ),
     pytest.param(
         EXON3_LENGTH - 100,
         "myseq_exon3",
         False,
+        str(EXON3_LENGTH),
         id="regular_exon3_too_short_typical_case",
     ),
     pytest.param(
         EXON3_LENGTH + 1,
         "myseq_exon3",
         False,
+        str(EXON3_LENGTH),
         id="regular_exon3_too_long_edge_case",
     ),
     pytest.param(
         HLA_A_LENGTH,
         "myseq_exon3",
         False,
+        str(EXON3_LENGTH),
         id="regular_exon3_too_long_a_length",
     ),
     pytest.param(
         EXON3_LENGTH + 100,
         "myseq_exon3",
         False,
+        str(EXON3_LENGTH),
         id="regular_exon3_too_long_typical_case",
     ),
     # Full sequence tests:
@@ -509,54 +569,63 @@ CHECK_LENGTH_HLA_BC_TEST_CASES = [
         MIN_HLA_BC_LENGTH,
         "myseq_full",
         True,
+        None,
         id="regular_full_good_case_lower_edge_case",
     ),
     pytest.param(
         MAX_HLA_BC_LENGTH,
         "myseq_full",
         True,
+        None,
         id="regular_full_good_case_upper_edge_case",
     ),
     pytest.param(
         790,
         "myseq_full",
         True,
+        None,
         id="regular_full_good_case_middle_of_range",
     ),
     pytest.param(
         MIN_HLA_BC_LENGTH - 1,
         "myseq_full",
         False,
+        f"[{MIN_HLA_BC_LENGTH}, {MAX_HLA_BC_LENGTH}]",
         id="regular_full_too_short_edge_case",
     ),
     pytest.param(
         EXON2_LENGTH,
         "myseq_full",
         False,
+        f"[{MIN_HLA_BC_LENGTH}, {MAX_HLA_BC_LENGTH}]",
         id="regular_full_too_short_exon2_length",
     ),
     pytest.param(
         EXON3_LENGTH,
         "myseq_full",
         False,
+        f"[{MIN_HLA_BC_LENGTH}, {MAX_HLA_BC_LENGTH}]",
         id="regular_full_too_short_exon3_length",
     ),
     pytest.param(
         MIN_HLA_BC_LENGTH - 100,
         "myseq_full",
         False,
+        f"[{MIN_HLA_BC_LENGTH}, {MAX_HLA_BC_LENGTH}]",
         id="regular_full_too_short_typical_case",
     ),
     pytest.param(
         MAX_HLA_BC_LENGTH + 1,
         "myseq_full",
         False,
+        f"[{MIN_HLA_BC_LENGTH}, {MAX_HLA_BC_LENGTH}]",
         id="regular_full_too_long_edge_case",
     ),
     pytest.param(
         MAX_HLA_BC_LENGTH + 100,
         "myseq_full",
         False,
+        f"[{MIN_HLA_BC_LENGTH}, {MAX_HLA_BC_LENGTH}]",
         id="regular_full_too_long_typical_case",
     ),
     # Short exon2 tests:
@@ -564,79 +633,92 @@ CHECK_LENGTH_HLA_BC_TEST_CASES = [
         EXON2_LENGTH - 1,
         "myseq_exon2_short",
         True,
+        None,
         id="short_exon2_good_case_edge_case",
     ),
     pytest.param(
         EXON2_LENGTH - 100,
         "myseq_exon2_short",
         True,
+        None,
         id="short_exon2_good_case_typical",
     ),
     pytest.param(
         EXON2_LENGTH,
         "myseq_exon2_short",
         False,
+        f"<{EXON2_LENGTH}",
         id="short_exon2_too_long_edge_case",
     ),
     pytest.param(
         EXON3_LENGTH,
         "myseq_exon2_short",
         False,
+        f"<{EXON2_LENGTH}",
         id="short_exon2_too_long_exon3_length",
     ),
     pytest.param(
         HLA_A_LENGTH,
         "myseq_exon2_short",
         False,
+        f"<{EXON2_LENGTH}",
         id="short_exon2_too_long_a_length",
     ),
     pytest.param(
         EXON2_LENGTH + 10,
         "myseq_exon2_short",
         False,
+        f"<{EXON2_LENGTH}",
         id="short_exon2_too_long_typical_case",
     ),
     pytest.param(
         EXON3_LENGTH - 1,
         "myseq_exon2_short",
         False,
-        id="short_exon2_ignores_exon3_name",
+        f"<{EXON2_LENGTH}",
+        id="short_exon2_almost_exon3_length",
     ),
     # Short exon3 tests:
     pytest.param(
         EXON3_LENGTH - 1,
         "myseq_exon3_short",
         True,
+        None,
         id="short_exon3_good_case_edge_case",
     ),
     pytest.param(
         EXON3_LENGTH - 100,
         "myseq_exon3_short",
         True,
+        None,
         id="short_exon3_good_case_typical",
     ),
     pytest.param(
         EXON2_LENGTH,
         "myseq_exon3_short",
         True,
+        None,
         id="short_exon3_good_case_exon2_length",
     ),
     pytest.param(
         EXON3_LENGTH,
         "myseq_exon3_short",
         False,
+        f"<{EXON3_LENGTH}",
         id="short_exon3_too_long_edge_case",
     ),
     pytest.param(
         HLA_A_LENGTH,
         "myseq_exon3_short",
         False,
+        f"<{EXON3_LENGTH}",
         id="short_exon3_too_long_a_length",
     ),
     pytest.param(
         EXON3_LENGTH + 10,
         "myseq_exon3_short",
         False,
+        f"<{EXON3_LENGTH}",
         id="short_exon3_too_long_typical_case",
     ),
     # Full sequence tests:
@@ -644,61 +726,73 @@ CHECK_LENGTH_HLA_BC_TEST_CASES = [
         MAX_HLA_BC_LENGTH - 1,
         "myseq_short",
         True,
+        None,
         id="short_full_good_case_edge_case",
     ),
     pytest.param(
         MAX_HLA_BC_LENGTH - 100,
         "myseq_short",
         True,
+        None,
         id="short_full_good_case_typical",
     ),
     pytest.param(
         MIN_HLA_BC_LENGTH,
         "myseq_short",
         True,
+        None,
         id="short_full_good_case_min_bc_length",
     ),
     pytest.param(
         EXON2_LENGTH,
         "myseq_short",
         True,
+        None,
         id="short_full_good_case_exon2_length",
     ),
     pytest.param(
         EXON3_LENGTH,
         "myseq_short",
         True,
+        None,
         id="short_full_good_case_exon3_length",
     ),
     pytest.param(
         MAX_HLA_BC_LENGTH,
         "myseq_short",
         False,
+        f"<{MAX_HLA_BC_LENGTH}",
         id="short_full_too_long_edge_case",
     ),
     pytest.param(
         MAX_HLA_BC_LENGTH + 150,
         "myseq_short",
         False,
+        f"<{MAX_HLA_BC_LENGTH}",
         id="short_full_too_long_typical_case",
     ),
 ]
 
 
 @pytest.mark.parametrize(
-    "sequence_length, name, expected_to_pass",
+    "sequence_length, name, expected_to_pass, expected_length",
     CHECK_LENGTH_HLA_BC_TEST_CASES,
 )
 def test_check_length_hla_type_b_and_c(
-    sequence_length: int, name: str, expected_to_pass: bool
+    sequence_length: int,
+    name: str,
+    expected_to_pass: bool,
+    expected_length: Optional[str],
 ):
     for locus in ("B", "C"):
         sequence: str = "A" * sequence_length
         if expected_to_pass:
             check_length(locus, seq=sequence, name=name)
         else:
-            with pytest.raises(ValueError):
+            with pytest.raises(BadLengthException) as e:
                 check_length(locus, seq=sequence, name=name)
+                assert e.expected_length == expected_length
+                assert e.actual_length == sequence_length
 
 
 @pytest.mark.parametrize(

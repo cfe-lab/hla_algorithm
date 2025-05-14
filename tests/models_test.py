@@ -673,7 +673,7 @@ class TestAllelePairs:
                     ("A*02:86", "A*03:123"),
                     ("A*02:20", "A*03:157"),
                 },
-                id="several_pairs_no_frequencies"
+                id="several_pairs_no_frequencies",
             ),
             pytest.param(
                 [
@@ -717,7 +717,7 @@ class TestAllelePairs:
                     ("A*02:86", "A*03:123"),
                     ("A*02:20", "A*03:157"),
                 },
-                id="frequencies_not_relevant"
+                id="frequencies_not_relevant",
             ),
             pytest.param(
                 [
@@ -847,7 +847,7 @@ class TestAllelePairs:
                     ("A*04:123", "A*22:33"),
                     ("A*04:123:22", "A*22:33:45:66N"),
                 },
-                id="ambiguous_set_frequencies_dictate_best_allele_choice"
+                id="ambiguous_set_frequencies_dictate_best_allele_choice",
             ),
         ],
     )
@@ -861,7 +861,9 @@ class TestAllelePairs:
         ap: AllelePairs = AllelePairs(allele_pairs=raw_allele_pairs)
         result_pair_str: str
         result_unambiguous_set: set[tuple[str, str]]
-        result_pair_str, result_unambiguous_set = ap.best_common_allele_pair_str(frequencies)
+        result_pair_str, result_unambiguous_set = ap.best_common_allele_pair_str(
+            frequencies
+        )
         assert result_pair_str == expected_result
         assert result_unambiguous_set == expected_unambiguous_set
 
@@ -1305,7 +1307,7 @@ class TestHLAInterpretation:
                 HLACombinedStandard(
                     standard_bin=(1, 4, 9, 2),
                     possible_allele_pairs=(("A*10:01:01", "A*20:02:03"),),
-                )
+                ),
                 id="typical_case_single_element_unambiguous_set_of_allele_pairs",
             ),
             pytest.param(
@@ -1316,7 +1318,7 @@ class TestHLAInterpretation:
                     ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
                     HLACombinedStandard(
                         standard_bin=(1, 4, 9, 2),
-                        possible_allele_pairs=(("A*10:01:01", "A*20:02:03"),),
+                        possible_allele_pairs=(("A*10:01:15", "A*20:02:03"),),
                     ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
                     HLACombinedStandard(
                         standard_bin=(2, 4, 9, 2),
@@ -1352,7 +1354,7 @@ class TestHLAInterpretation:
                     ),
                     HLACombinedStandard(
                         standard_bin=(1, 4, 9, 2),
-                        possible_allele_pairs=(("A*10:01:01", "A*20:02:03"),),
+                        possible_allele_pairs=(("A*10:01:15", "A*20:02:03"),),
                     ),
                     HLACombinedStandard(
                         standard_bin=(2, 4, 10, 2),
@@ -1364,11 +1366,11 @@ class TestHLAInterpretation:
                 },
                 {
                     ("A*01:01:01", "A*02:02:02"),
-                    ("A*10:01:01", "A*20:02:03"),
+                    ("A*10:01:15", "A*20:02:03"),
                     ("A*10:01:10", "A*20:01"),
                     ("A*10:01:10", "A*22:22:22"),
                 },
-                ("A*10:01:01", "A*20:01"),
+                ("A*10:01:10", "A*20:01"),
                 "A*10:01 - A*20",
                 HLACombinedStandard(
                     standard_bin=(2, 4, 10, 2),

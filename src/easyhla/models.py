@@ -383,12 +383,12 @@ class HLAInterpretation(BaseModel):
         # Get an unambiguous set of allele pairs from the best matches:
         best_aps: AllelePairs = AllelePairs.get_allele_pairs(best_matches)
         clean_ap_str: str
-        best_unambiguous: AllelePairs
+        best_unambiguous: set[tuple[str, str]]
         clean_ap_str, best_unambiguous = best_aps.best_common_allele_pair_str(
             self.allele_frequencies
         )
 
-        best_representative: tuple[str, str] = sorted(best_unambiguous.allele_pairs)[0]
+        best_representative: tuple[str, str] = sorted(best_unambiguous)[0]
         return (
             best_representative,
             clean_ap_str,

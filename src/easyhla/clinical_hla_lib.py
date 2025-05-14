@@ -19,15 +19,23 @@ from easyhla.models import (
     HLAMatchDetails,
     HLASequence,
 )
-from easyhla.utils import EXON_NAME, HLA_LOCUS, check_bases, check_length, nuc2bin
+from easyhla.utils import (
+    EXON_NAME,
+    HLA_LOCUS,
+    BadLengthException,
+    InvalidBaseException,
+    check_bases,
+    check_length,
+    nuc2bin,
+)
 
 
 class HLASequenceCommonFields(TypedDict):
     enum: str
     alleles_clean: str
     alleles_all: str
-    ambiguous: bool
-    homozygous: bool
+    ambiguous: str
+    homozygous: str
     mismatch_count: int
     mismatches: str
     enterdate: datetime
@@ -54,17 +62,17 @@ class HLADBBase(MappedAsDataclass, DeclarativeBase):
         rep_cs: HLACombinedStandard
         rep_ap, alleles_clean, rep_cs = interpretation.best_common_allele_pair()
 
-        mismatches_str: str = (
-            f"({rep_ap[0]} - {rep_ap[1]}) " +
-            ";".join(str(x) for x in rep_cs.mismatches)
+        match_details: HLAMatchDetails = interpretation.matches[rep_cs]
+        mismatches_str: str = f"({rep_ap[0]} - {rep_ap[1]}) " + ";".join(
+            str(x) for x in match_details.mismatches
         )
 
         return {
             "enum": interpretation.hla_sequence.name,
             "alleles_clean": alleles_clean,
             "alleles_all": ap.stringify(),
-            "ambiguous": ap.is_ambiguous(),
-            "homozygous": ap.is_homozygous(),
+            "ambiguous": str(ap.is_ambiguous()),
+            "homozygous": str(ap.is_homozygous()),
             "mismatch_count": interpretation.lowest_mismatch_count(),
             "mismatches": mismatches_str,
             "enterdate": processing_datetime,
@@ -172,7 +180,7 @@ class HLASequenceB(HLADBBase):
         ap: AllelePairs = interp.best_matching_allele_pairs()
         reso_status: Optional[str] = "pending" if ap.contains_allele("B*57") else None
         return cls(
-            b5701=interp.is_b5701(),
+            b5701=str(interp.is_b5701()),
             b5701_dist=interp.distance_from_b7501(),
             seqa=hla_sequence.exon2_str,
             seqb=hla_sequence.exon3_str,
@@ -245,22 +253,8 @@ def sanitize_sequence(
     sanitized_contents: str = re.sub(r"^>.+\n", "", raw_contents.strip())
     sanitized_contents = re.sub(r"\s", "", sanitized_contents)
 
-    try:
-        check_length(locus, sanitized_contents, sample_name)
-    except ValueError:
-        error_message: str = (
-            f"HLA-A sequence {sample_name} is the incorrect size; "
-            f"expected 787 characters, found {len(sanitized_contents)}."
-        )
-        raise ValueError(error_message)
-
-    try:
-        check_bases(sanitized_contents)
-    except ValueError:
-        error_message: str = (
-            f"HLA-A sequence {sample_name} contains invalid characters."
-        )
-        raise ValueError(error_message)
+    check_length(locus, sanitized_contents, sample_name)
+    check_bases(sanitized_contents)
 
     return sanitized_contents
 
@@ -274,7 +268,7 @@ def read_a_sequences(input_directory: str, logger: logging.Logger) -> list[HLASe
     prepare HLASequence objects for further processing.
     """
     a_seq_file: re.Pattern = re.compile(r"^(.+)[_\-\.][aA].(?:txt|TXT)")
-    all_files: list[str] = os.listdir(input_directory)
+    all_files: list[str] = sorted(os.listdir(input_directory))
     sequence_file_matches: list[Optional[re.Match]] = [
         a_seq_file.match(x) for x in all_files
     ]
@@ -286,22 +280,30 @@ def read_a_sequences(input_directory: str, logger: logging.Logger) -> list[HLASe
 
     for sample_name, filename in sample_names_and_filenames:
         contents: str = ""
-        with open(filename) as f:
+        with open(os.path.join(input_directory, filename)) as f:
             contents = f.read()
 
         sanitized_contents: str = ""
         try:
             sanitized_contents = sanitize_sequence(contents, "A", sample_name)
-        except ValueError as e:
-            logger.info(e.msg)
-            logger.info("Skipping sequence.")
+        except InvalidBaseException:
+            logger.info(
+                f'Skipping HLA-A sequence file "{filename}": it contains '
+                "invalid characters."
+            )
+            continue
+        except BadLengthException as e:
+            logger.info(
+                f'Skipping HLA-A sequence file "{filename}": expected '
+                f"{e.expected_length} characters, found {e.actual_length}."
+            )
             continue
 
         sequences.append(
             HLASequence(
                 two=nuc2bin(sanitized_contents[:270]),
                 intron=(),
-                three=nuc2bin(sanitized_contents[512:]),
+                three=nuc2bin(sanitized_contents[-276:]),
                 name=sample_name,
                 locus="A",
                 num_sequences_used=1,
@@ -317,15 +319,15 @@ def identify_bc_sequence_files(
     """
     Identify all HLA-B or -C sequences in the input directory.
 
-    These sequences will come in *pairs* of files, e.g. "S12345.BA.txt" and
-    "S12345.BB.txt"; the former will contain exon2 and the latter will contain
-    exon3.
+    These sequences are meant to come in *pairs* of files, e.g. "S12345.BA.txt"
+    and "S12345.BB.txt"; the former will contain exon2 and the latter will
+    contain exon3.
     """
     locus_pattern: str = f"[{locus.lower()}{locus}]"
     fn_pattern: re.Pattern = re.compile(
         f"^(.+)[_\\-\\.]{locus_pattern}([aAbB]).(?:txt|TXT)"
     )
-    all_files: list[str] = os.listdir(input_directory)
+    all_files: list[str] = sorted(os.listdir(input_directory))
     sample_matches: list[Optional[re.Match]] = [fn_pattern.match(x) for x in all_files]
     sample_names: list[str] = list(
         {x.group(1) for x in sample_matches if x is not None}
@@ -341,13 +343,13 @@ def identify_bc_sequence_files(
     for idx, filename in enumerate(all_files):
         sample_match: Optional[re.Match] = sample_matches[idx]
         if sample_match is None:
-            logger.info(f"Skipping file {filename}.")
+            logger.info(f'Skipping file "{filename}".')
             continue
         sample_name: str = sample_match.group(1)
         sample_exon: EXON_NAME = (
             "exon2" if sample_match.group(2).upper() == "A" else "exon3"
         )
-        sample_files[sample_name][sample_exon] = os.path.join(input_directory, filename)
+        sample_files[sample_name][sample_exon] = filename
 
     return sample_files
 
@@ -367,11 +369,12 @@ def read_bc_sequences(
     )
 
     sequences: list[HLASequence] = []
-    for sample_name, files_for_sample in sample_files.items():
+    for sample_name in sorted(sample_files.keys()):
+        files_for_sample: dict[EXON_NAME, str] = sample_files[sample_name]
         if files_for_sample["exon2"] == "" or files_for_sample["exon3"] == "":
             logger.info(
-                f"Skipping sample {sample_name}; could not find matching exon2 "
-                "and exon3 sequences."
+                f'Skipping HLA-{locus} sequence "{sample_name}": could not '
+                "find matching exon2 and exon3 sequences."
             )
             continue
         curr_sequences: dict[EXON_NAME, str] = {"exon2": "", "exon3": ""}
@@ -379,7 +382,10 @@ def read_bc_sequences(
         skip_sample: bool = False
         for exon_name in ("exon2", "exon3"):
             raw_contents: str = ""
-            with open(files_for_sample[exon_name]) as f:
+            curr_filename: str = os.path.join(
+                input_directory, files_for_sample[exon_name]
+            )
+            with open(curr_filename) as f:
                 raw_contents = f.read()
 
             try:
@@ -388,12 +394,19 @@ def read_bc_sequences(
                     locus,
                     exon_name,
                 )
-            except ValueError as e:
+            except InvalidBaseException:
                 logger.info(
-                    f"Skipping sequence {sample_name}; error encountered while "
-                    f"processing {exon_name}:"
+                    f'Skipping HLA-{locus} sequence "{sample_name}": file '
+                    f'"{files_for_sample[exon_name]}" contains invalid characters.'
                 )
-                logger.info(e.msg)
+                skip_sample = True
+                break
+            except BadLengthException as e:
+                logger.info(
+                    f'Skipping HLA-{locus} sequence "{sample_name}": expected '
+                    f"{e.expected_length} characters in file "
+                    f'"{files_for_sample[exon_name]}", found {e.actual_length}.'
+                )
                 skip_sample = True
                 break
 

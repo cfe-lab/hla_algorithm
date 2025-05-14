@@ -134,6 +134,10 @@ def count_forgiving_mismatches(
     return np.count_nonzero(matches == False)
 
 
+class InvalidBaseException(Exception):
+    pass
+
+
 def check_bases(seq: str) -> None:
     """
     Check a string sequence for invalid characters.
@@ -148,7 +152,7 @@ def check_bases(seq: str) -> None:
     :rtype: bool
     """
     if not re.match(r"^[ATGCRYKMSWNBDHV]+$", seq):
-        raise ValueError("Sequence has invalid characters")
+        raise InvalidBaseException("Sequence has invalid characters")
 
 
 HLA_A_LENGTH: Final[int] = 787
@@ -156,6 +160,16 @@ MIN_HLA_BC_LENGTH: Final[int] = 787
 MAX_HLA_BC_LENGTH: Final[int] = 796
 EXON2_LENGTH: Final[int] = 270
 EXON3_LENGTH: Final[int] = 276
+
+
+class BadLengthException(Exception):
+    def __init__(
+        self,
+        expected_length: str,
+        actual_length: int,
+    ):
+        self.expected_length: str = expected_length
+        self.actual_length: int = actual_length
 
 
 def check_length(locus: HLA_LOCUS, seq: str, name: str) -> None:
@@ -181,28 +195,35 @@ def check_length(locus: HLA_LOCUS, seq: str, name: str) -> None:
     :rtype: bool
     """
     error_condition: bool = False
+    expected_length: str = ""
     if name.lower().endswith("short"):
         if locus == "A":
             error_condition = len(seq) >= HLA_A_LENGTH
+            expected_length = f"<{HLA_A_LENGTH}"
         elif "exon2" in name.lower():
             error_condition = len(seq) >= EXON2_LENGTH
+            expected_length = f"<{EXON2_LENGTH}"
         elif "exon3" in name.lower():
             error_condition = len(seq) >= EXON3_LENGTH
+            expected_length = f"<{EXON3_LENGTH}"
         else:
             error_condition = len(seq) >= MAX_HLA_BC_LENGTH
+            expected_length = f"<{MAX_HLA_BC_LENGTH}"
     elif locus == "A":
         error_condition = len(seq) != HLA_A_LENGTH
+        expected_length = str(HLA_A_LENGTH)
     elif "exon2" in name.lower():
         error_condition = len(seq) != EXON2_LENGTH
+        expected_length = str(EXON2_LENGTH)
     elif "exon3" in name.lower():
         error_condition = len(seq) != EXON3_LENGTH
+        expected_length = str(EXON3_LENGTH)
     else:
         error_condition = not (MIN_HLA_BC_LENGTH <= len(seq) <= MAX_HLA_BC_LENGTH)
+        expected_length = f"[{MIN_HLA_BC_LENGTH}, {MAX_HLA_BC_LENGTH}]"
 
     if error_condition:
-        raise ValueError(
-            f"Sequence {name} is the wrong length ({len(seq)}bp). Check the locus {locus}"
-        )
+        raise BadLengthException(expected_length, len(seq))
 
 
 def calc_padding(std: Sequence[int], seq: Sequence[int]) -> tuple[int, int]:

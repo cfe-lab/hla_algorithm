@@ -19,6 +19,8 @@ from .utils import (
     EXON3_LENGTH,
     EXON_NAME,
     HLA_LOCUS,
+    BadLengthException,
+    InvalidBaseException,
     check_bases,
     check_length,
     nuc2bin,
@@ -116,8 +118,12 @@ def pair_exons(
         # bad bases.
         try:
             check_length(locus, str(sr.seq), sr.id)
+        except BadLengthException:
+            continue
+
+        try:
             check_bases(str(sr.seq))
-        except ValueError:
+        except InvalidBaseException:
             continue
 
         is_exon: bool = False
