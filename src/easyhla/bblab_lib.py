@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from operator import itemgetter
+from typing import TypedDict
 
 import numpy as np
 from Bio.Seq import Seq
@@ -174,6 +175,11 @@ def pair_exons(
     return matched_sequences, unmatched
 
 
+class CombinedMismatch(TypedDict):
+    observed_base: str
+    expected_bases: set[str]
+
+
 class HLAInterpretationRow(BaseModel):
     """
     Represents the table row summarizing an HLAInterpretation.
@@ -190,22 +196,39 @@ class HLAInterpretationRow(BaseModel):
     intron: str = ""
     exon3: str = ""
 
-    # FIXME: currently we include all mismatches from all possible best
-    # matches; we should perhaps pick a "very best" of these matches and
-    # only include those mismatches.
     @classmethod
     def summary_row(cls, interpretation: HLAInterpretation) -> "HLAInterpretationRow":
-        best_match_mismatches: list[str] = []
+        combined_mismatches: dict[int, CombinedMismatch] = {}
         for best_match in interpretation.best_matches():
-            best_match_mismatches.extend(
-                [str(x) for x in interpretation.matches[best_match].mismatches]
+            for mismatch in interpretation.matches[best_match].mismatches:
+                if mismatch.index not in combined_mismatches:
+                    combined_mismatches[mismatch.index] = {
+                        "observed_base": mismatch.observed_base,
+                        "expected_bases": [mismatch.expected_base]
+                    }
+                else:
+                    if mismatch.observed_base != combined_mismatches[mismatch.index]["observed_base"]:
+                        error_msg: str = (
+                            f'In sequence "{interpretation.hla_sequence.name}", '
+                            "different bases were reported in mismatches at "
+                            f"position {mismatch.index}."
+                        )
+                        raise ValueError(error_msg)
+                    combined_mismatches[mismatch.index]["expected_bases"].add(
+                        mismatch.expected_base
+                    )
+
+        best_match_mismatches: list[str] = []
+        for mismatch_idx in sorted(combined_mismatches.keys()):
+            cm: CombinedMismatch = combined_mismatches[mismatch_idx]
+            expected_bases_str: str = "/".join(sorted(cm["expected_bases"]))
+            best_match_mismatches.append(
+                f"{mismatch_idx}:{cm["observed_base"]}->{expected_bases_str}"
             )
 
         allele_pairs: AllelePairs = interpretation.best_matching_allele_pairs()
         alleles_all_str = allele_pairs.stringify()
 
-        # FIXME: here is where you could get a single "representative" allele
-        # pair for the purposes of getting the mismatches.
         alleles_clean: str
         _, alleles_clean, __ = interpretation.best_common_allele_pair()
 

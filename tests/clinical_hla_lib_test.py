@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+from typing import Final
 
 import pytest
 from pytest_mock import MockerFixture
@@ -31,33 +32,36 @@ from easyhla.utils import (
 )
 
 
-def test_hla_sequence_a_build_from_interpretation():
-    hla_seq: HLASequence = HLASequence(
+def dummy_hla_sequence(locus: HLA_LOCUS) -> HLASequence:
+    return HLASequence(
         two=(2, 2, 1, 2),  # "CCAC"
         intron=(),
         three=(1, 4, 4, 2, 8),  # "AGGCT"
         name="dummy_seq",
-        locus="A",
+        locus=locus,
         num_sequences_used=1,
     )
-    matches: dict[HLACombinedStandard, HLAMatchDetails] = {
+
+
+def dummy_matches(locus: HLA_LOCUS) -> dict[HLACombinedStandard, HLAMatchDetails]:
+    return {
         HLACombinedStandard(
             standard_bin=(1, 4, 9, 4),
-            possible_allele_pairs=(("A*01:01:01", "A*02:02:02"),),
+            possible_allele_pairs=((f"{locus}*01:01:01", f"{locus}*02:02:02"),),
         ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
         HLACombinedStandard(
             standard_bin=(1, 4, 9, 2),
-            possible_allele_pairs=(("A*10:01:15", "A*20:02:03"),),
+            possible_allele_pairs=((f"{locus}*10:01:15", f"{locus}*20:02:03"),),
         ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
         HLACombinedStandard(
             standard_bin=(2, 4, 9, 2),
-            possible_allele_pairs=(("A*10:01:10", "A*20:22:20"),),
+            possible_allele_pairs=((f"{locus}*10:01:10", f"{locus}*20:22:20"),),
         ): HLAMatchDetails(mismatch_count=3, mismatches=[]),
         HLACombinedStandard(
             standard_bin=(2, 4, 10, 2),
             possible_allele_pairs=(
-                ("A*10:01:10", "A*20:01"),
-                ("A*10:01:10", "A*22:22:22"),
+                (f"{locus}*10:01:10", f"{locus}*20:01"),
+                (f"{locus}*10:01:10", f"{locus}*22:22:22"),
             ),
         ): HLAMatchDetails(
             mismatch_count=1,
@@ -67,25 +71,29 @@ def test_hla_sequence_a_build_from_interpretation():
             ],
         ),
     }
-    frequencies: dict[HLAProteinPair, int] = {
-        HLAProteinPair(
-            first_field_1="01",
-            first_field_2="01",
-            second_field_1="02",
-            second_field_2="02",
-        ): 150,
-        HLAProteinPair(
-            first_field_1="10",
-            first_field_2="01",
-            second_field_1="20",
-            second_field_2="02",
-        ): 1500,
-    }
 
+
+DUMMY_FREQUENCIES: Final[dict[HLAProteinPair, int]] = {
+    HLAProteinPair(
+        first_field_1="01",
+        first_field_2="01",
+        second_field_1="02",
+        second_field_2="02",
+    ): 150,
+    HLAProteinPair(
+        first_field_1="10",
+        first_field_2="01",
+        second_field_1="20",
+        second_field_2="02",
+    ): 1500,
+}
+
+
+def test_hla_sequence_a_build_from_interpretation():
     interp: HLAInterpretation = HLAInterpretation(
-        hla_sequence=hla_seq,
-        matches=matches,
-        allele_frequencies=frequencies,
+        hla_sequence=dummy_hla_sequence("A"),
+        matches=dummy_matches("A"),
+        allele_frequencies=DUMMY_FREQUENCIES,
     )
     processing_datetime: datetime = datetime(2025, 5, 9, 11, 0, 0)
 
@@ -112,56 +120,6 @@ def test_hla_sequence_a_build_from_interpretation():
 
 
 def test_hla_sequence_b_build_from_interpretation_non_b5701():
-    hla_seq: HLASequence = HLASequence(
-        two=(2, 2, 1, 2),  # "CCAC"
-        intron=(),
-        three=(1, 4, 4, 2, 8),  # "AGGCT"
-        name="dummy_seq",
-        locus="B",
-        num_sequences_used=1,
-    )
-    matches: dict[HLACombinedStandard, HLAMatchDetails] = {
-        HLACombinedStandard(
-            standard_bin=(1, 4, 9, 4),
-            possible_allele_pairs=(("B*01:01:01", "B*02:02:02"),),
-        ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
-        HLACombinedStandard(
-            standard_bin=(1, 4, 9, 2),
-            possible_allele_pairs=(("B*10:01:15", "B*20:02:03"),),
-        ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
-        HLACombinedStandard(
-            standard_bin=(2, 4, 9, 2),
-            possible_allele_pairs=(("B*10:01:10", "B*20:22:20"),),
-        ): HLAMatchDetails(mismatch_count=3, mismatches=[]),
-        HLACombinedStandard(
-            standard_bin=(2, 4, 10, 2),
-            possible_allele_pairs=(
-                ("B*10:01:10", "B*20:01"),
-                ("B*10:01:10", "B*22:22:22"),
-            ),
-        ): HLAMatchDetails(
-            mismatch_count=1,
-            mismatches=[
-                HLAMismatch(index=100, observed_base="A", expected_base="T"),
-                HLAMismatch(index=150, observed_base="T", expected_base="G"),
-            ],
-        ),
-    }
-    frequencies: dict[HLAProteinPair, int] = {
-        HLAProteinPair(
-            first_field_1="01",
-            first_field_2="01",
-            second_field_1="02",
-            second_field_2="02",
-        ): 150,
-        HLAProteinPair(
-            first_field_1="10",
-            first_field_2="01",
-            second_field_1="20",
-            second_field_2="02",
-        ): 1500,
-    }
-
     b5701_standards: list[HLAStandard] = [
         # "Forgiving distance" from sequence: 8
         HLAStandard(
@@ -184,9 +142,9 @@ def test_hla_sequence_b_build_from_interpretation_non_b5701():
     ]
 
     interp: HLAInterpretation = HLAInterpretation(
-        hla_sequence=hla_seq,
-        matches=matches,
-        allele_frequencies=frequencies,
+        hla_sequence=dummy_hla_sequence("B"),
+        matches=dummy_matches("B"),
+        allele_frequencies=DUMMY_FREQUENCIES,
         b5701_standards=b5701_standards,
     )
     processing_datetime: datetime = datetime(2025, 5, 9, 11, 0, 0)
@@ -218,14 +176,6 @@ def test_hla_sequence_b_build_from_interpretation_non_b5701():
 
 
 def test_hla_sequence_b_build_from_interpretation_is_b5701():
-    hla_seq: HLASequence = HLASequence(
-        two=(2, 2, 1, 2),  # "CCAC"
-        intron=(),
-        three=(1, 4, 4, 2, 8),  # "AGGCT"
-        name="dummy_seq",
-        locus="B",
-        num_sequences_used=1,
-    )
     matches: dict[HLACombinedStandard, HLAMatchDetails] = {
         HLACombinedStandard(
             standard_bin=(1, 4, 9, 4),
@@ -291,7 +241,7 @@ def test_hla_sequence_b_build_from_interpretation_is_b5701():
     ]
 
     interp: HLAInterpretation = HLAInterpretation(
-        hla_sequence=hla_seq,
+        hla_sequence=dummy_hla_sequence("B"),
         matches=matches,
         allele_frequencies=frequencies,
         b5701_standards=b5701_standards,
@@ -325,60 +275,10 @@ def test_hla_sequence_b_build_from_interpretation_is_b5701():
 
 
 def test_hla_sequence_c_build_from_interpretation():
-    hla_seq: HLASequence = HLASequence(
-        two=(2, 2, 1, 2),  # "CCAC"
-        intron=(),
-        three=(1, 4, 4, 2, 8),  # "AGGCT"
-        name="dummy_seq",
-        locus="C",
-        num_sequences_used=1,
-    )
-    matches: dict[HLACombinedStandard, HLAMatchDetails] = {
-        HLACombinedStandard(
-            standard_bin=(1, 4, 9, 4),
-            possible_allele_pairs=(("C*01:01:01", "C*02:02:02"),),
-        ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
-        HLACombinedStandard(
-            standard_bin=(1, 4, 9, 2),
-            possible_allele_pairs=(("C*10:01:15", "C*20:02:03"),),
-        ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
-        HLACombinedStandard(
-            standard_bin=(2, 4, 9, 2),
-            possible_allele_pairs=(("C*10:01:10", "C*20:22:20"),),
-        ): HLAMatchDetails(mismatch_count=3, mismatches=[]),
-        HLACombinedStandard(
-            standard_bin=(2, 4, 10, 2),
-            possible_allele_pairs=(
-                ("C*10:01:10", "C*20:01"),
-                ("C*10:01:10", "C*22:22:22"),
-            ),
-        ): HLAMatchDetails(
-            mismatch_count=1,
-            mismatches=[
-                HLAMismatch(index=100, observed_base="A", expected_base="T"),
-                HLAMismatch(index=150, observed_base="T", expected_base="G"),
-            ],
-        ),
-    }
-    frequencies: dict[HLAProteinPair, int] = {
-        HLAProteinPair(
-            first_field_1="01",
-            first_field_2="01",
-            second_field_1="02",
-            second_field_2="02",
-        ): 150,
-        HLAProteinPair(
-            first_field_1="10",
-            first_field_2="01",
-            second_field_1="20",
-            second_field_2="02",
-        ): 1500,
-    }
-
     interp: HLAInterpretation = HLAInterpretation(
-        hla_sequence=hla_seq,
-        matches=matches,
-        allele_frequencies=frequencies,
+        hla_sequence=dummy_hla_sequence("C"),
+        matches=dummy_matches("C"),
+        allele_frequencies=DUMMY_FREQUENCIES,
     )
     processing_datetime: datetime = datetime(2025, 5, 9, 11, 0, 0)
 
