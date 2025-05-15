@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from operator import itemgetter
+from operator import attrgetter, itemgetter
 from typing import TypedDict
 
 import numpy as np
@@ -204,10 +204,13 @@ class HLAInterpretationRow(BaseModel):
                 if mismatch.index not in combined_mismatches:
                     combined_mismatches[mismatch.index] = {
                         "observed_base": mismatch.observed_base,
-                        "expected_bases": [mismatch.expected_base]
+                        "expected_bases": {mismatch.expected_base},
                     }
                 else:
-                    if mismatch.observed_base != combined_mismatches[mismatch.index]["observed_base"]:
+                    if (
+                        mismatch.observed_base
+                        != combined_mismatches[mismatch.index]["observed_base"]
+                    ):
                         error_msg: str = (
                             f'In sequence "{interpretation.hla_sequence.name}", '
                             "different bases were reported in mismatches at "
@@ -223,7 +226,7 @@ class HLAInterpretationRow(BaseModel):
             cm: CombinedMismatch = combined_mismatches[mismatch_idx]
             expected_bases_str: str = "/".join(sorted(cm["expected_bases"]))
             best_match_mismatches.append(
-                f"{mismatch_idx}:{cm["observed_base"]}->{expected_bases_str}"
+                f"{mismatch_idx}:{cm['observed_base']}->{expected_bases_str}"
             )
 
         allele_pairs: AllelePairs = interpretation.best_matching_allele_pairs()
@@ -236,7 +239,7 @@ class HLAInterpretationRow(BaseModel):
             enum=interpretation.hla_sequence.name,
             alleles_clean=alleles_clean,
             alleles=alleles_all_str,
-            ambig=int(allele_pairs.is_ambiguous()),
+            ambiguous=int(allele_pairs.is_ambiguous()),
             homozygous=int(allele_pairs.is_homozygous()),
             mismatch_count=interpretation.lowest_mismatch_count(),
             mismatches=";".join(best_match_mismatches),
@@ -259,25 +262,31 @@ class HLAMismatchRow(BaseModel):
 
     @classmethod
     def mismatch_rows(cls, interpretation: HLAInterpretation) -> list["HLAMismatchRow"]:
-        matches_by_count: list[tuple[int, HLACombinedStandard, list[HLAMismatch]]] = (
+        # First, sort by the combined standard:
+        all_mismatches: list[tuple[int, HLACombinedStandard, list[HLAMismatch]]] = (
             sorted(
                 [
                     (details.mismatch_count, cs, details.mismatches)
                     for cs, details in interpretation.matches.items()
                 ],
-                key=itemgetter(0),
+                key=lambda x: x[1].get_allele_pair_str(),
             )
         )
+        # Then, sort by the number of mismatches:
+        all_mismatches.sort(key=itemgetter(0))
 
         rows: list["HLAMismatchRow"] = []
-        for _, combined_std, mismatches in matches_by_count:
+        for _, combined_std, mismatches in all_mismatches:
+            sorted_mismatches: list[HLAMismatch] = sorted(
+                mismatches, key=attrgetter("index")
+            )
             curr_row: "HLAMismatchRow" = cls(
                 allele=combined_std.get_allele_pair_str(),
-                mismatches=";".join([str(x) for x in mismatches]),
-                exon2=interpretation.hla_sequence.two.upper(),
-                intron=interpretation.hla_sequence.intron.upper(),
-                exon3=interpretation.hla_sequence.three.upper(),
+                mismatches=";".join([str(x) for x in sorted_mismatches]),
+                exon2=interpretation.hla_sequence.exon2_str,
+                intron=interpretation.hla_sequence.intron_str,
+                exon3=interpretation.hla_sequence.exon3_str,
             )
-            rows.append(",".join(curr_row))
+            rows.append(curr_row)
 
         return rows

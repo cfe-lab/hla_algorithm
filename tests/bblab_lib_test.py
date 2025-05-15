@@ -2,20 +2,25 @@ import pytest
 from Bio.Seq import Seq
 from Bio.SeqIO import SeqRecord
 
-from easyhla.bblab_lib import pair_exons, pair_exons_helper, HLAInterpretationRow
+from easyhla.bblab_lib import (
+    HLAInterpretationRow,
+    HLAMismatchRow,
+    pair_exons,
+    pair_exons_helper,
+)
 from easyhla.models import (
+    HLACombinedStandard,
+    HLAInterpretation,
+    HLAMatchDetails,
+    HLAMismatch,
+    HLAProteinPair,
     HLASequence,
     HLAStandard,
-    HLAInterpretation,
-    HLACombinedStandard,
-    HLAMatchDetails,
-    HLAProteinPair,
-    HLAMismatch,
 )
 from easyhla.utils import EXON_NAME, HLA_LOCUS, nuc2bin
 
+from .clinical_hla_lib_test import DUMMY_FREQUENCIES, dummy_hla_sequence, dummy_matches
 from .easyhla_test import HLA_STANDARDS, DummyStandard
-from .clinical_hla_lib_test import dummy_matches, dummy_hla_sequence, DUMMY_FREQUENCIES
 
 
 @pytest.mark.parametrize(
@@ -759,7 +764,7 @@ def test_pair_exons(
                 ambiguous=1,
                 homozygous=0,
                 mismatch_count=1,
-                mismatches="(B*10:01:10 - B*20:01) 100:A->T;150:T->G",
+                mismatches="100:A->T;150:T->G",
                 exon2="CCAC",
                 intron="",
                 exon3="AGGCT",
@@ -771,26 +776,26 @@ def test_pair_exons(
             {
                 HLACombinedStandard(
                     standard_bin=(1, 4, 9, 4),
-                    possible_allele_pairs=((f"A*01:01:01", f"A*02:02:02"),),
+                    possible_allele_pairs=(("A*01:01:01", "A*02:02:02"),),
                 ): HLAMatchDetails(
                     mismatch_count=1,
                     mismatches=[
                         HLAMismatch(index=150, observed_base="T", expected_base="G")
-                    ]
+                    ],
                 ),
                 HLACombinedStandard(
                     standard_bin=(1, 4, 9, 2),
-                    possible_allele_pairs=((f"A*10:01:15", f"A*20:02:03"),),
+                    possible_allele_pairs=(("A*10:01:15", "A*20:02:03"),),
                 ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
                 HLACombinedStandard(
                     standard_bin=(2, 4, 9, 2),
-                    possible_allele_pairs=((f"A*10:01:10", f"A*20:22:20"),),
+                    possible_allele_pairs=(("A*10:01:10", "A*20:22:20"),),
                 ): HLAMatchDetails(mismatch_count=3, mismatches=[]),
                 HLACombinedStandard(
                     standard_bin=(2, 4, 10, 2),
                     possible_allele_pairs=(
-                        (f"A*10:01:10", f"A*20:01"),
-                        (f"A*10:01:10", f"A*22:22:22"),
+                        ("A*10:01:10", "A*20:01"),
+                        ("A*10:01:10", "A*22:22:22"),
                     ),
                 ): HLAMatchDetails(
                     mismatch_count=1,
@@ -811,7 +816,7 @@ def test_pair_exons(
                 ambiguous=1,
                 homozygous=0,
                 mismatch_count=1,
-                mismatches="(A*10:01:10 - A*20:01) 100:A->T;150:T->G",
+                mismatches="100:A->T;150:T->G",
                 exon2="CCAC",
                 intron="",
                 exon3="AGGCT",
@@ -823,7 +828,7 @@ def test_pair_exons(
             {
                 HLACombinedStandard(
                     standard_bin=(1, 4, 9, 4),
-                    possible_allele_pairs=((f"C*01:01:01", f"C*02:02:02"),),
+                    possible_allele_pairs=(("C*01:01:01", "C*02:02:02"),),
                 ): HLAMatchDetails(
                     mismatch_count=1,
                     mismatches=[
@@ -832,17 +837,17 @@ def test_pair_exons(
                 ),
                 HLACombinedStandard(
                     standard_bin=(1, 4, 9, 2),
-                    possible_allele_pairs=((f"C*10:01:15", f"C*20:02:03"),),
+                    possible_allele_pairs=(("C*10:01:15", "C*20:02:03"),),
                 ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
                 HLACombinedStandard(
                     standard_bin=(2, 4, 9, 2),
-                    possible_allele_pairs=((f"C*10:01:10", f"C*20:22:20"),),
+                    possible_allele_pairs=(("C*10:01:10", "C*20:22:20"),),
                 ): HLAMatchDetails(mismatch_count=3, mismatches=[]),
                 HLACombinedStandard(
                     standard_bin=(2, 4, 10, 2),
                     possible_allele_pairs=(
-                        (f"C*10:01:10", f"C*20:01"),
-                        (f"C*10:01:10", f"C*22:22:22"),
+                        ("C*10:01:10", "C*20:01"),
+                        ("C*10:01:10", "C*22:22:22"),
                     ),
                 ): HLAMatchDetails(
                     mismatch_count=1,
@@ -863,7 +868,7 @@ def test_pair_exons(
                 ambiguous=1,
                 homozygous=0,
                 mismatch_count=1,
-                mismatches="(C*10:01:10 - C*20:01) 100:A->T;150:T->G/R",
+                mismatches="100:A->T;150:T->G/R",
                 exon2="CCAC",
                 intron="",
                 exon3="AGGCT",
@@ -875,18 +880,18 @@ def test_pair_exons(
             {
                 HLACombinedStandard(
                     standard_bin=(1, 4, 9, 4),
-                    possible_allele_pairs=((f"B*01:01:01", f"B*02:02:02"),),
+                    possible_allele_pairs=(("B*01:01:01", "B*02:02:02"),),
                 ): HLAMatchDetails(
                     mismatch_count=1,
                     mismatches=[],
                 ),
                 HLACombinedStandard(
                     standard_bin=(1, 4, 9, 2),
-                    possible_allele_pairs=((f"B*10:01:15", f"B*20:02:03"),),
+                    possible_allele_pairs=(("B*10:01:15", "B*20:02:03"),),
                 ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
                 HLACombinedStandard(
                     standard_bin=(2, 4, 9, 2),
-                    possible_allele_pairs=((f"B*10:01:10", f"B*20:22:20"),),
+                    possible_allele_pairs=(("B*10:01:10", "B*20:22:20"),),
                 ): HLAMatchDetails(
                     mismatch_count=3,
                     mismatches=[
@@ -896,8 +901,8 @@ def test_pair_exons(
                 HLACombinedStandard(
                     standard_bin=(2, 4, 10, 2),
                     possible_allele_pairs=(
-                        (f"B*10:01:10", f"B*20:01"),
-                        (f"B*10:01:10", f"B*22:22:22"),
+                        ("B*10:01:10", "B*20:01"),
+                        ("B*10:01:10", "B*22:22:22"),
                     ),
                 ): HLAMatchDetails(
                     mismatch_count=1,
@@ -918,7 +923,7 @@ def test_pair_exons(
                 ambiguous=1,
                 homozygous=0,
                 mismatch_count=1,
-                mismatches="(B*10:01:10 - B*20:01) 100:A->T;150:T->G",
+                mismatches="100:A->T;150:T->G",
                 exon2="CCAC",
                 intron="",
                 exon3="AGGCT",
@@ -930,7 +935,7 @@ def test_pair_exons(
             {
                 HLACombinedStandard(
                     standard_bin=(1, 4, 9, 4),
-                    possible_allele_pairs=((f"B*01:01:01", f"B*02:02:02"),),
+                    possible_allele_pairs=(("B*01:01:01", "B*02:02:02"),),
                 ): HLAMatchDetails(
                     mismatch_count=1,
                     mismatches=[
@@ -939,7 +944,7 @@ def test_pair_exons(
                 ),
                 HLACombinedStandard(
                     standard_bin=(1, 4, 9, 2),
-                    possible_allele_pairs=((f"B*10:01:15", f"B*20:02:03"),),
+                    possible_allele_pairs=(("B*10:01:15", "B*20:02:03"),),
                 ): HLAMatchDetails(
                     mismatch_count=1,
                     mismatches=[
@@ -949,7 +954,7 @@ def test_pair_exons(
                 ),
                 HLACombinedStandard(
                     standard_bin=(2, 4, 9, 2),
-                    possible_allele_pairs=((f"B*10:01:10", f"B*20:22:20"),),
+                    possible_allele_pairs=(("B*10:01:10", "B*20:22:20"),),
                 ): HLAMatchDetails(
                     mismatch_count=3,
                     mismatches=[
@@ -959,8 +964,8 @@ def test_pair_exons(
                 HLACombinedStandard(
                     standard_bin=(2, 4, 10, 2),
                     possible_allele_pairs=(
-                        (f"B*10:01:10", f"B*20:01"),
-                        (f"B*10:01:10", f"B*22:22:22"),
+                        ("B*10:01:10", "B*20:01"),
+                        ("B*10:01:10", "B*22:22:22"),
                     ),
                 ): HLAMatchDetails(
                     mismatch_count=1,
@@ -982,25 +987,25 @@ def test_pair_exons(
                 ambiguous=1,
                 homozygous=0,
                 mismatch_count=1,
-                mismatches="(B*10:01:10 - B*20:01) 100:A->CT;150:T->G;175:G->TY",
+                mismatches="100:A->C/T;150:T->G;175:G->T/Y",
                 exon2="CCAC",
                 intron="",
                 exon3="AGGCT",
             ),
             id="typical_case",
         ),
-    ]
+    ],
 )
 def test_hla_interpretation_row_summary_row_good_cases(
     hla_sequence: HLASequence,
     matches: dict[HLACombinedStandard, HLAMatchDetails],
-    frequencies: dict[HLAProteinPair, int],
+    allele_frequencies: dict[HLAProteinPair, int],
     expected_result: HLAInterpretationRow,
 ):
     interp: HLAInterpretation = HLAInterpretation(
         hla_sequence=hla_sequence,
         matches=matches,
-        allele_frequencies=frequencies,
+        allele_frequencies=allele_frequencies,
     )
     result: HLAInterpretationRow = HLAInterpretationRow.summary_row(interp)
     assert result == expected_result
@@ -1010,7 +1015,7 @@ def test_hla_interpretation_row_summary_row_bad_case():
     matches: dict[HLACombinedStandard, HLAMatchDetails] = {
         HLACombinedStandard(
             standard_bin=(1, 4, 9, 4),
-            possible_allele_pairs=((f"B*01:01:01", f"B*02:02:02"),),
+            possible_allele_pairs=(("B*01:01:01", "B*02:02:02"),),
         ): HLAMatchDetails(
             mismatch_count=1,
             mismatches=[
@@ -1019,7 +1024,7 @@ def test_hla_interpretation_row_summary_row_bad_case():
         ),
         HLACombinedStandard(
             standard_bin=(1, 4, 9, 2),
-            possible_allele_pairs=((f"B*10:01:15", f"B*20:02:03"),),
+            possible_allele_pairs=(("B*10:01:15", "B*20:02:03"),),
         ): HLAMatchDetails(
             mismatch_count=1,
             mismatches=[
@@ -1039,3 +1044,202 @@ def test_hla_interpretation_row_summary_row_bad_case():
     with pytest.raises(ValueError) as e:
         HLAInterpretationRow.summary_row(interp)
         assert expected_error in str(e.value)
+
+
+@pytest.mark.parametrize(
+    "hla_sequence, matches, raw_expected_result",
+    [
+        pytest.param(
+            dummy_hla_sequence("A"),
+            {
+                HLACombinedStandard(
+                    standard_bin=(1, 4, 9, 4),
+                    possible_allele_pairs=(("A*01:01:01", "A*02:02:02"),),
+                ): HLAMatchDetails(
+                    mismatch_count=0,
+                    mismatches=[],
+                ),
+                HLACombinedStandard(
+                    standard_bin=(1, 4, 9, 2),
+                    possible_allele_pairs=(("A*10:01:15", "A*20:02:03"),),
+                ): HLAMatchDetails(mismatch_count=0, mismatches=[]),
+                HLACombinedStandard(
+                    standard_bin=(2, 4, 9, 2),
+                    possible_allele_pairs=(("A*10:01:10", "A*20:22:20"),),
+                ): HLAMatchDetails(mismatch_count=0, mismatches=[]),
+                HLACombinedStandard(
+                    standard_bin=(2, 4, 10, 2),
+                    possible_allele_pairs=(
+                        ("A*10:01:10", "A*20:01"),
+                        ("A*10:01:10", "A*22:22:22"),
+                    ),
+                ): HLAMatchDetails(
+                    mismatch_count=0,
+                    mismatches=[],
+                ),
+            },
+            [
+                ("A*01:01:01 - A*02:02:02", ""),
+                ("A*10:01:10 - A*20:01|A*10:01:10 - A*22:22:22", ""),
+                ("A*10:01:10 - A*20:22:20", ""),
+                ("A*10:01:15 - A*20:02:03", ""),
+            ],
+            id="no_mismatches",
+        ),
+        pytest.param(
+            dummy_hla_sequence("A"),
+            {
+                HLACombinedStandard(
+                    standard_bin=(1, 4, 9, 4),
+                    possible_allele_pairs=(("A*01:01:01", "A*02:02:02"),),
+                ): HLAMatchDetails(
+                    mismatch_count=1,
+                    mismatches=[
+                        HLAMismatch(index=100, observed_base="A", expected_base="T"),
+                    ],
+                ),
+                HLACombinedStandard(
+                    standard_bin=(1, 4, 9, 2),
+                    possible_allele_pairs=(("A*10:01:15", "A*20:02:03"),),
+                ): HLAMatchDetails(mismatch_count=0, mismatches=[]),
+                HLACombinedStandard(
+                    standard_bin=(2, 4, 9, 2),
+                    possible_allele_pairs=(("A*10:01:10", "A*20:22:20"),),
+                ): HLAMatchDetails(mismatch_count=0, mismatches=[]),
+                HLACombinedStandard(
+                    standard_bin=(2, 4, 10, 2),
+                    possible_allele_pairs=(
+                        ("A*10:01:10", "A*20:01"),
+                        ("A*10:01:10", "A*22:22:22"),
+                    ),
+                ): HLAMatchDetails(mismatch_count=0, mismatches=[]),
+            },
+            [
+                ("A*10:01:10 - A*20:01|A*10:01:10 - A*22:22:22", ""),
+                ("A*10:01:10 - A*20:22:20", ""),
+                ("A*10:01:15 - A*20:02:03", ""),
+                ("A*01:01:01 - A*02:02:02", "100:A->T"),
+            ],
+            id="one_combined_standard_with_single_mismatch",
+        ),
+        pytest.param(
+            dummy_hla_sequence("A"),
+            {
+                HLACombinedStandard(
+                    standard_bin=(1, 4, 9, 4),
+                    possible_allele_pairs=(("A*01:01:01", "A*02:02:02"),),
+                ): HLAMatchDetails(
+                    mismatch_count=0,
+                    mismatches=[],
+                ),
+                HLACombinedStandard(
+                    standard_bin=(1, 4, 9, 2),
+                    possible_allele_pairs=(("A*10:01:15", "A*20:02:03"),),
+                ): HLAMatchDetails(mismatch_count=0, mismatches=[]),
+                HLACombinedStandard(
+                    standard_bin=(2, 4, 9, 2),
+                    possible_allele_pairs=(("A*10:01:10", "A*20:22:20"),),
+                ): HLAMatchDetails(mismatch_count=0, mismatches=[]),
+                HLACombinedStandard(
+                    standard_bin=(2, 4, 10, 2),
+                    possible_allele_pairs=(
+                        ("A*10:01:10", "A*20:01"),
+                        ("A*10:01:10", "A*22:22:22"),
+                    ),
+                ): HLAMatchDetails(
+                    mismatch_count=2,
+                    mismatches=[
+                        HLAMismatch(index=100, observed_base="A", expected_base="T"),
+                        HLAMismatch(index=150, observed_base="T", expected_base="G"),
+                    ],
+                ),
+            },
+            [
+                ("A*01:01:01 - A*02:02:02", ""),
+                ("A*10:01:10 - A*20:22:20", ""),
+                ("A*10:01:15 - A*20:02:03", ""),
+                ("A*10:01:10 - A*20:01|A*10:01:10 - A*22:22:22", "100:A->T;150:T->G"),
+            ],
+            id="one_combined_standard_with_two_mismatches",
+        ),
+        pytest.param(
+            dummy_hla_sequence("B"),
+            {
+                HLACombinedStandard(
+                    standard_bin=(1, 4, 9, 4),
+                    possible_allele_pairs=(("B*01:01:01", "B*02:02:02"),),
+                ): HLAMatchDetails(
+                    mismatch_count=1,
+                    mismatches=[
+                        HLAMismatch(index=100, observed_base="A", expected_base="T"),
+                    ],
+                ),
+                HLACombinedStandard(
+                    standard_bin=(1, 4, 9, 2),
+                    possible_allele_pairs=(("B*10:01:15", "B*20:02:03"),),
+                ): HLAMatchDetails(
+                    mismatch_count=2,
+                    mismatches=[
+                        HLAMismatch(index=100, observed_base="A", expected_base="C"),
+                        HLAMismatch(index=175, observed_base="G", expected_base="T"),
+                    ],
+                ),
+                HLACombinedStandard(
+                    standard_bin=(2, 4, 9, 2),
+                    possible_allele_pairs=(("B*10:01:10", "B*20:22:20"),),
+                ): HLAMatchDetails(
+                    mismatch_count=1,
+                    mismatches=[
+                        HLAMismatch(index=150, observed_base="T", expected_base="R"),
+                    ],
+                ),
+                HLACombinedStandard(
+                    standard_bin=(2, 4, 10, 2),
+                    possible_allele_pairs=(
+                        ("B*10:01:10", "B*20:01"),
+                        ("B*10:01:10", "B*22:22:22"),
+                    ),
+                ): HLAMatchDetails(
+                    mismatch_count=3,
+                    mismatches=[
+                        HLAMismatch(index=100, observed_base="A", expected_base="T"),
+                        HLAMismatch(index=150, observed_base="T", expected_base="G"),
+                        HLAMismatch(index=175, observed_base="G", expected_base="Y"),
+                    ],
+                ),
+            },
+            [
+                ("B*01:01:01 - B*02:02:02", "100:A->T"),
+                ("B*10:01:10 - B*20:22:20", "150:T->R"),
+                ("B*10:01:15 - B*20:02:03", "100:A->C;175:G->T"),
+                (
+                    "B*10:01:10 - B*20:01|B*10:01:10 - B*22:22:22",
+                    "100:A->T;150:T->G;175:G->Y",
+                ),
+            ],
+            id="typical_case",
+        ),
+    ],
+)
+def test_hla_mismatch_row_mismatch_rows(
+    hla_sequence: HLASequence,
+    matches: dict[HLACombinedStandard, HLAMatchDetails],
+    raw_expected_result: list[tuple[str, str]],
+):
+    interp: HLAInterpretation = HLAInterpretation(
+        hla_sequence=hla_sequence,
+        matches=matches,
+        allele_frequencies={},
+    )
+    result: list[HLAMismatchRow] = HLAMismatchRow.mismatch_rows(interp)
+    expected_result: list[HLAMismatchRow] = [
+        HLAMismatchRow(
+            allele=allele,
+            mismatches=mismatches,
+            exon2="CCAC",
+            intron="",
+            exon3="AGGCT",
+        )
+        for allele, mismatches in raw_expected_result
+    ]
+    assert result == expected_result
