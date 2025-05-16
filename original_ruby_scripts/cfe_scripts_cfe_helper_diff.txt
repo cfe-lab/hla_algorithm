@@ -1,0 +1,326 @@
+3a4,7
+> 
+>   2023-06-28 DR: Updated hardcoded windows paths to reference cfe_env
+>   2024-06-04 wscott: moved AMBIG and SUPER_COMBO to sequence
+>   2025-01-24 wscott use cfe_env for unzip path
+6c10,12
+< require 'cfe_sequence_utils'
+---
+> require 'digest'
+> require 'ckwlib/cfe_env'
+> require 'ckwlib/sequence'
+8,14d13
+< if(RUBY_VERSION =~ /^1\.8/) #fixes for older verisons of ruby
+<   def __dir__()
+<     return File.dirname(__FILE__)
+<   end
+<   require 'bigdecimal'
+< end  
+< 
+15a15,16
+> =begin
+>  This code is now in sequence.rb
+19,20c20,21
+<         if(!CfeSequenceUtils::AMBIG[seq[i,1]].include?(std[i,1]))
+<             mismatches += 1 
+---
+>         if(!AMBIG[seq[i,1]].include?(std[i,1]))
+>             mismatches += 1
+24a26
+> =end
+26a29,89
+> UNZIP_PROGRAM = $cfe_env[:unzip_prog]
+> raise "unzip_prog is not defined" if UNZIP_PROGRAM.nil?
+> raise "unzip program #{UNZIP_PROGRAM} not found" \
+>   unless File.exist?(UNZIP_PROGRAM)
+> 
+> # this is readonly directory..
+> HLA_CONFIG_PATH = File.join($cfe_env[:lab_upload_root], 'hla', 'config')
+> raise "HLA config directory #{HLA_CONFIG_PATH} not found" \
+>   unless File.exist?(HLA_CONFIG_PATH)
+> 
+> FREQ_FILE = File.join(HLA_CONFIG_PATH, "hla_frequencies.csv")
+> raise "HAL frequency file  #{FREQ_FILE} not found" \
+>   unless File.exist?(FREQ_FILE)
+> 
+> 
+> def calculate_md5(io)
+>   md5 = Digest::MD5.new
+>   loop do
+>     chunk = io.read(1024)
+>     if chunk.nil?
+>       return md5.hexdigest
+>     end
+>     md5 << chunk
+>   end
+> end
+> 
+> 
+> def find_hla_std_paths()
+>   hla_std_paths = {}
+>   config_path = HLA_CONFIG_PATH
+>   work_path = $cfe_env[:output_hla_worktext_dir]
+>   'abc'.each_char do |letter|
+>     zip_path = File.join(config_path, "hla_#{letter}_std_reduced.zip")
+>     csv_path = File.join(config_path, "hla_#{letter}_std_reduced.csv")
+>     hla_std_paths[letter] = csv_path  # default
+>     unless File.exists?(zip_path)
+>       next
+>     end
+>     md5_zip = nil
+>     Open3.popen2(UNZIP_PROGRAM, '-p', zip_path) do |stdin, stdout|
+>       md5_zip = calculate_md5(stdout)
+>     end
+>     md5_csv = nil
+>     if File.exists?(csv_path)
+>       File.open(csv_path) do |f|
+>         md5_csv = calculate_md5(f)
+>       end
+>     end
+>     if md5_zip == md5_csv
+>       next
+>     end
+>     unless system(UNZIP_PROGRAM, '-qqo', zip_path, '-d', work_path)
+>       raise "Unable to unzip HLA reference #{zip_path}."
+>     end
+>     csv_path = File.join(work_path, "hla_#{letter}_std_reduced.csv")
+>     hla_std_paths[letter] = csv_path
+>   end
+>   return hla_std_paths
+> end
+> 
+> 
+32,33c95,96
+<     root_folder = "#{__dir__ }/hla_alg/"
+<     File.open("#{root_folder}hla_a_std_reduced.csv") do |file|
+---
+>     hla_std_paths = find_hla_std_paths()
+>     File.open(hla_std_paths['a']) do |file|
+39c102
+<     File.open("#{root_folder}hla_b_std_reduced.csv") do |file|
+---
+>     File.open(hla_std_paths['b']) do |file|
+45c108
+<     File.open("#{root_folder}hla_c_std_reduced.csv") do |file|
+---
+>     File.open(hla_std_paths['c']) do |file|
+51c114
+<     
+---
+> 
+53c116
+<     File.open("#{root_folder}hla_frequencies.csv") do |file|
+---
+>     File.open(FREQ_FILE) do |file|
+56c119
+<         0.upto(2) do |column|	
+---
+>         0.upto(2) do |column|
+58c121
+<           @hla_freqs[column][tmp] = 0 if @hla_freqs[column][tmp] == nil 
+---
+>           @hla_freqs[column][tmp] = 0 if @hla_freqs[column][tmp] == nil
+61c124
+<       end 
+---
+>       end
+63c126
+<     
+---
+> 
+67c130
+<     
+---
+> 
+69c132
+<   
+---
+> 
+74c137
+<     
+---
+> 
+89c152
+<   
+---
+> 
+91c154
+<   
+---
+> 
+96a160,162
+>     if(type == 'A') #We don't need the middle bits.
+>       entry_seq_reduced = entry_seq_reduced[0 .. 270] + entry_seq_reduced[512 .. 787]
+>     end
+99c165
+<     
+---
+> 
+102c168,172
+<       if(mismatch_cnt < 5) 
+---
+> #      puts "#{std[0]} - #{mismatch_cnt}"
+> #      puts std[1]
+> #      puts entry_seq_reduced
+> #      exit
+>       if(mismatch_cnt < 5)
+106c176
+<   
+---
+> 
+118c188
+<           std += CfeSequenceUtils::SUPER_COMBO[[std_a[1][i * 3,3], std_b[1][i * 3,3]]]
+---
+>           std += SUPER_COMBO[[std_a[1][i * 3,3], std_b[1][i * 3,3]]]
+122c192
+<         
+---
+> 
+133c203
+<         
+---
+> 
+141c211
+<       
+---
+> 
+150c220
+<     
+---
+> 
+162c232
+<     
+---
+> 
+164,165c234,235
+<     result.alleles_all = min[1].map{|a| a[1]}.flatten() 
+<     
+---
+>     result.alleles_all = min[1].map{|a| a[1]}.flatten()
+> 
+175,176c245,246
+<     
+<     
+---
+> 
+> 
+178c248
+<     
+---
+> 
+180,181c250,251
+<       result.errors << 'Could not find any matching alleles' 
+<       return result 
+---
+>       result.errors << 'Could not find any matching alleles'
+>       return result
+183c253
+<     
+---
+> 
+188c258
+<     
+---
+> 
+191,192c261,262
+<       collection_ambig = collection.map{|e| [e[0][0 .. 1], e[1][0 .. 1]]}.uniq 
+<         
+---
+>       collection_ambig = collection.map{|e| [e[0][0 .. 1], e[1][0 .. 1]]}.uniq
+> 
+200c270
+<       max_allele = collection_ambig.max do |a,b| 
+---
+>       max_allele = collection_ambig.max do |a,b|
+205c275
+<         elsif(b[0][1].to_i != a[0][1].to_i) 
+---
+>         elsif(b[0][1].to_i != a[0][1].to_i)
+209c279
+<         else 
+---
+>         else
+213c283
+<       
+---
+> 
+217c287
+<       alleles.delete_if {|a| !(a =~ /^#{prefix}#{a1}:([^\s])+\s-\s#{prefix}#{a2}:/)} 
+---
+>       alleles.delete_if {|a| !(a =~ /^#{prefix}#{a1}:([^\s])+\s-\s#{prefix}#{a2}:/)}
+219c289
+<     
+---
+> 
+226,227c296,297
+<     
+<     0.upto(0) do 
+---
+> 
+>     0.upto(0) do
+245c315
+<   
+---
+> 
+257,258c327,328
+<   
+<     0.upto(0) do 
+---
+> 
+>     0.upto(0) do
+262c332
+< 				clean_allele += prefix + collectionb[0][0,3].join(':') 
+---
+> 				clean_allele += prefix + collectionb[0][0,3].join(':')
+266c336
+< 				clean_allele += prefix + collectionb[0][0,1].join(':') 
+---
+> 				clean_allele += prefix + collectionb[0][0,1].join(':')
+276c346
+<         
+---
+> 
+278c348
+<     
+---
+> 
+280,281c350,351
+<     result.ambiguous = ambig 
+<     
+---
+>     result.ambiguous = ambig
+> 
+288c358
+<   
+---
+> 
+295,296c365,366
+<           if(CfeSequenceUtils::AMBIG[cons_b5701[i, 1]].all? {|a| CfeSequenceUtils::AMBIG[seq_comma[i,1]].include?(a)} or
+<             CfeSequenceUtils::AMBIG[seq_comma[i, 1]].all? {|a| CfeSequenceUtils::AMBIG[cons_b5701[i, 1]].include?(a)})
+---
+>           if(AMBIG[cons_b5701[i, 1]].all? {|a| AMBIG[seq_comma[i,1]].include?(a)} or
+>             AMBIG[seq_comma[i, 1]].all? {|a| AMBIG[cons_b5701[i, 1]].include?(a)})
+302c372
+<     
+---
+> 
+304,305c374,375
+<     
+<       
+---
+> 
+> 
+313,314c383,384
+<   
+<   
+---
+> 
+> 
+317c387
+<   
+---
+> 
+331,333d400
+< 
+< 
+< 
