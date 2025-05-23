@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from easyhla.clinical_hla_lib import (
+from .clinical_hla_lib import (
     HLADBBase,
     HLASequenceA,
     HLASequenceB,
@@ -20,14 +20,14 @@ from easyhla.clinical_hla_lib import (
     read_a_sequences,
     read_bc_sequences,
 )
-from easyhla.easyhla import EasyHLA
-from easyhla.models import (
+from .easyhla import EasyHLA
+from .models import (
     HLAInterpretation,
     HLAProteinPair,
     HLASequence,
     HLAStandard,
 )
-from easyhla.utils import HLA_LOCUS
+from .utils import HLA_LOCUS
 
 logger: logging.Logger = logging.getLogger(__name__)
 

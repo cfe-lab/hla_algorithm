@@ -2,15 +2,15 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from easyhla.__about__ import __version__
-from easyhla.models import (
+from .__about__ import __version__
+from .models import (
     AllelePairs,
     HLACombinedStandard,
     HLAInterpretation,
     HLAMatchDetails,
     HLASequence,
 )
-from easyhla.utils import (
+from .utils import (
     HLA_LOCUS,
     BadLengthException,
     InvalidBaseException,
@@ -19,10 +19,13 @@ from easyhla.utils import (
     nuc2bin,
 )
 
+
 class HLAInput(BaseModel):
     seq1: str
-    seq2: Optional[str] = None
+    seq2: Optional[str]
     locus: HLA_LOCUS
+    hla_std_path: Optional[str] = None
+    hla_freq_path: Optional[str] = None
 
     def check_sequences(self) -> list[str]:
         errors: list[str] = []
@@ -48,7 +51,8 @@ class HLAInput(BaseModel):
                     errors.append("Sequence 2 is the wrong size (should be 276)")
         try:
             check_bases(self.seq1)
-            check_bases(self.seq2)
+            if self.seq2 is not None:
+                check_bases(self.seq2)
         except InvalidBaseException:
             errors.append("Sequence has invalid characters")
         return errors
@@ -81,7 +85,7 @@ class HLAResult(BaseModel):
     seqs: list[str] = Field(default_factory=list)
     alleles_all: list[str] = Field(default_factory=list)
     alleles_clean: str = ""
-    allele_for_mismatches: str = ""
+    alleles_for_mismatches: str = ""
     mismatches: list[str] = Field(default_factory=list)
     ambiguous: bool = False
     homozygous: bool = False
@@ -115,7 +119,7 @@ class HLAResult(BaseModel):
             seqs=seqs,
             alleles_all=[f"{x[0]} - {x[1]}" for x in aps.allele_pairs],
             alleles_clean=alleles_clean,
-            allele_for_mismatches=f"{rep_ap[0]} - {rep_ap[1]}",
+            alleles_for_mismatches=f"{rep_ap[0]} - {rep_ap[1]}",
             mismatches=[str(x) for x in match_details.mismatches],
             ambiguous=aps.is_ambiguous(),
             homozygous=aps.is_homozygous(),

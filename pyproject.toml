@@ -58,7 +58,9 @@ Issues = "https://github.com/unknown/easyhla/issues"
 Source = "https://github.com/unknown/easyhla"
 
 [project.scripts]
-easyhla = "easyhla:run"
+clinical_hla = "easyhla.clinical_hla:main"
+interpret_from_json = "easyhla.interpret_from_json:main"
+bblab = "easyhla.bblab:main"
 
 [project.optional-dependencies]
 database = [
@@ -106,9 +108,12 @@ source = ["src"]
 omit = [
   "src/easyhla/__init__.py",
   "src/easyhla/__about__.py",
+  "src/easyhla/__main__.py",
   "tests/__init__.py",
-  "src/easyhla/entrypoint.py",
-  "tools/*.py",
+  "src/easyhla/bblab.py",
+  "src/easyhla/clinical_hla.py",
+  "src/easyhla/interpret_from_json.py",
+  "src/scripts/*.py",
 ]
 
 [tool.coverage.report]

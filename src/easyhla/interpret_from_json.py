@@ -1,34 +1,35 @@
 #! /usr/bin/env python
 
-import fileinput
+import argparse
 import json
-import os
-from typing import Final, Optional
+import logging
+from typing import Optional
 
-from easyhla.easyhla import EasyHLA
-from easyhla.models import (
+from .easyhla import EasyHLA
+from .interpret_from_json_lib import HLAInput, HLAResult
+from .models import (
     HLAInterpretation,
     HLAProteinPair,
     HLAStandard,
 )
-from easyhla.utils import HLA_LOCUS
-from easyhla.ruby_adaptor_lib import HLAInput, HLAResult
 
-# These are the "configuration files" that the algorithm uses; these are or may
-# be updated, in which case you specify the path to the new version in the
-# environment.
-HLA_STANDARDS: Final[dict[HLA_LOCUS, Optional[str]]] = {
-    "A": os.environ.get("HLA_STANDARDS_A"),
-    "B": os.environ.get("HLA_STANDARDS_B"),
-    "C": os.environ.get("HLA_STANDARDS_C"),
-}
-HLA_FREQUENCIES: Final[str] = os.environ.get("HLA_FREQUENCIES")
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def main():
+    parser: argparse.ArgumentParser = argparse.ArgumentParser(
+        "Produce an HLA interpretation from a JSON input"
+    )
+    parser.add_argument(
+        "infile",
+        type=argparse.FileType("r"),
+        help='Input file containing the JSON input (use "-" to read from stdin)',
+    )
+    args: argparse.Namespace = parser.parse_args()
+
     hla_input_str: str = ""
-    with fileinput.input() as f:
-        for line in f:
+    with args.infile:
+        for line in args.infile:
             hla_input_str += f"{line}\n"
 
     hla_input: HLAInput = HLAInput(**json.loads(hla_input_str))
@@ -39,13 +40,15 @@ def main():
         print(error_result.model_dump_json())
     else:
         curr_standards: Optional[dict[str, HLAStandard]] = None
-        curr_frequencies: Optional[dict[HLAProteinPair, int]] = None
-        if HLA_FREQUENCIES is not None:
-            with open(HLA_FREQUENCIES) as f:
-                curr_frequencies = EasyHLA.read_hla_frequencies(hla_input.locus, f)
-        if HLA_STANDARDS[hla_input.locus] is not None:
-            with open(HLA_STANDARDS[hla_input.locus]) as f:
+        if hla_input.hla_std_path is not None:
+            with open(hla_input.hla_std_path) as f:
                 curr_standards = EasyHLA.read_hla_standards(f)
+
+        curr_frequencies: Optional[dict[HLAProteinPair, int]] = None
+        if hla_input.hla_freq_path is not None:
+            with open(hla_input.hla_freq_path) as f:
+                curr_frequencies = EasyHLA.read_hla_frequencies(hla_input.locus, f)
+
         easyhla: EasyHLA = EasyHLA(
             locus=hla_input.locus,
             hla_standards=curr_standards,

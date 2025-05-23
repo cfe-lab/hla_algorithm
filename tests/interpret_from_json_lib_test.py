@@ -1,24 +1,26 @@
+from typing import Optional
+
 import pytest
 
+from easyhla.interpret_from_json_lib import HLAInput, HLAResult
 from easyhla.models import (
-    HLAInterpretation,
-    HLASequence,
     HLACombinedStandard,
+    HLAInterpretation,
     HLAMatchDetails,
     HLAProteinPair,
+    HLASequence,
     HLAStandard,
-    HLAMismatch,
 )
-from easyhla.ruby_adaptor_lib import HLAInput, HLAResult
 
 from .clinical_hla_lib_test import (
+    B5701_CASE_STANDARDS,
+    DUMMY_FREQUENCIES,
+    FREQUENCIES_FOR_B5701_CASES,
+    MATCHES_FOR_B5701_CASES,
     dummy_hla_sequence,
     dummy_matches,
-    DUMMY_FREQUENCIES,
-    MATCHES_FOR_B5701_CASES,
-    FREQUENCIES_FOR_B5701_CASES,
-    B5701_CASE_STANDARDS,
 )
+
 
 @pytest.mark.parametrize(
     "seq1, seq2, expected_result",
@@ -57,7 +59,7 @@ from .clinical_hla_lib_test import (
             id="wrong_number_of_sequences_and_invalid_characters",
         ),
         pytest.param(
-            "A" * 786,
+            "A" * 500 + "_" + "C" * 100,
             None,
             [
                 "Sequence is the wrong size (should be 787)",
@@ -69,10 +71,10 @@ from .clinical_hla_lib_test import (
 )
 def test_hla_input_check_sequences_locus_a(
     seq1: str,
-    seq2: str,
+    seq2: Optional[str],
     expected_result: list[str],
 ):
-    hla_input: HLAInput = HLAInput(seq1, seq2, "A")
+    hla_input: HLAInput = HLAInput(seq1=seq1, seq2=seq2, locus="A")
     result: list[str] = hla_input.check_sequences()
     assert result == expected_result
 
@@ -89,27 +91,27 @@ def test_hla_input_check_sequences_locus_a(
         pytest.param(
             "A" * 787,
             None,
-            ["Wrong number of sequences (needs 1)"],
+            ["Wrong number of sequences (needs 2)"],
             id="wrong_number_of_sequences",
         ),
         pytest.param(
             "A" * 850,
             "C" * 276,
-            ["Sequence is the wrong size (should be 270)"],
+            ["Sequence 1 is the wrong size (should be 270)"],
             id="bad_length_seq1",
         ),
         pytest.param(
             "A" * 270,
             "C" * 300,
-            ["Sequence is the wrong size (should be 276)"],
+            ["Sequence 2 is the wrong size (should be 276)"],
             id="bad_length_seq2",
         ),
         pytest.param(
             "A" * 200,
             "C" * 277,
             [
-                "Sequence is the wrong size (should be 270)",
-                "Sequence is the wrong size (should be 276)",
+                "Sequence 1 is the wrong size (should be 270)",
+                "Sequence 2 is the wrong size (should be 276)",
             ],
             id="bad_length_both_sequences",
         ),
@@ -121,12 +123,12 @@ def test_hla_input_check_sequences_locus_a(
         ),
         pytest.param(
             "A" * 270,
-            "C" * 200 + "Q" + "C" * 76,
+            "C" * 200 + "Q" + "C" * 75,
             ["Sequence has invalid characters"],
             id="invalid_characters_seq2",
         ),
         pytest.param(
-            "A" * 200 + "_" + "C" * 70,
+            "A" * 200 + "_" + "C" * 69,
             "C" * 200 + "Q" + "C" * 75,
             ["Sequence has invalid characters"],
             id="invalid_characters_both_sequences",
@@ -135,25 +137,25 @@ def test_hla_input_check_sequences_locus_a(
             "A" * 200 + "_" + "C" * 69,
             None,
             [
-                "Wrong number of sequences (needs 1)",
+                "Wrong number of sequences (needs 2)",
                 "Sequence has invalid characters",
             ],
             id="wrong_number_of_sequences_and_invalid_characters",
         ),
         pytest.param(
-            "A" * 786,
+            "A" * 500 + "_" + "G" * 200,
             "C" * 276,
             [
-                "Sequence is the wrong size (should be 270)",
+                "Sequence 1 is the wrong size (should be 270)",
                 "Sequence has invalid characters",
             ],
             id="bad_length_seq1_and_invalid_characters",
         ),
         pytest.param(
             "A" * 270,
-            "C" * 275,
+            "C" * 200 + "_" + "C" * 74,
             [
-                "Sequence is the wrong size (should be 276)",
+                "Sequence 2 is the wrong size (should be 276)",
                 "Sequence has invalid characters",
             ],
             id="bad_length_seq2_and_invalid_characters",
@@ -162,8 +164,8 @@ def test_hla_input_check_sequences_locus_a(
             "A" * 200 + "_" + "A" * 68,
             "C" * 277,
             [
-                "Sequence is the wrong size (should be 270)",
-                "Sequence is the wrong size (should be 276)",
+                "Sequence 1 is the wrong size (should be 270)",
+                "Sequence 2 is the wrong size (should be 276)",
                 "Sequence has invalid characters",
             ],
             id="bad_length_both_sequences_and_invalid_characters",
@@ -172,38 +174,48 @@ def test_hla_input_check_sequences_locus_a(
 )
 def test_hla_input_check_sequences_locus_bc(
     seq1: str,
-    seq2: str,
+    seq2: Optional[str],
     expected_result: list[str],
 ):
     for locus in ("B", "C"):
-        hla_input: HLAInput = HLAInput(seq1, seq2, locus)
+        hla_input: HLAInput = HLAInput(seq1=seq1, seq2=seq2, locus=locus)
         result: list[str] = hla_input.check_sequences()
         assert result == expected_result
 
 
-# seqs: list[str] = Field(default_factory=list)
-# alleles_all: list[str] = Field(default_factory=list)
-# alleles_clean: str = ""
-# allele_for_mismatches: str = ""
-# mismatches: list[str] = Field(default_factory=list)
-# ambiguous: bool = False
-# homozygous: bool = False
-# type: HLA_LOCUS = "B"
-# alg_version: str = __version__
-# b5701: bool = False
-# dist_b5701: Optional[int] = None
-# errors: list[str] = Field(default_factory=list)
+def test_hla_input_hla_sequence_locus_a():
+    hla_input: HLAInput = HLAInput(
+        seq1="A" * 270 + "C" * 241 + "G" * 276,
+        seq2=None,
+        locus="A",
+    )
+    expected_result: HLASequence = HLASequence(
+        two=(1,) * 270,
+        intron=(2,) * 241,
+        three=(4,) * 276,
+        name="input_sequence",
+        locus="A",
+        num_sequences_used=1,
+    )
+    assert hla_input.hla_sequence() == expected_result
 
-# seqs=seqs,
-# alleles_all=[f"{x[0]} - {x[1]}" for x in aps.allele_pairs],
-# alleles_clean=alleles_clean,
-# allele_for_mismatches=f"{rep_ap[0]} - {rep_ap[1]}",
-# mismatches=[str(x) for x in match_details.mismatches],
-# ambiguous=aps.is_ambiguous(),
-# homozygous=aps.is_homozygous(),
-# type=interp.locus,
-# b5701=interp.is_b5701(),
-# dist_b5701=interp.distance_from_b7501(),
+
+def test_hla_input_hla_sequence_locus_bc():
+    for locus in ("B", "C"):
+        hla_input: HLAInput = HLAInput(
+            seq1="A" * 270,
+            seq2="G" * 276,
+            locus=locus,
+        )
+        expected_result: HLASequence = HLASequence(
+            two=(1,) * 270,
+            intron=(),
+            three=(4,) * 276,
+            name="input_sequence",
+            locus=locus,
+            num_sequences_used=2,
+        )
+        assert hla_input.hla_sequence() == expected_result
 
 
 @pytest.mark.parametrize(
@@ -213,7 +225,7 @@ def test_hla_input_check_sequences_locus_bc(
             dummy_hla_sequence("A"),
             dummy_matches("A"),
             DUMMY_FREQUENCIES,
-            [],
+            None,
             HLAResult(
                 seqs=["CCACAGGCT"],
                 alleles_all=[
@@ -223,7 +235,7 @@ def test_hla_input_check_sequences_locus_bc(
                     "A*10:01:15 - A*20:02:03",
                 ],
                 alleles_clean="A*10:01 - A*20",
-                allele_for_mismatches="A*10:01:10 - A*20:01",
+                alleles_for_mismatches="A*10:01:10 - A*20:01",
                 mismatches=["100:A->T", "150:T->G"],
                 ambiguous=True,
                 homozygous=False,
@@ -247,7 +259,7 @@ def test_hla_input_check_sequences_locus_bc(
                     "B*57:04:10 - B*57:01:22",
                 ],
                 alleles_clean="B*57 - B*57:01",
-                allele_for_mismatches="B*57:01:01 - B*57:01:01",
+                alleles_for_mismatches="B*57:01:01 - B*57:01:01",
                 mismatches=["3:A->W"],
                 ambiguous=False,
                 homozygous=True,
@@ -261,7 +273,7 @@ def test_hla_input_check_sequences_locus_bc(
             dummy_hla_sequence("C"),
             dummy_matches("C"),
             DUMMY_FREQUENCIES,
-            [],
+            None,
             HLAResult(
                 seqs=["CCAC", "AGGCT"],
                 alleles_all=[
@@ -271,7 +283,7 @@ def test_hla_input_check_sequences_locus_bc(
                     "C*10:01:15 - C*20:02:03",
                 ],
                 alleles_clean="C*10:01 - C*20",
-                allele_for_mismatches="C*10:01:10 - C*20:01",
+                alleles_for_mismatches="C*10:01:10 - C*20:01",
                 mismatches=["100:A->T", "150:T->G"],
                 ambiguous=True,
                 homozygous=False,
@@ -287,7 +299,7 @@ def test_hla_result_build_from_interpretation(
     hla_sequence: HLASequence,
     matches: dict[HLACombinedStandard, HLAMatchDetails],
     frequencies: dict[HLAProteinPair, int],
-    b5701_standards: list[HLAStandard],
+    b5701_standards: Optional[list[HLAStandard]],
     expected_result: HLAResult,
 ):
     interp: HLAInterpretation = HLAInterpretation(

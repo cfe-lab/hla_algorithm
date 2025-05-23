@@ -12,14 +12,14 @@ from sqlalchemy.orm import (
     mapped_column,
 )
 
-from easyhla.models import (
+from .models import (
     AllelePairs,
     HLACombinedStandard,
     HLAInterpretation,
     HLAMatchDetails,
     HLASequence,
 )
-from easyhla.utils import (
+from .utils import (
     EXON_NAME,
     HLA_LOCUS,
     BadLengthException,
