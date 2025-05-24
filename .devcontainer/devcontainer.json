@@ -20,8 +20,8 @@
 	"containerEnv": {
 		"WORKON_HOME": "${containerWorkspaceFolder}/.venv",
 		"PYTHONPATH": "${containerWorkspaceFolder}",
-		"ORACLE_HOME": "/opt/oracle/instantclient_23_7",
-		"LD_LIBRARY_PATH": "/opt/oracle/instantclient_23_7"
+		"ORACLE_HOME": "/opt/oracle/instantclient",
+		"LD_LIBRARY_PATH": "/opt/oracle/instantclient"
 	},
 	"onCreateCommand": {
 		"update apt": [
@@ -44,13 +44,10 @@
 			"libaio-dev",
 			"unzip"
 		],
-		"copy Instant Client into place": "cp vendor/instantclient-basic-linux.x64-23.7.0.25.01.zip /tmp/vendor",
-		"unzip Instant Client": [
-			"unzip",
-			"/tmp/vendor/instantclient-basic-linux.x64-23.7.0.25.01.zip",
-			"-d",
-			"/opt/oracle"
-		],
+		"create a temp folder for the vendored software": "mkdir /tmp/vendor",
+		"copy Instant Client into place": "cp vendor/instantclient*.zip /tmp/vendor/",
+		"unzip Instant Client": "unzip /tmp/vendor/instantclient*.zip -d /opt/oracle",
+		"make a version-agnostic soft link": "ln -s /opt/oracle/instantclient_* /opt/oracle/instantclient",
 		"remove Instant Client zip file": "rm -rf /tmp/vendor"
 	},
 	"postAttachCommand": {

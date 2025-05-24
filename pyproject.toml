@@ -75,7 +75,7 @@ path = "src/easyhla/__about__.py"
 include = [
   "src/easyhla/*.py",
   "src/easyhla/default_data/*.csv",
-  "src/easyhla/hla_nuc.fasta.mtime",
+  "src/easyhla/default_data/hla_nuc.fasta.mtime",
 ]
 exclude = [
   "tools",
