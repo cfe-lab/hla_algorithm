@@ -44,11 +44,17 @@
 			"libaio-dev",
 			"unzip"
 		],
-		"create a temp folder for the vendored software": "mkdir /tmp/vendor",
-		"copy Instant Client into place": "cp vendor/instantclient*.zip /tmp/vendor/",
-		"unzip Instant Client": "unzip /tmp/vendor/instantclient*.zip -d /opt/oracle",
-		"make a version-agnostic soft link": "ln -s /opt/oracle/instantclient_* /opt/oracle/instantclient",
-		"remove Instant Client zip file": "rm -rf /tmp/vendor"
+		"install Instant Client": [
+			"/usr/bin/env",
+			"bash",
+			"${containerWorkspaceFolder}/.devcontainer/install_instant_client.bash"
+		],
+		"install Ruby": [
+			"/usr/bin/apt",
+			"install",
+			"-y",
+			"ruby"
+		]
 	},
 	"postAttachCommand": {
 		"message": [

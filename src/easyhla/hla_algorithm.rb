@@ -62,12 +62,12 @@ class HLAAlgorithm
       "seq1" => seqs[0],
       "seq2" => seqs[1],
       "locus" => locus,
-      "hla_std_path" => @hla_std_paths[locus],
-      "hla_freq_path" => @hla_freq_path
+      "hla_std_path" => File.expand_path(@hla_std_paths[locus]),
+      "hla_freq_path" => File.expand_path(@hla_freq_path)
     }
 
     python_stdout, python_stderr, wait_thread = Open3.capture3(
-      "#{HLA_INTERPRET_FROM_JSON}",
+      "#{HLA_INTERPRET_FROM_JSON} -",
       stdin_data: JSON.generate(hla_input)
     )
 
