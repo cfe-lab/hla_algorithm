@@ -3,9 +3,10 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime
 from io import TextIOBase
 from operator import attrgetter
-from typing import Final, Optional
+from typing import Final, Optional, TypedDict
 
 import numpy as np
+import yaml
 
 from .models import (
     HLACombinedStandard,
@@ -20,11 +21,19 @@ from .models import (
 from .utils import (
     BIN2NUC,
     HLA_LOCUS,
+    GroupedAllele,
+    StoredHLAStandards,
     count_strict_mismatches,
     nuc2bin,
 )
 
 DATE_FORMAT = "%a %b %d %H:%M:%S %Z %Y"
+
+
+class ProcessedStoredStandards(TypedDict):
+    tag: str
+    last_modified: datetime
+    standards: dict[HLA_LOCUS, dict[str, HLAStandard]]
 
 
 class EasyHLA:
@@ -40,61 +49,89 @@ class EasyHLA:
 
     def __init__(
         self,
-        locus: HLA_LOCUS,
-        hla_standards: Optional[dict[str, HLAStandard]] = None,
-        hla_frequencies: Optional[dict[HLAProteinPair, int]] = None,
-        last_modified: Optional[datetime] = None,
+        hla_standards: Optional[ProcessedStoredStandards] = None,
+        hla_frequencies: Optional[dict[HLA_LOCUS, dict[HLAProteinPair, int]]] = None,
     ):
         """
         Initialize an EasyHLA class.
 
-        :param locus: HLA subtype that this object will be performing
-        interpretation against.
-        :type locus: "A", "B", or "C"
         :param logger: Python logger object, defaults to None
         :type logger: Optional[logging.Logger], optional
-        :raises ValueError: Raised if locus != "A"/"B"/"C"
         """
-        if locus not in ["A", "B", "C"]:
-            raise ValueError("Invalid HLA locus specified; must be A, B, or C")
-        self.locus: HLA_LOCUS = locus
+        if hla_standards is None:
+            hla_standards = self.load_default_hla_standards()
 
-        self.hla_standards: dict[str, HLAStandard]
-        if hla_standards is not None:
-            self.hla_standards = hla_standards
-        else:
-            self.hla_standards = self.load_default_hla_standards()
+        self.hla_standards: dict[HLA_LOCUS, dict[str, HLAStandard]] = hla_standards[
+            "standards"
+        ]
+        self.last_modified: datetime = hla_standards["last_modified"]
+        self.tag: str = hla_standards["tag"]
 
-        self.hla_frequencies: dict[HLAProteinPair, int]
+        self.hla_frequencies: dict[HLA_LOCUS, dict[HLAProteinPair, int]]
         if hla_frequencies is not None:
             self.hla_frequencies = hla_frequencies
         else:
             self.hla_frequencies = self.load_default_hla_frequencies()
 
-        self.last_modified: datetime
-        if last_modified is not None:
-            self.last_modified = last_modified
-        else:
-            self.last_modified = self.load_default_last_modified()
+    @classmethod
+    def use_config(
+        cls,
+        standards_path: Optional[str],
+        frequencies_path: Optional[str] = None,
+    ) -> "EasyHLA":
+        """
+        An alternate constructor that accepts file paths for the configuration.
+        """
+        processed_stds: Optional[ProcessedStoredStandards] = None
+        frequencies: Optional[dict[HLA_LOCUS, dict[HLAProteinPair, int]]] = None
+
+        if standards_path is not None:
+            with open(standards_path) as f:
+                processed_stds = cls.read_hla_standards(f)
+
+        if frequencies_path is not None:
+            with open(frequencies_path) as f:
+                frequencies = cls.read_hla_frequencies(f)
+
+        return cls(processed_stds, frequencies)
 
     @staticmethod
-    def read_hla_standards(standards_io: TextIOBase) -> dict[str, HLAStandard]:
+    def read_hla_standards(
+        standards_io: TextIOBase,
+    ) -> ProcessedStoredStandards:
         """
         Read HLA standards from a specified file-like object.
 
         :return: Dictionary of known HLA standards keyed by their name
         :rtype: dict[str, HLAStandard]
         """
-        hla_stds: dict[str, HLAStandard] = {}
-        for line in standards_io.readlines():
-            line_array = line.strip().split(",")
-            allele: str = line_array[0]
-            hla_stds[allele] = HLAStandard(
-                allele=line_array[0],
-                two=nuc2bin(line_array[1]),
-                three=nuc2bin(line_array[2]),
-            )
-        return hla_stds
+        stored_stds: StoredHLAStandards = StoredHLAStandards.model_validate(
+            yaml.safe_load(standards_io)
+        )
+
+        hla_stds: dict[HLA_LOCUS, dict[str, HLAStandard]] = {
+            "A": {},
+            "B": {},
+            "C": {},
+        }
+        stored_grouped_alleles: dict[HLA_LOCUS, list[GroupedAllele]] = {
+            "A": stored_stds.A,
+            "B": stored_stds.B,
+            "C": stored_stds.C,
+        }
+        for locus in ("A", "B", "C"):
+            for grouped_allele in stored_grouped_alleles[locus]:
+                hla_stds[locus][grouped_allele.name] = HLAStandard(
+                    allele=grouped_allele.name,
+                    two=nuc2bin(grouped_allele.exon2),
+                    three=nuc2bin(grouped_allele.exon3),
+                )
+
+        return {
+            "tag": stored_stds.tag,
+            "last_modified": stored_stds.last_modified,
+            "standards": hla_stds,
+        }
 
     def load_default_hla_standards(self) -> dict[str, HLAStandard]:
         """
@@ -106,44 +143,50 @@ class EasyHLA:
         standards_filename: str = os.path.join(
             os.path.dirname(__file__),
             "default_data",
-            f"hla_{self.locus.lower()}_std_reduced.csv",
+            "hla_standards.yaml",
         )
         with open(standards_filename) as standards_file:
             return self.read_hla_standards(standards_file)
 
     @staticmethod
     def read_hla_frequencies(
-        locus: HLA_LOCUS,
         frequencies_io: TextIOBase,
-    ) -> dict[HLAProteinPair, int]:
+    ) -> dict[HLA_LOCUS, dict[HLAProteinPair, int]]:
         """
         Load HLA frequencies from a specified file-like object.
 
-        This takes two columns AAAA,BBBB out of 6 (...FFFF), and then uses a
+        This takes each two columns AAAA,BBBB out of 6 (...FFFF), and then uses a
         subset of these two columns (AABB,CCDD) to use as the key, in this case
         "AA|BB,CC|DD", we then count the number of times this key appears in our
         columns.
 
-        :return: Lookup table of HLA frequencies.
-        :rtype: dict[HLAProteinPair, int]
+        :return: Lookup table of locus and HLA frequencies.
+        :rtype: dict[HLA_LOCUS, dict[HLAProteinPair, int]]
         """
-        hla_freqs: dict[HLAProteinPair, int] = {}
-        for line in frequencies_io.readlines():
-            column_id = EasyHLA.COLUMN_IDS[locus]
-            line_array = line.strip().split(",")[column_id : column_id + 2]
+        hla_freqs: dict[HLA_LOCUS, dict[HLAProteinPair, int]] = {
+            "A": {},
+            "B": {},
+            "C": {},
+        }
+        for locus in ("A", "B", "C"):
+            for line in frequencies_io.readlines():
+                column_id = EasyHLA.COLUMN_IDS[locus]
+                line_array = line.strip().split(",")[column_id : column_id + 2]
 
-            protein_pair: HLAProteinPair = HLAProteinPair(
-                first_field_1=line_array[0][0:2],
-                first_field_2=line_array[0][2:4],
-                second_field_1=line_array[1][0:2],
-                second_field_2=line_array[1][2:4],
-            )
-            if hla_freqs.get(protein_pair, None) is None:
-                hla_freqs[protein_pair] = 0
-            hla_freqs[protein_pair] += 1
+                protein_pair: HLAProteinPair = HLAProteinPair(
+                    first_field_1=line_array[0][0:2],
+                    first_field_2=line_array[0][2:4],
+                    second_field_1=line_array[1][0:2],
+                    second_field_2=line_array[1][2:4],
+                )
+                if hla_freqs[locus].get(protein_pair, None) is None:
+                    hla_freqs[locus][protein_pair] = 0
+                hla_freqs[locus][protein_pair] += 1
         return hla_freqs
 
-    def load_default_hla_frequencies(self) -> dict[HLAProteinPair, int]:
+    def load_default_hla_frequencies(
+        self,
+    ) -> dict[HLA_LOCUS, dict[HLAProteinPair, int]]:
         """
         Load HLA frequencies from reference file.
 
@@ -153,34 +196,17 @@ class EasyHLA:
         columns.
 
         :return: Lookup table of HLA frequencies.
-        :rtype: dict[HLAProteinPair, int]
+        :rtype: dict[HLA_LOCUS, dict[HLAProteinPair, int]]
         """
-        hla_freqs: dict[HLAProteinPair, int]
+        hla_freqs: dict[HLA_LOCUS, dict[HLAProteinPair, int]]
         default_frequencies_filename: str = os.path.join(
             os.path.dirname(__file__),
             "default_data",
             "hla_frequencies.csv",
         )
         with open(default_frequencies_filename, "r") as f:
-            hla_freqs = self.read_hla_frequencies(self.locus, f)
+            hla_freqs = self.read_hla_frequencies(f)
         return hla_freqs
-
-    @staticmethod
-    def load_default_last_modified() -> datetime:
-        """
-        Load a datetime object describing when standard definitions were last updated.
-
-        :return: Date and time representing when references were last updated.
-        :rtype: datetime
-        """
-        filename = os.path.join(
-            os.path.dirname(__file__),
-            "default_data",
-            "hla_nuc.fasta.mtime",
-        )
-        with open(filename, "r", encoding="utf-8") as f:
-            last_mod_date = "".join(f.readlines()).strip()
-        return datetime.strptime(last_mod_date, DATE_FORMAT)
 
     @staticmethod
     def get_matching_standards(
@@ -320,10 +346,11 @@ class EasyHLA:
 
         return result
 
+    @staticmethod
     def get_mismatches(
-        self,
         standard_bin: Sequence[int],
         sequence_bin: Sequence[int],
+        locus: HLA_LOCUS,
     ) -> list[HLAMismatch]:
         """
         Report mismatched bases and their location versus a standard.
@@ -352,7 +379,7 @@ class EasyHLA:
         mislist: list[HLAMismatch] = []
 
         for index, correct_base_bin in correct_base_at_pos.items():
-            if self.locus == "A" and index > 269:  # i.e. > 270 in 1-based indices
+            if locus == "A" and index > 269:  # i.e. > 270 in 1-based indices
                 # This is 241 + 1, where the 1 converts from 0-based to 1-based
                 # indices.
                 dex = index + 242
@@ -391,8 +418,11 @@ class EasyHLA:
         :rtype: HLAInterpretation
         """
         seq: tuple[int, ...] = hla_sequence.sequence_for_interpretation
+        locus: HLA_LOCUS = hla_sequence.locus
 
-        matching_stds = self.get_matching_standards(seq, self.hla_standards.values())
+        matching_stds = self.get_matching_standards(
+            seq, self.hla_standards[locus].values()
+        )
         if len(matching_stds) == 0:
             raise EasyHLA.NoMatchingStandards()
 
@@ -405,7 +435,7 @@ class EasyHLA:
         )
 
         b5701_standards: Optional[list[HLAStandard]] = None
-        if self.locus == "B":
+        if locus == "B":
             b5701_standards = [
                 self.hla_standards[allele] for allele in self.B5701_ALLELES
             ]

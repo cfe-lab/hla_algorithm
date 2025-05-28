@@ -30,6 +30,7 @@ dependencies = [
   "pydantic>=2.10.6",
   "pydantic-numpy>=8.0.1",
   "pytz>=2025.1",
+  "pyyaml>=6.0.2",
   "requests>=2.32.3",
   "typer>=0.15.2",
 ]
@@ -61,6 +62,7 @@ Source = "https://github.com/unknown/easyhla"
 clinical_hla = "easyhla.clinical_hla:main"
 interpret_from_json = "easyhla.interpret_from_json:main"
 bblab = "easyhla.bblab:main"
+update_alleles = "easyhla.update_alleles:main"
 
 [project.optional-dependencies]
 database = [
@@ -113,6 +115,7 @@ omit = [
   "src/easyhla/bblab.py",
   "src/easyhla/clinical_hla.py",
   "src/easyhla/interpret_from_json.py",
+  "src/easyhla/update_alleles.py",
   "src/scripts/*.py",
 ]
 

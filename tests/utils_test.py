@@ -17,6 +17,7 @@ from easyhla.utils import (
     MIN_HLA_BC_LENGTH,
     BadLengthException,
     GroupedAllele,
+    HLARawStandard,
     InvalidBaseException,
     allele_integer_coordinates,
     bin2nuc,
@@ -1091,7 +1092,7 @@ EXON_REFERENCES: dict[HLA_LOCUS, dict[EXON_NAME, str]] = {
     (
         "srs, exon_references, overall_mismatch_threshold, "
         "acceptable_match_search_threshold, report_interval, use_logging, "
-        "expected_a, expected_b, expected_c, expected_logging_calls"
+        "expected_raw_a, expected_raw_b, expected_raw_c, expected_logging_calls"
     ),
     [
         pytest.param(
@@ -1561,16 +1562,16 @@ def test_collate_standards(
     acceptable_match_search_threshold: int,
     report_interval: Optional[int],
     use_logging: bool,
-    expected_a: list[tuple[str, str, str]],
-    expected_b: list[tuple[str, str, str]],
-    expected_c: list[tuple[str, str, str]],
+    expected_raw_a: list[tuple[str, str, str]],
+    expected_raw_b: list[tuple[str, str, str]],
+    expected_raw_c: list[tuple[str, str, str]],
     expected_logging_calls: list[str],
     mocker: MockerFixture,
 ):
     mock_logger: Optional[mocker.MagicMock] = None
     if use_logging:
         mock_logger = mocker.MagicMock()
-    result: dict[HLA_LOCUS, list[tuple[str, str, str]]] = collate_standards(
+    result: dict[HLA_LOCUS, list[HLARawStandard]] = collate_standards(
         srs,
         exon_references,
         mock_logger,
@@ -1578,9 +1579,22 @@ def test_collate_standards(
         acceptable_match_search_threshold,
         report_interval,
     )
-    assert result["A"] == expected_a
-    assert result["B"] == expected_b
-    assert result["C"] == expected_c
+    expected_results: dict[HLA_LOCUS, list[HLARawStandard]] = {
+        "A": [
+            HLARawStandard(allele, exon2, exon3)
+            for allele, exon2, exon3 in expected_raw_a
+        ],
+        "B": [
+            HLARawStandard(allele, exon2, exon3)
+            for allele, exon2, exon3 in expected_raw_b
+        ],
+        "C": [
+            HLARawStandard(allele, exon2, exon3)
+            for allele, exon2, exon3 in expected_raw_c
+        ],
+    }
+    for locus in ("A", "B", "C"):
+        assert result[locus] == expected_results[locus]
 
     if use_logging:
         if len(expected_logging_calls) > 0:
@@ -1626,8 +1640,12 @@ def test_grouped_allele_get_group_name(
     alleles: list[str],
     expected_result: str,
 ):
-    ga: GroupedAllele = GroupedAllele("AGCTAGCTAGCT", "TGCATGCATGCA", alleles)
-    assert ga.get_group_name() == expected_result
+    ga: GroupedAllele = GroupedAllele(
+        exon2="AGCTAGCTAGCT",
+        exon3="TGCATGCATGCA",
+        alleles=alleles,
+    )
+    assert ga.name == expected_result
 
 
 @pytest.mark.parametrize(

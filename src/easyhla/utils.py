@@ -2,11 +2,13 @@ import logging
 import re
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from datetime import datetime
+from operator import attrgetter
 from typing import Final, Literal, Optional
 
 import numpy as np
 from Bio.SeqIO import SeqRecord
+from pydantic import BaseModel, computed_field
 
 # A lookup table of translations from ambiguous nucleotides to unambiguous
 # nucleotides.
@@ -359,6 +361,12 @@ def allele_integer_coordinates(allele: str) -> tuple[int, ...]:
     return tuple(int(coord) for coord in allele_coordinates(allele, True))
 
 
+class HLARawStandard(BaseModel):
+    allele: str
+    exon2: str
+    exon3: str
+
+
 def collate_standards(
     allele_srs: Sequence[SeqRecord],
     exon_references: dict[HLA_LOCUS, dict[EXON_NAME, str]],
@@ -366,7 +374,7 @@ def collate_standards(
     overall_mismatch_threshold: int = 32,
     acceptable_match_search_threshold: int = 20,
     report_interval: Optional[int] = 1000,
-) -> dict[HLA_LOCUS, list[tuple[str, str, str]]]:
+) -> dict[HLA_LOCUS, list[HLARawStandard]]:
     """
     Collate and sort HLA-A, -B, and -C standards from the specified source.
 
@@ -377,7 +385,7 @@ def collate_standards(
     if logger is not None and report_interval is not None and report_interval > 0:
         output_status_updates = True
 
-    standards: dict[HLA_LOCUS, list[tuple[str, str, str]]] = {
+    standards: dict[HLA_LOCUS, list[HLARawStandard]] = {
         "A": [],
         "B": [],
         "C": [],
@@ -408,7 +416,13 @@ def collate_standards(
             exon2_match[0] <= overall_mismatch_threshold
             and exon3_match[0] <= overall_mismatch_threshold
         ):
-            standards[locus].append((allele_name, exon2_match[1], exon3_match[1]))
+            standards[locus].append(
+                HLARawStandard(
+                    allele=allele_name,
+                    exon2=exon2_match[1],
+                    exon3=exon3_match[1],
+                )
+            )
         elif logger is not None:
             logger.info(
                 f'Rejecting "{allele_name}": {exon2_match[0]} exon2 mismatches,'
@@ -416,20 +430,21 @@ def collate_standards(
             )
 
     for locus in ("A", "B", "C"):
-        standards[locus].sort(key=lambda x: allele_integer_coordinates(x[0]))
+        standards[locus].sort(key=lambda x: allele_integer_coordinates(x.allele))
 
     return standards
 
 
-@dataclass
-class GroupedAllele:
+class GroupedAllele(BaseModel):
     exon2: str
     exon3: str
     alleles: list[str]
 
-    def get_group_name(self) -> str:
+    @computed_field
+    @property
+    def name(self) -> str:
         """
-        Get the "group name" of this grouped allele.
+        Get the "group name" of the alleles.
 
         From the "original allele", create the name of the grouped allele
         by taking (up to) the first 3 coordinates and adding a "G" at the
@@ -446,27 +461,38 @@ class GroupedAllele:
 
 
 def group_identical_alleles(
-    allele_infos: list[tuple[str, str, str]],
+    allele_infos: list[HLARawStandard],
     logger: Optional[logging.Logger] = None,
-) -> dict[str, GroupedAllele]:
+) -> list[GroupedAllele]:
     """
     Collapse common alleles into single entries.
     """
     seq_to_name: defaultdict[tuple[str, str], list[str]] = defaultdict(list)
-    for name, exon2, exon3 in allele_infos:
-        seq_to_name[(exon2, exon3)].append(name)
+    for hla_raw_standard in allele_infos:
+        seq_to_name[(hla_raw_standard.exon2, hla_raw_standard.exon3)].append(
+            hla_raw_standard.allele
+        )
 
-    grouped_alleles: dict[str, GroupedAllele] = {}
+    grouped_alleles: list[GroupedAllele] = []
     for exon2, exon3 in seq_to_name:
         alleles: list[str] = seq_to_name[(exon2, exon3)]
         grouped_allele: GroupedAllele = GroupedAllele(
-            exon2,
-            exon3,
-            alleles,
+            exon2=exon2,
+            exon3=exon3,
+            alleles=alleles,
         )
-        grouped_name: str = grouped_allele.get_group_name()
-        grouped_alleles[grouped_name] = grouped_allele
+        grouped_alleles.append(grouped_allele)
         if logger is not None and len(alleles) > 1:
-            logger.info(f"[{', '.join(grouped_allele.alleles)}] -> {grouped_name}")
+            logger.info(
+                f"[{', '.join(grouped_allele.alleles)}] -> {grouped_allele.name}"
+            )
 
-    return grouped_alleles
+    return sorted(grouped_alleles, key=attrgetter("name"))
+
+
+class StoredHLAStandards(BaseModel):
+    tag: str
+    last_updated: datetime
+    A: list[GroupedAllele]
+    B: list[GroupedAllele]
+    C: list[GroupedAllele]
