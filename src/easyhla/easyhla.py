@@ -21,7 +21,6 @@ from .models import (
 from .utils import (
     BIN2NUC,
     HLA_LOCUS,
-    GroupedAllele,
     StoredHLAStandards,
     count_strict_mismatches,
     nuc2bin,
@@ -76,7 +75,7 @@ class EasyHLA:
     @classmethod
     def use_config(
         cls,
-        standards_path: Optional[str],
+        standards_path: Optional[str] = None,
         frequencies_path: Optional[str] = None,
     ) -> "EasyHLA":
         """
@@ -112,13 +111,8 @@ class EasyHLA:
             "B": {},
             "C": {},
         }
-        stored_grouped_alleles: dict[HLA_LOCUS, list[GroupedAllele]] = {
-            "A": stored_stds.A,
-            "B": stored_stds.B,
-            "C": stored_stds.C,
-        }
         for locus in ("A", "B", "C"):
-            for grouped_allele in stored_grouped_alleles[locus]:
+            for grouped_allele in stored_stds.standards[locus]:
                 hla_stds[locus][grouped_allele.name] = HLAStandard(
                     allele=grouped_allele.name,
                     two=nuc2bin(grouped_allele.exon2),

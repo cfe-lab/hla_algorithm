@@ -2,12 +2,13 @@
 
 import argparse
 import hashlib
+import json
 import logging
 import os
 import time
 from datetime import datetime
 from io import StringIO
-from typing import Final
+from typing import Final, Optional, TypedDict
 
 import Bio
 import requests
@@ -81,9 +82,13 @@ EXON_REFERENCES: Final[dict[HLA_LOCUS, dict[EXON_NAME, str]]] = {
 
 # Find all releases (and their corresponding tags) of the HLA data at
 # https://github.com/ANHIG/IMGTHLA/releases
-REPO_PATH: Final[str] = os.environ.get(
-    "EASYHLA_REPO_PATH",
-    "https://raw.githubusercontent.com/ANHIG/IMGTHLA",
+REPO_OWNER: Final[str] = os.environ.get(
+    "EASYHLA_REPO_OWNER",
+    "ANHIG",
+)
+REPO_NAME: Final[str] = os.environ.get(
+    "EASYHLA_REPO_NAME",
+    "IMGTHLA",
 )
 HLA_ALLELES_FILENAME: Final[str] = os.environ.get(
     "EASYHLA_REPO_ALLELES_FILENAME",
@@ -95,19 +100,107 @@ class RetrieveAllelesError(Exception):
     pass
 
 
+class RetrieveCommitHashError(Exception):
+    pass
+
+
 def get_alleles_file(
     tag: str,
-    base_url: str = REPO_PATH,
+    repo_owner: str = REPO_OWNER,
+    repo_name: str = REPO_NAME,
     alleles_filename: str = HLA_ALLELES_FILENAME,
 ) -> str:
     """
     Retrieve the HLA alleles file from the specified tag.
     """
-    url: str = f"{base_url}/{tag}/{alleles_filename}"
-    response: requests.Response = requests.get(url)
+    url: str = (
+        f"https://api.github.com/repos/{repo_owner}/{repo_name}/"
+        f"contents/{alleles_filename}?ref={tag}"
+    )
+    response: requests.Response = requests.get(
+        url,
+        headers={
+            "Accept": "application/vnd.github.raw+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
     if response.status_code != requests.codes.ok:
         raise RetrieveAllelesError()
     return response.text
+
+
+class CommitInfo(TypedDict):
+    sha: str
+    url: str
+
+
+class TagInfo(TypedDict):
+    name: str
+    commit: CommitInfo
+    zipball_url: str
+    tarball_url: str
+    node_id: str
+
+
+def get_commit_hash(
+    tag_name: str,
+    repo_owner: str = REPO_OWNER,
+    repo_name: str = REPO_NAME,
+) -> Optional[str]:
+    """
+    Retrieve the commit hash of the specified tag.
+    """
+    url: str = f"https://api.github.com/repos/{repo_owner}/{repo_name}/tags"
+    response: requests.Response = requests.get(
+        url,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    if response.status_code != requests.codes.ok:
+        raise RetrieveCommitHashError()
+
+    tags: list[TagInfo] = json.loads(response.text)
+    for tag in tags:
+        if tag["name"] == tag_name:
+            return tag["commit"]["sha"]
+
+    return None
+
+
+def get_from_git(tag: str) -> tuple[str, datetime, str]:
+    alleles_str: str
+    retrieval_datetime: datetime
+    for i in range(5):
+        try:
+            retrieval_datetime = datetime.now()
+            alleles_str = get_alleles_file(tag)
+        except RetrieveAllelesError:
+            if i < 4:
+                logger.info("Failed to retrieve alleles; retrying in 20 seconds....")
+                time.sleep(20)
+            else:
+                raise
+        else:
+            break
+
+    commit_hash: str
+    for i in range(5):
+        try:
+            commit_hash = get_commit_hash(tag)
+        except RetrieveCommitHashError:
+            if i < 4:
+                logger.info(
+                    "Failed to retrieve the commit hash; retrying in 20 seconds...."
+                )
+                time.sleep(20)
+            else:
+                raise
+        else:
+            break
+
+    return alleles_str, retrieval_datetime, commit_hash
 
 
 def main():
@@ -178,18 +271,12 @@ def main():
     logger.info(f"Retrieving alleles from tag {args.tag}....")
     alleles_str: str
     retrieval_datetime: datetime
-    for i in range(5):
-        try:
-            retrieval_datetime = datetime.now()
-            alleles_str = get_alleles_file(args.tag)
-        except RetrieveAllelesError:
-            if i < 4:
-                logger.info("Failed to retrieve alleles; retrying in 20 seconds....")
-                time.sleep(20)
-            else:
-                raise
-        else:
-            break
+    commit_hash: str
+    alleles_str, retrieval_datetime, commit_hash = get_from_git(args.tag)
+    logger.info(
+        f"Alleles (version {args.tag}, commit hash {commit_hash}) retrieved at "
+        f"{retrieval_datetime}."
+    )
 
     if args.dump_full_fasta_to != "":
         logger.info(f"Dumping the full FASTA file to {args.dump_full_fasta_to}.")
@@ -214,8 +301,9 @@ def main():
     logger.info("Identifying identical HLA alleles....")
     standards_for_saving: StoredHLAStandards = StoredHLAStandards(
         tag=args.tag,
+        commit_hash=commit_hash,
         last_updated=retrieval_datetime,
-        **{
+        standards={
             locus: group_identical_alleles(raw_standards[locus])
             for locus in ("A", "B", "C")
         },

@@ -1,14 +1,15 @@
+import hashlib
 import logging
 import re
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from datetime import datetime
 from operator import attrgetter
-from typing import Final, Literal, Optional
+from typing import Final, Literal, Optional, Self
 
 import numpy as np
 from Bio.SeqIO import SeqRecord
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, computed_field, model_validator
 
 # A lookup table of translations from ambiguous nucleotides to unambiguous
 # nucleotides.
@@ -490,9 +491,44 @@ def group_identical_alleles(
     return sorted(grouped_alleles, key=attrgetter("name"))
 
 
+def compute_stored_standard_checksum(
+    tag: str,
+    commit_hash: str,
+    last_updated: datetime,
+    alleles: dict[HLA_LOCUS, list[GroupedAllele]],
+) -> str:
+    """
+    Compute a checksum for the stored data.
+    """
+    stored_string: str = f"{tag}\n{commit_hash}\n{last_updated}\n"
+    for locus in ("A", "B", "C"):
+        for ga in alleles[locus]:
+            stored_string += f"{ga.name},{ga.exon2},{ga.exon3},{';'.join(ga.alleles)}\n"
+
+    # Compute the checksum.
+    sha256_calc = hashlib.sha256()
+    sha256_calc.update(stored_string.encode())
+    return sha256_calc.hexdigest()
+
+
 class StoredHLAStandards(BaseModel):
     tag: str
+    commit_hash: str
     last_updated: datetime
-    A: list[GroupedAllele]
-    B: list[GroupedAllele]
-    C: list[GroupedAllele]
+    standards: dict[HLA_LOCUS, list[GroupedAllele]]
+    checksum: Optional[str] = None
+
+    @model_validator(mode="after")
+    def compute_compare_checksum(self) -> Self:
+        checksum: str = compute_stored_standard_checksum(
+            self.tag,
+            self.commit_hash,
+            self.last_updated,
+            self.standards,
+        )
+
+        if self.checksum is None:
+            self.checksum = checksum
+        else:
+            if self.checksum != checksum:
+                raise ValueError("Checksum mismatch")
