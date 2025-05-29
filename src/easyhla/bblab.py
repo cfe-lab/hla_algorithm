@@ -70,6 +70,7 @@ def report_unmatched_sequences(
 
 def process_from_file_to_files(
     hla_alg: EasyHLA,
+    locus: HLALocus,
     filename: str,
     output_filename: str,
     mismatches_filename: str,
@@ -97,7 +98,7 @@ def process_from_file_to_files(
     with open(filename, "r", encoding="utf-8") as f:
         matched_sequences, unmatched = pair_exons(
             Bio.SeqIO.parse(f, "fasta"),
-            hla_alg.locus,
+            locus.value,
             list(hla_alg.standards.values())[0],
         )
 
@@ -234,10 +235,11 @@ def main(
 ) -> None:
     min_log_level = max(min(40, (4 - log_level) * 10), 50)
     logger.setLevel(min_log_level)
-    easyhla = EasyHLA(locus=locus.value)
+    easyhla = EasyHLA()
 
     process_from_file_to_files(
         easyhla,
+        locus,
         sequence_file.as_posix(),
         output_file.as_posix(),
         mismatch_file.as_posix(),

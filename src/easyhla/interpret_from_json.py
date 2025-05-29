@@ -39,22 +39,14 @@ def main():
         error_result: HLAResult = HLAResult(errors=errors)
         print(error_result.model_dump_json())
     else:
-        curr_standards: Optional[dict[str, HLAStandard]] = None
-        if hla_input.hla_std_path is not None:
-            with open(hla_input.hla_std_path) as f:
-                curr_standards = EasyHLA.read_hla_standards(f)
-
-        curr_frequencies: Optional[dict[HLAProteinPair, int]] = None
-        if hla_input.hla_freq_path is not None:
-            with open(hla_input.hla_freq_path) as f:
-                curr_frequencies = EasyHLA.read_hla_frequencies(hla_input.locus, f)
-
-        easyhla: EasyHLA = EasyHLA(
-            locus=hla_input.locus,
-            hla_standards=curr_standards,
-            hla_frequencies=curr_frequencies,
+        easyhla: EasyHLA = EasyHLA.use_config(
+            hla_input.hla_std_path,
+            hla_input.hla_freq_path,
         )
-        interp: HLAInterpretation = easyhla.interpret(hla_input.hla_sequence())
+        interp: HLAInterpretation = easyhla.interpret(
+            hla_input.hla_sequence(),
+            hla_input.locus,
+        )
         print(HLAResult.build_from_interpretation(interp).model_dump_json())
 
 

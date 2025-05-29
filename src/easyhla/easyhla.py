@@ -30,7 +30,7 @@ from .utils import (
 DATE_FORMAT = "%a %b %d %H:%M:%S %Z %Y"
 
 
-class ProcessedStoredStandards(TypedDict):
+class LoadedStandards(TypedDict):
     tag: str
     last_modified: datetime
     standards: dict[HLA_LOCUS, dict[str, HLAStandard]]
@@ -49,7 +49,7 @@ class EasyHLA:
 
     def __init__(
         self,
-        hla_standards: Optional[ProcessedStoredStandards] = None,
+        loaded_standards: Optional[LoadedStandards] = None,
         hla_frequencies: Optional[dict[HLA_LOCUS, dict[HLAProteinPair, int]]] = None,
     ):
         """
@@ -58,14 +58,14 @@ class EasyHLA:
         :param logger: Python logger object, defaults to None
         :type logger: Optional[logging.Logger], optional
         """
-        if hla_standards is None:
-            hla_standards = self.load_default_hla_standards()
+        if loaded_standards is None:
+            loaded_standards = self.load_default_hla_standards()
 
-        self.hla_standards: dict[HLA_LOCUS, dict[str, HLAStandard]] = hla_standards[
+        self.hla_standards: dict[HLA_LOCUS, dict[str, HLAStandard]] = loaded_standards[
             "standards"
         ]
-        self.last_modified: datetime = hla_standards["last_modified"]
-        self.tag: str = hla_standards["tag"]
+        self.last_modified: datetime = loaded_standards["last_modified"]
+        self.tag: str = loaded_standards["tag"]
 
         self.hla_frequencies: dict[HLA_LOCUS, dict[HLAProteinPair, int]]
         if hla_frequencies is not None:
@@ -82,7 +82,7 @@ class EasyHLA:
         """
         An alternate constructor that accepts file paths for the configuration.
         """
-        processed_stds: Optional[ProcessedStoredStandards] = None
+        processed_stds: Optional[LoadedStandards] = None
         frequencies: Optional[dict[HLA_LOCUS, dict[HLAProteinPair, int]]] = None
 
         if standards_path is not None:
@@ -96,9 +96,7 @@ class EasyHLA:
         return cls(processed_stds, frequencies)
 
     @staticmethod
-    def read_hla_standards(
-        standards_io: TextIOBase,
-    ) -> ProcessedStoredStandards:
+    def read_hla_standards(standards_io: TextIOBase) -> LoadedStandards:
         """
         Read HLA standards from a specified file-like object.
 
@@ -133,7 +131,8 @@ class EasyHLA:
             "standards": hla_stds,
         }
 
-    def load_default_hla_standards(self) -> dict[str, HLAStandard]:
+    @staticmethod
+    def load_default_hla_standards() -> dict[str, HLAStandard]:
         """
         Load HLA Standards from reference file.
 
@@ -146,7 +145,7 @@ class EasyHLA:
             "hla_standards.yaml",
         )
         with open(standards_filename) as standards_file:
-            return self.read_hla_standards(standards_file)
+            return EasyHLA.read_hla_standards(standards_file)
 
     @staticmethod
     def read_hla_frequencies(
@@ -184,9 +183,8 @@ class EasyHLA:
                 hla_freqs[locus][protein_pair] += 1
         return hla_freqs
 
-    def load_default_hla_frequencies(
-        self,
-    ) -> dict[HLA_LOCUS, dict[HLAProteinPair, int]]:
+    @staticmethod
+    def load_default_hla_frequencies() -> dict[HLA_LOCUS, dict[HLAProteinPair, int]]:
         """
         Load HLA frequencies from reference file.
 
@@ -205,7 +203,7 @@ class EasyHLA:
             "hla_frequencies.csv",
         )
         with open(default_frequencies_filename, "r") as f:
-            hla_freqs = self.read_hla_frequencies(f)
+            hla_freqs = EasyHLA.read_hla_frequencies(f)
         return hla_freqs
 
     @staticmethod
