@@ -1581,15 +1581,15 @@ def test_collate_standards(
     )
     expected_results: dict[HLA_LOCUS, list[HLARawStandard]] = {
         "A": [
-            HLARawStandard(allele, exon2, exon3)
+            HLARawStandard(allele=allele, exon2=exon2, exon3=exon3)
             for allele, exon2, exon3 in expected_raw_a
         ],
         "B": [
-            HLARawStandard(allele, exon2, exon3)
+            HLARawStandard(allele=allele, exon2=exon2, exon3=exon3)
             for allele, exon2, exon3 in expected_raw_b
         ],
         "C": [
-            HLARawStandard(allele, exon2, exon3)
+            HLARawStandard(allele=allele, exon2=exon2, exon3=exon3)
             for allele, exon2, exon3 in expected_raw_c
         ],
     }
@@ -1649,23 +1649,19 @@ def test_grouped_allele_get_group_name(
 
 
 @pytest.mark.parametrize(
-    "allele_infos, use_logging, expected_result, expected_logging_calls",
+    "raw_allele_infos, use_logging, expected_result, expected_logging_calls",
     [
         pytest.param(
             [("A*01:01:01:01", "AAA", "CCC")],
             False,
-            {
-                "A*01:01:01:01": GroupedAllele("AAA", "CCC", ["A*01:01:01:01"]),
-            },
+            [GroupedAllele(exon2="AAA", exon3="CCC", alleles=["A*01:01:01:01"])],
             [],
             id="single_allele_no_logging",
         ),
         pytest.param(
             [("A*01:01:01:01", "AAA", "CCC")],
             True,
-            {
-                "A*01:01:01:01": GroupedAllele("AAA", "CCC", ["A*01:01:01:01"]),
-            },
+            [GroupedAllele(exon2="AAA", exon3="CCC", alleles=["A*01:01:01:01"])],
             [],
             id="single_allele_with_logging",
         ),
@@ -1675,10 +1671,10 @@ def test_grouped_allele_get_group_name(
                 ("B*57:01:02", "TTT", "CCT"),
             ],
             False,
-            {
-                "B*01:01:01:01": GroupedAllele("AAA", "CCC", ["B*01:01:01:01"]),
-                "B*57:01:02": GroupedAllele("TTT", "CCT", ["B*57:01:02"]),
-            },
+            [
+                GroupedAllele(exon2="AAA", exon3="CCC", alleles=["B*01:01:01:01"]),
+                GroupedAllele(exon2="TTT", exon3="CCT", alleles=["B*57:01:02"]),
+            ],
             [],
             id="two_alleles_no_grouping_no_logging",
         ),
@@ -1688,10 +1684,10 @@ def test_grouped_allele_get_group_name(
                 ("B*57:01:02", "TTT", "CCT"),
             ],
             True,
-            {
-                "B*01:01:01:01": GroupedAllele("AAA", "CCC", ["B*01:01:01:01"]),
-                "B*57:01:02": GroupedAllele("TTT", "CCT", ["B*57:01:02"]),
-            },
+            [
+                GroupedAllele(exon2="AAA", exon3="CCC", alleles=["B*01:01:01:01"]),
+                GroupedAllele(exon2="TTT", exon3="CCT", alleles=["B*57:01:02"]),
+            ],
             [],
             id="two_alleles_no_grouping_with_logging",
         ),
@@ -1701,13 +1697,13 @@ def test_grouped_allele_get_group_name(
                 ("B*57:01:02", "AAA", "CCC"),
             ],
             False,
-            {
-                "B*01:01:01G": GroupedAllele(
-                    "AAA",
-                    "CCC",
-                    ["B*01:01:01:01", "B*57:01:02"],
+            [
+                GroupedAllele(
+                    exon2="AAA",
+                    exon3="CCC",
+                    alleles=["B*01:01:01:01", "B*57:01:02"],
                 ),
-            },
+            ],
             [],
             id="two_alleles_grouped_no_logging",
         ),
@@ -1717,13 +1713,13 @@ def test_grouped_allele_get_group_name(
                 ("B*57:01:02", "AAA", "CCC"),
             ],
             True,
-            {
-                "B*01:01:01G": GroupedAllele(
-                    "AAA",
-                    "CCC",
-                    ["B*01:01:01:01", "B*57:01:02"],
+            [
+                GroupedAllele(
+                    exon2="AAA",
+                    exon3="CCC",
+                    alleles=["B*01:01:01:01", "B*57:01:02"],
                 ),
-            },
+            ],
             ["[B*01:01:01:01, B*57:01:02] -> B*01:01:01G"],
             id="two_alleles_grouped_with_logging",
         ),
@@ -1737,23 +1733,23 @@ def test_grouped_allele_get_group_name(
                 ("B*101:101:101:101", "AAA", "CCC"),
             ],
             True,
-            {
-                "B*01:01:01G": GroupedAllele(
-                    "AAA",
-                    "CCC",
-                    ["B*01:01:01:01", "B*57:01:02", "B*101:101:101:101"],
+            [
+                GroupedAllele(
+                    exon2="AAA",
+                    exon3="CCC",
+                    alleles=["B*01:01:01:01", "B*57:01:02", "B*101:101:101:101"],
                 ),
-                "B*01:02:07G": GroupedAllele(
-                    "ACT",
-                    "TAT",
-                    ["B*01:02:07", "B*59:112"],
+                GroupedAllele(
+                    exon2="ACT",
+                    exon3="TAT",
+                    alleles=["B*01:02:07", "B*59:112"],
                 ),
-                "B*58:02:02:02N": GroupedAllele(
-                    "TAC",
-                    "TTT",
-                    ["B*58:02:02:02N"],
+                GroupedAllele(
+                    exon2="TAC",
+                    exon3="TTT",
+                    alleles=["B*58:02:02:02N"],
                 ),
-            },
+            ],
             [
                 "[B*01:01:01:01, B*57:01:02, B*101:101:101:101] -> B*01:01:01G",
                 "[B*01:02:07, B*59:112] -> B*01:02:07G",
@@ -1763,7 +1759,7 @@ def test_grouped_allele_get_group_name(
     ],
 )
 def test_group_identical_alleles(
-    allele_infos: list[tuple[str, str, str]],
+    raw_allele_infos: list[tuple[str, str, str]],
     use_logging: bool,
     expected_result: dict[str, GroupedAllele],
     expected_logging_calls: list[str],
@@ -1772,6 +1768,9 @@ def test_group_identical_alleles(
     mock_logger: Optional[mocker.MagicMock] = None
     if use_logging:
         mock_logger = mocker.MagicMock()
+    allele_infos: list[HLARawStandard] = [
+        HLARawStandard(allele=x[0], exon2=x[1], exon3=x[2]) for x in raw_allele_infos
+    ]
     result: dict[str, GroupedAllele] = group_identical_alleles(
         allele_infos, mock_logger
     )

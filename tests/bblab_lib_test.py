@@ -17,10 +17,10 @@ from easyhla.models import (
     HLASequence,
     HLAStandard,
 )
-from easyhla.utils import EXON_NAME, HLA_LOCUS, nuc2bin
+from easyhla.utils import EXON_NAME, HLA_LOCUS, HLARawStandard, nuc2bin
 
 from .clinical_hla_lib_test import DUMMY_FREQUENCIES, dummy_hla_sequence, dummy_matches
-from .easyhla_test import HLA_STANDARDS, DummyStandard
+from .easyhla_test import HLA_STANDARDS
 
 
 @pytest.mark.parametrize(
@@ -732,7 +732,7 @@ def test_pair_exons(
     paired_seqs: list[HLASequence]
     unmatched: dict[EXON_NAME, dict[str, Seq]]
 
-    current_standard: DummyStandard = HLA_STANDARDS[locus]
+    current_standard: HLARawStandard = HLA_STANDARDS[locus]
     fake_standard: HLAStandard = HLAStandard(
         allele=current_standard.allele,
         two=nuc2bin(current_standard.exon2),

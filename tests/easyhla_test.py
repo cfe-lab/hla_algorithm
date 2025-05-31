@@ -7,10 +7,10 @@ from typing import Optional
 
 import numpy as np
 import pytest
-from pydantic import BaseModel
+import yaml
 from pytest_mock import MockerFixture
 
-from easyhla.easyhla import HLA_LOCUS, EasyHLA
+from easyhla.easyhla import HLA_LOCUS, EasyHLA, LoadedStandards
 from easyhla.models import (
     HLACombinedStandard,
     HLAInterpretation,
@@ -21,19 +21,13 @@ from easyhla.models import (
     HLAStandard,
     HLAStandardMatch,
 )
-from easyhla.utils import nuc2bin
+from easyhla.utils import GroupedAllele, HLARawStandard, StoredHLAStandards
 
 # from .conftest import compare_ref_vs_test
 
 
-class DummyStandard(BaseModel):
-    allele: str
-    exon2: str
-    exon3: str
-
-
-HLA_STANDARDS: dict[HLA_LOCUS, DummyStandard] = {
-    "A": DummyStandard(
+HLA_STANDARDS: dict[HLA_LOCUS, HLARawStandard] = {
+    "A": HLARawStandard(
         allele="A*01:01:01G",
         exon2=(
             "GCTCCCACTCCATGAGGTATTTCTTCACATCCGTGTCCCGGCCCGGCCGCGGGGAGCCCCGCTTCATCGCCGT"
@@ -48,7 +42,7 @@ HLA_STANDARDS: dict[HLA_LOCUS, DummyStandard] = {
             "GCGTGGACGGGCTCCGCAGATACCTGGAGAACGGGAAGGAGACGCTGCAGCGCACGG"
         ),
     ),
-    "B": DummyStandard(
+    "B": HLARawStandard(
         allele="B*07:02:01G",
         exon2=(
             "GCTCCCACTCCATGAGGTATTTCTACACCTCCGTGTCCCGGCCCGGCCGCGGGGAGCCCCGCTTCATCTCAGT"
@@ -63,7 +57,7 @@ HLA_STANDARDS: dict[HLA_LOCUS, DummyStandard] = {
             "GCGTGGAGTGGCTCCGCAGATACCTGGAGAACGGGAAGGACAAGCTGGAGCGCGCTG"
         ),
     ),
-    "C": DummyStandard(
+    "C": HLARawStandard(
         allele="C*01:02:01G",
         exon2=(
             "GCTCCCACTCCATGAAGTATTTCTTCACATCCGTGTCCCGGCCTGGCCGCGGAGAGCCCCGCTTCATCTCAGT"
@@ -80,51 +74,53 @@ HLA_STANDARDS: dict[HLA_LOCUS, DummyStandard] = {
     ),
 }
 
-HLA_FREQUENCIES: dict[HLA_LOCUS, HLAProteinPair] = {
-    "A": HLAProteinPair(
-        first_field_1="22",
-        first_field_2="33",
-        second_field_1="14",
-        second_field_2="23",
-    ),
-    "B": HLAProteinPair(
-        first_field_1="57",
-        first_field_2="01",
-        second_field_1="57",
-        second_field_2="03",
-    ),
-    "C": HLAProteinPair(
-        first_field_1="40",
-        first_field_2="43",
-        second_field_1="25",
-        second_field_2="29",
-    ),
+HLA_FREQUENCIES: dict[HLA_LOCUS, dict[HLAProteinPair, int]] = {
+    "A": {
+        HLAProteinPair(
+            first_field_1="22",
+            first_field_2="33",
+            second_field_1="14",
+            second_field_2="23",
+        ): 1,
+    },
+    "B": {
+        HLAProteinPair(
+            first_field_1="57",
+            first_field_2="01",
+            second_field_1="57",
+            second_field_2="03",
+        ): 1,
+    },
+    "C": {
+        HLAProteinPair(
+            first_field_1="40",
+            first_field_2="43",
+            second_field_1="25",
+            second_field_2="29",
+        ): 1,
+    },
 }
 
 
-def get_dummy_easyhla(locus: HLA_LOCUS) -> EasyHLA:
-    # We only need one standard as it only uses the first standard to pad
-    # our inputs against.
-    current_standard: DummyStandard = HLA_STANDARDS[locus]
-    dummy_standards: dict[str, HLAStandard] = {
-        current_standard.allele: HLAStandard(
-            allele=current_standard.allele,
-            two=nuc2bin(current_standard.exon2),
-            three=nuc2bin(current_standard.exon3),
-        )
-    }
-    dummy_frequencies: dict[HLAProteinPair, int] = {HLA_FREQUENCIES[locus]: 1}
-    return EasyHLA(
-        locus,
-        hla_standards=dummy_standards,
-        hla_frequencies=dummy_frequencies,
-        last_modified=datetime(2025, 4, 8),
-    )
-
-
 @pytest.fixture(scope="module")
-def easyhla(request: pytest.FixtureRequest):
-    return get_dummy_easyhla(request.param)
+def easyhla():
+    standards: dict[HLA_LOCUS, dict[str, HLAStandard]] = {
+        locus: {
+            HLA_STANDARDS[locus].allele: HLAStandard.from_raw_standard(
+                HLA_STANDARDS[locus]
+            )
+        }
+        for locus in ("A", "B", "C")
+    }
+    dummy_loaded_standards: LoadedStandards = {
+        "tag": "v0.1.0-dummy-test",
+        "last_updated": datetime(2025, 5, 30, 12, 0, 0),
+        "standards": standards,
+    }
+    return EasyHLA(
+        loaded_standards=dummy_loaded_standards,
+        hla_frequencies=HLA_FREQUENCIES,
+    )
 
 
 @pytest.mark.parametrize(
@@ -715,9 +711,8 @@ def test_get_mismatches_good_cases(
     expected_result: list[HLAMismatch],
 ):
     for locus in locuses:
-        easyhla: EasyHLA = get_dummy_easyhla(locus)
-        result: list[HLAMismatch] = easyhla.get_mismatches(
-            tuple(std_bin), np.array(seq_bin)
+        result: list[HLAMismatch] = EasyHLA.get_mismatches(
+            tuple(std_bin), np.array(seq_bin), locus
         )
         assert result == expected_result
 
@@ -757,14 +752,13 @@ def test_get_mismatches_errors(
     expected_error: str,
 ):
     for locus in ["A", "B", "C"]:
-        easyhla: EasyHLA = get_dummy_easyhla(locus)
         with pytest.raises(ValueError) as excinfo:
-            easyhla.get_mismatches(tuple(std_bin), np.array(seq_bin))
+            EasyHLA.get_mismatches(tuple(std_bin), np.array(seq_bin), locus)
         assert expected_error in str(excinfo.value)
 
 
 @pytest.mark.parametrize(
-    "sequence, locus, threshold, raw_standards, expected_interpretation",
+    "sequence, threshold, raw_standards, expected_interpretation",
     [
         pytest.param(
             HLASequence(
@@ -775,25 +769,28 @@ def test_get_mismatches_errors(
                 locus="C",
                 num_sequences_used=1,
             ),
-            "C",
             5,
-            [
-                HLAStandard(
-                    allele="std_allmatch",
-                    two=(1, 2),
-                    three=(4, 8),
-                ),
-                HLAStandard(
-                    allele="std_1mismatch",
-                    two=(1, 2),
-                    three=(4, 4),
-                ),
-                HLAStandard(
-                    allele="std_allmismatch",
-                    two=(8, 4),
-                    three=(2, 1),
-                ),
-            ],
+            {
+                "A": [],
+                "B": [],
+                "C": [
+                    HLAStandard(
+                        allele="std_allmatch",
+                        two=(1, 2),
+                        three=(4, 8),
+                    ),
+                    HLAStandard(
+                        allele="std_1mismatch",
+                        two=(1, 2),
+                        three=(4, 4),
+                    ),
+                    HLAStandard(
+                        allele="std_allmismatch",
+                        two=(8, 4),
+                        three=(2, 1),
+                    ),
+                ],
+            },
             HLAInterpretation(
                 hla_sequence=HLASequence(
                     two=(1, 2),
@@ -863,7 +860,7 @@ def test_get_mismatches_errors(
                         ],
                     ),
                 },
-                allele_frequencies={HLA_FREQUENCIES["C"]: 1},
+                allele_frequencies=HLA_FREQUENCIES["C"],
             ),
             id="typical_case_non_b",
         ),
@@ -876,25 +873,28 @@ def test_get_mismatches_errors(
                 locus="B",
                 num_sequences_used=1,
             ),
-            "B",
             5,
-            [
-                HLAStandard(
-                    allele="B*57:01:01G",
-                    two=(1, 2),
-                    three=(4, 8),
-                ),
-                HLAStandard(
-                    allele="B*57:01:02",
-                    two=(1, 2),
-                    three=(4, 4),
-                ),
-                HLAStandard(
-                    allele="B*57:01:03",
-                    two=(8, 4),
-                    three=(2, 1),
-                ),
-            ],
+            {
+                "A": [],
+                "B": [
+                    HLAStandard(
+                        allele="B*57:01:01G",
+                        two=(1, 2),
+                        three=(4, 8),
+                    ),
+                    HLAStandard(
+                        allele="B*57:01:02",
+                        two=(1, 2),
+                        three=(4, 4),
+                    ),
+                    HLAStandard(
+                        allele="B*57:01:03",
+                        two=(8, 4),
+                        three=(2, 1),
+                    ),
+                ],
+                "C": [],
+            },
             HLAInterpretation(
                 hla_sequence=HLASequence(
                     two=(1, 2),
@@ -964,7 +964,7 @@ def test_get_mismatches_errors(
                         ],
                     ),
                 },
-                allele_frequencies={HLA_FREQUENCIES["B"]: 1},
+                allele_frequencies=HLA_FREQUENCIES["B"],
                 b5701_standards=[
                     HLAStandard(
                         allele="B*57:01:01G",
@@ -989,15 +989,20 @@ def test_get_mismatches_errors(
 )
 def test_interpret_good_cases(
     sequence: HLASequence,
-    locus: HLA_LOCUS,
     threshold: int,
-    raw_standards: list[HLAStandard],
+    raw_standards: dict[HLA_LOCUS, list[HLAStandard]],
     expected_interpretation: HLAInterpretation,
+    easyhla: EasyHLA,
     mocker: MockerFixture,
 ):
-    easyhla: EasyHLA = get_dummy_easyhla(locus)
     # Replace the standards with the ones in the test.
-    standards: dict[str, HLAStandard] = {std.allele: std for std in raw_standards}
+    standards: dict[HLA_LOCUS, dict[str, HLAStandard]] = {
+        "A": {},
+        "B": {},
+        "C": {},
+    }
+    for locus in ("A", "B", "C"):
+        standards[locus] = {std.allele: std for std in raw_standards[locus]}
     easyhla.hla_standards = standards
 
     # Spy on the internals to make sure they're called correctly.
@@ -1018,7 +1023,7 @@ def test_interpret_good_cases(
     assert len(gms_call_args.args) == 2
     assert len(gms_call_args.kwargs) == 0
     assert gms_call_args.args[0] == sequence.sequence_for_interpretation
-    assert list(gms_call_args.args[1]) == list(standards.values())
+    assert list(gms_call_args.args[1]) == list(standards[sequence.locus].values())
 
     matching_standards: list[HLAStandardMatch] = get_matching_standards_spy.spy_return
 
@@ -1031,7 +1036,9 @@ def test_interpret_good_cases(
 
     get_mismatches_spy.assert_has_calls(
         [
-            mocker.call(x.standard_bin, sequence.sequence_for_interpretation)
+            mocker.call(
+                x.standard_bin, sequence.sequence_for_interpretation, sequence.locus
+            )
             for x in all_combos.keys()
         ],
         any_order=False,
@@ -1039,7 +1046,7 @@ def test_interpret_good_cases(
 
 
 @pytest.mark.parametrize(
-    "sequence, locus, threshold, raw_standards",
+    "sequence, threshold, raw_standards",
     [
         pytest.param(
             HLASequence(
@@ -1050,40 +1057,42 @@ def test_interpret_good_cases(
                 locus="C",
                 num_sequences_used=1,
             ),
-            "B",
             5,
-            [
-                HLAStandard(
-                    allele="std_1",
-                    two=(2, 4, 8, 1, 10, 2),
-                    three=(8, 1, 5, 7, 11, 1),
-                ),
-                HLAStandard(
-                    allele="std_2",
-                    two=(8, 4, 2, 1, 10, 2),
-                    three=(4, 8, 10, 11, 4, 1),
-                ),
-                HLAStandard(
-                    allele="std_3",
-                    two=(1, 2, 4, 4, 5, 8),
-                    three=(8, 8, 5, 8, 11, 4),
-                ),
-            ],
+            {
+                "A": [],
+                "B": [],
+                "C": [
+                    HLAStandard(
+                        allele="std_1",
+                        two=(2, 4, 8, 1, 10, 2),
+                        three=(8, 1, 5, 7, 11, 1),
+                    ),
+                    HLAStandard(
+                        allele="std_2",
+                        two=(8, 4, 2, 1, 10, 2),
+                        three=(4, 8, 10, 11, 4, 1),
+                    ),
+                    HLAStandard(
+                        allele="std_3",
+                        two=(1, 2, 4, 4, 5, 8),
+                        three=(8, 8, 5, 8, 11, 4),
+                    ),
+                ],
+            },
             id="no_matching_standards",
         ),
     ],
 )
 def test_interpret_error_cases(
     sequence: HLASequence,
-    locus: HLA_LOCUS,
     threshold: int,
-    raw_standards: list[HLAStandard],
+    raw_standards: dict[HLA_LOCUS, list[HLAStandard]],
+    easyhla: EasyHLA,
     mocker: MockerFixture,
 ):
-    easyhla: EasyHLA = get_dummy_easyhla(locus)
     # Replace the standards with the ones in the test.
-    standards: dict[str, HLAStandard] = {std.allele: std for std in raw_standards}
-    easyhla.hla_standards = standards
+    for locus in ("A", "B", "C"):
+        easyhla.hla_standards[locus] = {std.allele: std for std in raw_standards[locus]}
 
     # Spy on the internals to make sure they're called correctly.
     get_matching_standards_spy: mocker.MagicMock = mocker.spy(
@@ -1103,103 +1112,216 @@ def test_interpret_error_cases(
     assert len(gms_call_args.args) == 2
     assert len(gms_call_args.kwargs) == 0
     assert gms_call_args.args[0] == sequence.sequence_for_interpretation
-    assert list(gms_call_args.args[1]) == list(standards.values())
+    assert list(gms_call_args.args[1]) == list(
+        easyhla.hla_standards[sequence.locus].values()
+    )
 
     combine_standards_spy.assert_not_called()
     get_mismatches_spy.assert_not_called()
-
-
-def test_unknown_hla_locus():
-    """
-    Assert we raise a value error if we put in an unknown HLA locus.
-    """
-    with pytest.raises(ValueError):
-        EasyHLA("D")
-
-
-def test_known_hla_locus_lowercase():
-    """
-    Assert we raise a value error if we put in an HLA locus with wrong case.
-    """
-    with pytest.raises(ValueError):
-        EasyHLA("a")
 
 
 @pytest.mark.parametrize(
     "raw_standards, raw_expected_result",
     [
         pytest.param(
-            [],
-            [],
+            {"A": [], "B": [], "C": []},
+            {"A": {}, "B": {}, "C": {}},
             id="empty_file",
         ),
         pytest.param(
-            [("A*01:23:45:67N", "A" * 270, "T" * 276)],
-            [
-                HLAStandard(
-                    allele="A*01:23:45:67N",
-                    two=(1,) * 270,
-                    three=(8,) * 276,
-                ),
-            ],
+            {
+                "A": [
+                    GroupedAllele(
+                        exon2="A" * 270,
+                        exon3="T" * 276,
+                        alleles=["A*01:23:45:67N"],
+                    )
+                ],
+                "B": [],
+                "C": [],
+            },
+            {
+                "A": {
+                    "A*01:23:45:67N": HLAStandard(
+                        allele="A*01:23:45:67N",
+                        two=(1,) * 270,
+                        three=(8,) * 276,
+                    ),
+                },
+                "B": {},
+                "C": {},
+            },
             id="single_entry",
         ),
         pytest.param(
-            [
-                ("B*01:23:45:67N", "A" * 270, "T" * 276),
-                ("B*57:01:02", "C" * 270, "GT" * 138),
-                ("B*100:101:111", "AT" * 135, "G" * 276),
-            ],
-            [
-                HLAStandard(
-                    allele="B*01:23:45:67N",
-                    two=(1,) * 270,
-                    three=(8,) * 276,
-                ),
-                HLAStandard(
-                    allele="B*57:01:02",
-                    two=(2,) * 270,
-                    three=(4, 8) * 138,
-                ),
-                HLAStandard(
-                    allele="B*100:101:111",
-                    two=(1, 8) * 135,
-                    three=(4,) * 276,
-                ),
-            ],
+            {
+                "A": [],
+                "B": [
+                    GroupedAllele(
+                        exon2="A" * 270,
+                        exon3="T" * 276,
+                        alleles=["B*01:23:45:67N", "B*01:24:44"],
+                    ),
+                    GroupedAllele(
+                        alleles=["B*57:01:02"],
+                        exon2="C" * 270,
+                        exon3="GT" * 138,
+                    ),
+                    GroupedAllele(
+                        alleles=["B*100:101:111"],
+                        exon2="AT" * 135,
+                        exon3="G" * 276,
+                    ),
+                ],
+                "C": [],
+            },
+            {
+                "A": {},
+                "B": {
+                    "B*01:23:45G": HLAStandard(
+                        allele="B*01:23:45G",
+                        two=(1,) * 270,
+                        three=(8,) * 276,
+                    ),
+                    "B*57:01:02": HLAStandard(
+                        allele="B*57:01:02",
+                        two=(2,) * 270,
+                        three=(4, 8) * 138,
+                    ),
+                    "B*100:101:111": HLAStandard(
+                        allele="B*100:101:111",
+                        two=(1, 8) * 135,
+                        three=(4,) * 276,
+                    ),
+                },
+                "C": {},
+            },
             id="multiple_entries",
+        ),
+        pytest.param(
+            {
+                "A": [
+                    GroupedAllele(
+                        exon2="G" * 270,
+                        exon3="A" * 276,
+                        alleles=["A*01:23:45:67N"],
+                    ),
+                    GroupedAllele(
+                        alleles=["A*55:66:77", "A*72:01:02"],
+                        exon2="GT" * 135,
+                        exon3="AC" * 138,
+                    ),
+                ],
+                "B": [
+                    GroupedAllele(
+                        exon2="A" * 270,
+                        exon3="T" * 276,
+                        alleles=["B*01:23:45:67N", "B*01:24:44"],
+                    ),
+                    GroupedAllele(
+                        alleles=["B*57:01:02"],
+                        exon2="C" * 270,
+                        exon3="GT" * 138,
+                    ),
+                    GroupedAllele(
+                        alleles=["B*100:101:111"],
+                        exon2="AT" * 135,
+                        exon3="G" * 276,
+                    ),
+                ],
+                "C": [
+                    GroupedAllele(
+                        alleles=["C*101:102:103", "C*105:106:107:108N"],
+                        exon2="T" * 270,
+                        exon3="A" * 276,
+                    ),
+                    GroupedAllele(
+                        alleles=["C*77:01:03"],
+                        exon2="TG" * 135,
+                        exon3="CA" * 138,
+                    ),
+                ],
+            },
+            {
+                "A": {
+                    "A*01:23:45:67N": HLAStandard(
+                        allele="A*01:23:45:67N",
+                        two=(4,) * 270,
+                        three=(1,) * 276,
+                    ),
+                    "A*55:66:77G": HLAStandard(
+                        allele="A*55:66:77G",
+                        two=(4, 8) * 135,
+                        three=(1, 2) * 138,
+                    ),
+                },
+                "B": {
+                    "B*01:23:45G": HLAStandard(
+                        allele="B*01:23:45G",
+                        two=(1,) * 270,
+                        three=(8,) * 276,
+                    ),
+                    "B*57:01:02": HLAStandard(
+                        allele="B*57:01:02",
+                        two=(2,) * 270,
+                        three=(4, 8) * 138,
+                    ),
+                    "B*100:101:111": HLAStandard(
+                        allele="B*100:101:111",
+                        two=(1, 8) * 135,
+                        three=(4,) * 276,
+                    ),
+                },
+                "C": {
+                    "C*101:102:103G": HLAStandard(
+                        allele="C*101:102:103G",
+                        two=(8,) * 270,
+                        three=(1,) * 276,
+                    ),
+                    "C*77:01:03": HLAStandard(
+                        allele="C*77:01:03",
+                        two=(8, 4) * 135,
+                        three=(2, 1) * 138,
+                    ),
+                },
+            },
+            id="typical_case",
         ),
     ],
 )
 def test_read_hla_standards(
-    raw_standards: list[tuple[str, str, str]],
-    raw_expected_result: list[HLAStandard],
+    raw_standards: dict[HLA_LOCUS, list[GroupedAllele]],
+    raw_expected_result: dict[HLA_LOCUS, dict[str, HLAStandard]],
     tmp_path: Path,
     mocker: MockerFixture,
 ):
-    # Convert the raw expected results into a dict:
-    expected_result: dict[str, HLAStandard] = {
-        std.allele: std for std in raw_expected_result
+    # Convert the raw expected results into a LoadedStandards:
+    expected_result: LoadedStandards = {
+        "tag": "0.1.0-dummy-test",
+        "last_updated": datetime(2025, 5, 30, 12, 0, 0),
+        "standards": raw_expected_result,
     }
-    # Build a string from the raw standards:
-    standards_file_str: str = ""
-    for allele, exon2, exon3 in raw_standards:
-        standards_file_str += f"{allele},{exon2},{exon3}\n"
-    read_result: list[HLAStandard] = EasyHLA.read_hla_standards(
+    # Build a YAML string from the raw standards:
+    stored_standards: StoredHLAStandards = StoredHLAStandards(
+        tag="0.1.0-dummy-test",
+        commit_hash="foobar",
+        last_updated=datetime(2025, 5, 30, 12, 0, 0),
+        standards=raw_standards,
+    )
+    standards_file_str: str = yaml.safe_dump(stored_standards.model_dump())
+    read_result: LoadedStandards = EasyHLA.read_hla_standards(
         StringIO(standards_file_str)
     )
     assert read_result == expected_result
 
-    # Also, try loading these from a file.
-    for locus in ("A", "B", "C"):
-        easyhla: EasyHLA = get_dummy_easyhla(locus)
-        p = tmp_path / "hla_std.csv"
-        p.write_text(standards_file_str)
-        dirname_return_mock: mocker.MagicMock = mocker.MagicMock()
-        mocker.patch.object(os.path, "dirname", return_value=dirname_return_mock)
-        mocker.patch.object(os.path, "join", return_value=str(p))
-        load_result: list[HLAStandard] = easyhla.load_default_hla_standards()
-        assert load_result == expected_result
+    # Also try reading it from a file.
+    p = tmp_path / "hla_standards.yaml"
+    p.write_text(standards_file_str)
+    dirname_return_mock: mocker.MagicMock = mocker.MagicMock()
+    mocker.patch.object(os.path, "dirname", return_value=dirname_return_mock)
+    mocker.patch.object(os.path, "join", return_value=str(p))
+    load_result: list[HLAStandard] = EasyHLA.load_default_hla_standards()
+    assert load_result == expected_result
 
 
 @pytest.mark.parametrize(
@@ -1436,79 +1558,59 @@ def test_read_hla_frequencies(
         "B": expected_locus_b,
         "C": expected_locus_c,
     }
-    for locus in ("A", "B", "C"):
-        result: dict[HLAProteinPair, int] = EasyHLA.read_hla_frequencies(
-            locus, StringIO(frequencies_str)
-        )
-        assert result == expected_results[locus]
+    result: dict[HLA_LOCUS, dict[HLAProteinPair, int]] = EasyHLA.read_hla_frequencies(
+        StringIO(frequencies_str)
+    )
+    assert result == expected_results
 
     # Now try loading these from a file.
     p = tmp_path / "hla_frequencies.csv"
     p.write_text(frequencies_str)
-
-    for locus in ("A", "B", "C"):
-        easyhla: EasyHLA = get_dummy_easyhla(locus)
-        dirname_return_mock: mocker.MagicMock = mocker.MagicMock()
-        mocker.patch.object(os.path, "dirname", return_value=dirname_return_mock)
-        mocker.patch.object(os.path, "join", return_value=str(p))
-        load_result: dict[HLAProteinPair, int] = easyhla.load_default_hla_frequencies()
-        assert load_result == expected_results[locus]
-
-
-def test_load_default_last_modified(tmp_path: Path, mocker: MockerFixture):
-    """
-    Assert we can load our mtime and that it is represented correctly.
-    """
-    fake_mtime_path: Path = tmp_path / "hla_nuc.fasta.mtime"
-    fake_mtime_path.write_text("Thu Apr 10 14:43:30 UTC 2025")
-
     dirname_return_mock: mocker.MagicMock = mocker.MagicMock()
     mocker.patch.object(os.path, "dirname", return_value=dirname_return_mock)
-    mocker.patch.object(os.path, "join", return_value=str(fake_mtime_path))
-
-    result: datetime = EasyHLA.load_default_last_modified()
-
-    # Note that the timezone is lost when the date is read back in.
-    dummy_last_modified: datetime = datetime(2025, 4, 10, 14, 43, 30)
-    assert result == dummy_last_modified
+    mocker.patch.object(os.path, "join", return_value=str(p))
+    load_result: dict[HLAProteinPair, int] = EasyHLA.load_default_hla_frequencies()
+    assert load_result == expected_results
 
 
-def test_init_no_defaults(mocker: MockerFixture):
-    fake_standards: mocker.MagicMock = mocker.MagicMock()
+@pytest.fixture
+def fake_loaded_standards(mocker: MockerFixture) -> LoadedStandards:
+    return {
+        "tag": "0.1.0-dummy-test",
+        "last_updated": datetime(2025, 5, 30, 12, 0, 0),
+        "standards": mocker.MagicMock(),
+    }
+
+
+def test_init_no_defaults(
+    fake_loaded_standards: LoadedStandards, mocker: MockerFixture
+):
     fake_frequencies: mocker.MagicMock = mocker.MagicMock()
-    fake_last_modified: datetime = datetime(2025, 4, 10, 15, 55, 0)
 
-    for locus in ("A", "B", "C"):
-        easyhla: EasyHLA = EasyHLA(
-            locus, fake_standards, fake_frequencies, fake_last_modified
-        )
-        assert easyhla.locus == locus
-        assert easyhla.hla_standards == fake_standards
-        assert easyhla.hla_frequencies == fake_frequencies
-        assert easyhla.last_modified == fake_last_modified
+    easyhla: EasyHLA = EasyHLA(fake_loaded_standards, fake_frequencies)
+    assert easyhla.tag == fake_loaded_standards["tag"]
+    assert easyhla.last_updated == fake_loaded_standards["last_updated"]
+    assert easyhla.hla_standards == fake_loaded_standards["standards"]
+    assert easyhla.hla_frequencies == fake_frequencies
 
 
-def test_init_all_defaults(mocker: MockerFixture):
-    fake_standards: mocker.MagicMock = mocker.MagicMock()
+def test_init_all_defaults(
+    fake_loaded_standards: LoadedStandards, mocker: MockerFixture
+):
     fake_frequencies: mocker.MagicMock = mocker.MagicMock()
-    fake_last_modified: datetime = datetime(2025, 4, 10, 15, 55, 0)
 
     mocker.MagicMock = mocker.patch.object(
-        EasyHLA, "load_default_hla_standards", return_value=fake_standards
+        EasyHLA, "load_default_hla_standards", return_value=fake_loaded_standards
     )
     mocker.MagicMock = mocker.patch.object(
         EasyHLA, "load_default_hla_frequencies", return_value=fake_frequencies
     )
-    mocker.MagicMock = mocker.patch.object(
-        EasyHLA, "load_default_last_modified", return_value=fake_last_modified
-    )
 
-    for locus in ("A", "B", "C"):
-        easyhla: EasyHLA = EasyHLA(locus)
-        assert easyhla.locus == locus
-        assert easyhla.hla_standards == fake_standards
-        assert easyhla.hla_frequencies == fake_frequencies
-        assert easyhla.last_modified == fake_last_modified
+    easyhla: EasyHLA = EasyHLA()
+    assert easyhla.tag == fake_loaded_standards["tag"]
+    assert easyhla.last_updated == fake_loaded_standards["last_updated"]
+    assert easyhla.hla_standards == fake_loaded_standards["standards"]
+    assert easyhla.hla_frequencies == fake_frequencies
 
 
 @pytest.mark.parametrize(

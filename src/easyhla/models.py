@@ -1,12 +1,19 @@
 import re
 from collections.abc import Iterable
 from operator import itemgetter
-from typing import Optional
+from typing import Optional, Self
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict
 
-from .utils import HLA_LOCUS, allele_coordinates, bin2nuc, count_forgiving_mismatches
+from .utils import (
+    HLA_LOCUS,
+    HLARawStandard,
+    allele_coordinates,
+    bin2nuc,
+    count_forgiving_mismatches,
+    nuc2bin,
+)
 
 
 class HLASequence(BaseModel):
@@ -51,6 +58,14 @@ class HLAStandard(BaseModel):
     @property
     def sequence_np(self) -> np.ndarray:
         return np.array(self.sequence)
+
+    @classmethod
+    def from_raw_standard(cls, raw_standard: HLARawStandard) -> Self:
+        return cls(
+            allele=raw_standard.allele,
+            two=nuc2bin(raw_standard.exon2),
+            three=nuc2bin(raw_standard.exon3),
+        )
 
 
 class HLAStandardMatch(HLAStandard):

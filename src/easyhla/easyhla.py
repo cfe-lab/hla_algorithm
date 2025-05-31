@@ -31,7 +31,7 @@ DATE_FORMAT = "%a %b %d %H:%M:%S %Z %Y"
 
 class LoadedStandards(TypedDict):
     tag: str
-    last_modified: datetime
+    last_updated: datetime
     standards: dict[HLA_LOCUS, dict[str, HLAStandard]]
 
 
@@ -63,7 +63,7 @@ class EasyHLA:
         self.hla_standards: dict[HLA_LOCUS, dict[str, HLAStandard]] = loaded_standards[
             "standards"
         ]
-        self.last_modified: datetime = loaded_standards["last_modified"]
+        self.last_updated: datetime = loaded_standards["last_updated"]
         self.tag: str = loaded_standards["tag"]
 
         self.hla_frequencies: dict[HLA_LOCUS, dict[HLAProteinPair, int]]
@@ -121,7 +121,7 @@ class EasyHLA:
 
         return {
             "tag": stored_stds.tag,
-            "last_modified": stored_stds.last_modified,
+            "last_updated": stored_stds.last_updated,
             "standards": hla_stds,
         }
 
@@ -161,8 +161,8 @@ class EasyHLA:
             "B": {},
             "C": {},
         }
-        for locus in ("A", "B", "C"):
-            for line in frequencies_io.readlines():
+        for line in frequencies_io.readlines():
+            for locus in ("A", "B", "C"):
                 column_id = EasyHLA.COLUMN_IDS[locus]
                 line_array = line.strip().split(",")[column_id : column_id + 2]
 
@@ -429,7 +429,7 @@ class EasyHLA:
         b5701_standards: Optional[list[HLAStandard]] = None
         if locus == "B":
             b5701_standards = [
-                self.hla_standards[allele] for allele in self.B5701_ALLELES
+                self.hla_standards[locus][allele] for allele in self.B5701_ALLELES
             ]
 
         return HLAInterpretation(
@@ -440,10 +440,11 @@ class EasyHLA:
                     mismatches=self.get_mismatches(
                         combined_std.standard_bin,
                         seq,
+                        locus,
                     ),
                 )
                 for combined_std, mismatch_count in all_combos.items()
             },
-            allele_frequencies=self.hla_frequencies,
+            allele_frequencies=self.hla_frequencies[locus],
             b5701_standards=b5701_standards,
         )

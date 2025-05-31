@@ -4,7 +4,6 @@ import re
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from datetime import datetime
-from operator import attrgetter
 from typing import Final, Literal, Optional, Self
 
 import numpy as np
@@ -487,8 +486,7 @@ def group_identical_alleles(
             logger.info(
                 f"[{', '.join(grouped_allele.alleles)}] -> {grouped_allele.name}"
             )
-
-    return sorted(grouped_alleles, key=attrgetter("name"))
+    return grouped_alleles
 
 
 def compute_stored_standard_checksum(
@@ -532,3 +530,4 @@ class StoredHLAStandards(BaseModel):
         else:
             if self.checksum != checksum:
                 raise ValueError("Checksum mismatch")
+        return self
