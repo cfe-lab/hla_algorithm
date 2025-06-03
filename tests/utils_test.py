@@ -1,4 +1,6 @@
+import hashlib
 from collections.abc import Iterable, Sequence
+from datetime import datetime
 from typing import Optional
 
 import numpy as np
@@ -19,18 +21,21 @@ from easyhla.utils import (
     GroupedAllele,
     HLARawStandard,
     InvalidBaseException,
+    StoredHLAStandards,
     allele_integer_coordinates,
     bin2nuc,
     calc_padding,
     check_bases,
     check_length,
     collate_standards,
+    compute_stored_standard_checksum,
     count_forgiving_mismatches,
     count_strict_mismatches,
     get_acceptable_match,
     group_identical_alleles,
     nuc2bin,
     pad_short,
+    prepare_for_checksum,
 )
 
 
@@ -1784,3 +1789,256 @@ def test_group_identical_alleles(
             )
         else:
             mock_logger.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "standards, expected_prepared",
+    [
+        pytest.param(
+            {"A": [], "B": [], "C": []},
+            """\
+0.1.0-dummy-test
+foobar
+2025-06-02 12:00:00
+""",
+            id="no_standards",
+        ),
+        pytest.param(
+            {
+                "A": [
+                    GroupedAllele(
+                        exon2="CCAC",
+                        exon3="TGGAC",
+                        alleles=["A*01:02:03:04N", "A*01:02:03:07"],
+                    ),
+                ],
+                "B": [],
+                "C": [],
+            },
+            """\
+0.1.0-dummy-test
+foobar
+2025-06-02 12:00:00
+A*01:02:03G,CCAC,TGGAC,A*01:02:03:04N;A*01:02:03:07
+""",
+            id="one_a_standard",
+        ),
+        pytest.param(
+            {
+                "A": [],
+                "B": [
+                    GroupedAllele(
+                        exon2="CCAC",
+                        exon3="TGGAC",
+                        alleles=["B*57:01:01"],
+                    ),
+                ],
+                "C": [],
+            },
+            """\
+0.1.0-dummy-test
+foobar
+2025-06-02 12:00:00
+B*57:01:01,CCAC,TGGAC,B*57:01:01
+""",
+            id="one_b_standard",
+        ),
+        pytest.param(
+            {
+                "A": [],
+                "B": [],
+                "C": [
+                    GroupedAllele(
+                        exon2="CCAT",
+                        exon3="TGGCA",
+                        alleles=["C*22:33:44:55", "C*22:33:44:56", "C*22:33:44:57"],
+                    ),
+                ],
+            },
+            """\
+0.1.0-dummy-test
+foobar
+2025-06-02 12:00:00
+C*22:33:44G,CCAT,TGGCA,C*22:33:44:55;C*22:33:44:56;C*22:33:44:57
+""",
+            id="one_c_standard",
+        ),
+        pytest.param(
+            {
+                "A": [
+                    GroupedAllele(
+                        exon2="CCAC",
+                        exon3="TGGAC",
+                        alleles=["A*01:02:03:04N", "A*01:02:03:07"],
+                    ),
+                ],
+                "B": [
+                    GroupedAllele(
+                        exon2="CCAC",
+                        exon3="TGGAC",
+                        alleles=["B*57:01:01"],
+                    ),
+                ],
+                "C": [
+                    GroupedAllele(
+                        exon2="CCAT",
+                        exon3="TGGCA",
+                        alleles=["C*22:33:44:55", "C*22:33:44:56", "C*22:33:44:57"],
+                    ),
+                ],
+            },
+            """\
+0.1.0-dummy-test
+foobar
+2025-06-02 12:00:00
+A*01:02:03G,CCAC,TGGAC,A*01:02:03:04N;A*01:02:03:07
+B*57:01:01,CCAC,TGGAC,B*57:01:01
+C*22:33:44G,CCAT,TGGCA,C*22:33:44:55;C*22:33:44:56;C*22:33:44:57
+""",
+            id="one_standard_each_locus",
+        ),
+        pytest.param(
+            {
+                "A": [],
+                "B": [
+                    GroupedAllele(
+                        exon2="CCAC",
+                        exon3="TGGAC",
+                        alleles=["B*57:01:01"],
+                    ),
+                    GroupedAllele(
+                        exon2="CCAC",
+                        exon3="TGGAT",
+                        alleles=["B*57:01:02:01", "B*57:01:02:02"],
+                    ),
+                ],
+                "C": [],
+            },
+            """\
+0.1.0-dummy-test
+foobar
+2025-06-02 12:00:00
+B*57:01:01,CCAC,TGGAC,B*57:01:01
+B*57:01:02G,CCAC,TGGAT,B*57:01:02:01;B*57:01:02:02
+""",
+            id="multiple_b_standards",
+        ),
+        pytest.param(
+            {
+                "A": [
+                    GroupedAllele(
+                        exon2="CCAC",
+                        exon3="TGGAC",
+                        alleles=["A*01:02:03:04N", "A*01:02:03:07"],
+                    ),
+                    GroupedAllele(
+                        exon2="CCAC",
+                        exon3="TTGAC",
+                        alleles=["A*01:02:04"],
+                    ),
+                    GroupedAllele(
+                        exon2="CCAC",
+                        exon3="TGTAC",
+                        alleles=["A*01:02:05:01", "A*01:02:05:02", "A*01:02:05:04N"],
+                    ),
+                ],
+                "B": [
+                    GroupedAllele(
+                        exon2="CCAC",
+                        exon3="TGGAC",
+                        alleles=["B*57:01:01"],
+                    ),
+                    GroupedAllele(
+                        exon2="CCAC",
+                        exon3="TGGAT",
+                        alleles=["B*57:01:02:01", "B*57:01:02:02"],
+                    ),
+                ],
+                "C": [
+                    GroupedAllele(
+                        exon2="CCAT",
+                        exon3="TGGCA",
+                        alleles=["C*22:33:44:55", "C*22:33:44:56", "C*22:33:44:57"],
+                    ),
+                    GroupedAllele(
+                        exon2="CCAC",
+                        exon3="TGGCA",
+                        alleles=["C*22:33:45"],
+                    ),
+                    GroupedAllele(
+                        exon2="CCAC",
+                        exon3="TGGCC",
+                        alleles=["C*22:33:46"],
+                    ),
+                ],
+            },
+            """\
+0.1.0-dummy-test
+foobar
+2025-06-02 12:00:00
+A*01:02:03G,CCAC,TGGAC,A*01:02:03:04N;A*01:02:03:07
+A*01:02:04,CCAC,TTGAC,A*01:02:04
+A*01:02:05G,CCAC,TGTAC,A*01:02:05:01;A*01:02:05:02;A*01:02:05:04N
+B*57:01:01,CCAC,TGGAC,B*57:01:01
+B*57:01:02G,CCAC,TGGAT,B*57:01:02:01;B*57:01:02:02
+C*22:33:44G,CCAT,TGGCA,C*22:33:44:55;C*22:33:44:56;C*22:33:44:57
+C*22:33:45,CCAC,TGGCA,C*22:33:45
+C*22:33:46,CCAC,TGGCC,C*22:33:46
+""",
+            id="typical_case",
+        ),
+    ],
+)
+def test_compute_stored_standard_checksum(
+    standards: dict[HLA_LOCUS, list[GroupedAllele]],
+    expected_prepared: str,
+):
+    tag: str = "0.1.0-dummy-test"
+    commit_hash: str = "foobar"
+    last_updated: datetime = datetime(2025, 6, 2, 12, 0, 0)
+    prepared: str = prepare_for_checksum(
+        tag,
+        commit_hash,
+        last_updated,
+        standards,
+    )
+    assert prepared == expected_prepared
+
+    # Now examine the checksum:
+    checksum_calc = hashlib.sha256()
+    checksum_calc.update(expected_prepared.encode())
+    expected_checksum: str = checksum_calc.hexdigest()
+
+    result: str = compute_stored_standard_checksum(
+        tag=tag,
+        commit_hash=commit_hash,
+        last_updated=last_updated,
+        standards=standards,
+    )
+    assert result == expected_checksum
+
+    # Now try the same using a StoredHLAStandards object.
+    stored_stds: StoredHLAStandards = StoredHLAStandards(
+        tag=tag,
+        commit_hash=commit_hash,
+        last_updated=last_updated,
+        standards=standards,
+    )
+    assert stored_stds.checksum == expected_checksum
+
+
+def test_stored_hla_standards_error_case():
+    stored_stds: StoredHLAStandards = StoredHLAStandards(
+        tag="0.1.0-dummy-test",
+        commit_hash="foobar",
+        last_updated=datetime(2025, 6, 3, 10, 10, 0),
+        standards={"A": [], "B": [], "C": []},
+    )
+
+    # The checksum should be
+    # 221f472fd6986869e33e329d480bc3eca8f3fe6b801e35e2affbff7883735b33
+    # (checked manually):
+    stored_stds.checksum = "beeftank"
+    with pytest.raises(ValueError) as e:
+        stored_stds.compute_compare_checksum()
+        assert "Checksum mismatch" in str(e.value)

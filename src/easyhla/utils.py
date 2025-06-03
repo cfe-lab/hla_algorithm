@@ -489,19 +489,37 @@ def group_identical_alleles(
     return grouped_alleles
 
 
+def prepare_for_checksum(
+    tag: str,
+    commit_hash: str,
+    last_updated: datetime,
+    standards: dict[HLA_LOCUS, list[GroupedAllele]],
+) -> str:
+    """
+    Organize the information in a fixed fashion for computing the checksum.
+    """
+    stored_string: str = f"{tag}\n{commit_hash}\n{last_updated}\n"
+    for locus in ("A", "B", "C"):
+        for ga in standards[locus]:
+            stored_string += f"{ga.name},{ga.exon2},{ga.exon3},{';'.join(ga.alleles)}\n"
+    return stored_string
+
+
 def compute_stored_standard_checksum(
     tag: str,
     commit_hash: str,
     last_updated: datetime,
-    alleles: dict[HLA_LOCUS, list[GroupedAllele]],
+    standards: dict[HLA_LOCUS, list[GroupedAllele]],
 ) -> str:
     """
     Compute a checksum for the stored data.
     """
-    stored_string: str = f"{tag}\n{commit_hash}\n{last_updated}\n"
-    for locus in ("A", "B", "C"):
-        for ga in alleles[locus]:
-            stored_string += f"{ga.name},{ga.exon2},{ga.exon3},{';'.join(ga.alleles)}\n"
+    stored_string: str = prepare_for_checksum(
+        tag,
+        commit_hash,
+        last_updated,
+        standards,
+    )
 
     # Compute the checksum.
     sha256_calc = hashlib.sha256()

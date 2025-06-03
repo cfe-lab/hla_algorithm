@@ -1120,6 +1120,96 @@ def test_interpret_error_cases(
     get_mismatches_spy.assert_not_called()
 
 
+READ_HLA_STANDARDS_TYPICAL_CASE_INPUT: dict[HLA_LOCUS, list[GroupedAllele]] = {
+    "A": [
+        GroupedAllele(
+            exon2="G" * 270,
+            exon3="A" * 276,
+            alleles=["A*01:23:45:67N"],
+        ),
+        GroupedAllele(
+            alleles=["A*55:66:77", "A*72:01:02"],
+            exon2="GT" * 135,
+            exon3="AC" * 138,
+        ),
+    ],
+    "B": [
+        GroupedAllele(
+            exon2="A" * 270,
+            exon3="T" * 276,
+            alleles=["B*01:23:45:67N", "B*01:24:44"],
+        ),
+        GroupedAllele(
+            alleles=["B*57:01:02"],
+            exon2="C" * 270,
+            exon3="GT" * 138,
+        ),
+        GroupedAllele(
+            alleles=["B*100:101:111"],
+            exon2="AT" * 135,
+            exon3="G" * 276,
+        ),
+    ],
+    "C": [
+        GroupedAllele(
+            alleles=["C*101:102:103", "C*105:106:107:108N"],
+            exon2="T" * 270,
+            exon3="A" * 276,
+        ),
+        GroupedAllele(
+            alleles=["C*77:01:03"],
+            exon2="TG" * 135,
+            exon3="CA" * 138,
+        ),
+    ],
+}
+
+
+READ_HLA_STANDARDS_TYPICAL_CASE_OUTPUT: dict[HLA_LOCUS, dict[str, HLAStandard]] = {
+    "A": {
+        "A*01:23:45:67N": HLAStandard(
+            allele="A*01:23:45:67N",
+            two=(4,) * 270,
+            three=(1,) * 276,
+        ),
+        "A*55:66:77G": HLAStandard(
+            allele="A*55:66:77G",
+            two=(4, 8) * 135,
+            three=(1, 2) * 138,
+        ),
+    },
+    "B": {
+        "B*01:23:45G": HLAStandard(
+            allele="B*01:23:45G",
+            two=(1,) * 270,
+            three=(8,) * 276,
+        ),
+        "B*57:01:02": HLAStandard(
+            allele="B*57:01:02",
+            two=(2,) * 270,
+            three=(4, 8) * 138,
+        ),
+        "B*100:101:111": HLAStandard(
+            allele="B*100:101:111",
+            two=(1, 8) * 135,
+            three=(4,) * 276,
+        ),
+    },
+    "C": {
+        "C*101:102:103G": HLAStandard(
+            allele="C*101:102:103G",
+            two=(8,) * 270,
+            three=(1,) * 276,
+        ),
+        "C*77:01:03": HLAStandard(
+            allele="C*77:01:03",
+            two=(8, 4) * 135,
+            three=(2, 1) * 138,
+        ),
+    },
+}
+
+
 @pytest.mark.parametrize(
     "raw_standards, raw_expected_result",
     [
@@ -1199,92 +1289,8 @@ def test_interpret_error_cases(
             id="multiple_entries",
         ),
         pytest.param(
-            {
-                "A": [
-                    GroupedAllele(
-                        exon2="G" * 270,
-                        exon3="A" * 276,
-                        alleles=["A*01:23:45:67N"],
-                    ),
-                    GroupedAllele(
-                        alleles=["A*55:66:77", "A*72:01:02"],
-                        exon2="GT" * 135,
-                        exon3="AC" * 138,
-                    ),
-                ],
-                "B": [
-                    GroupedAllele(
-                        exon2="A" * 270,
-                        exon3="T" * 276,
-                        alleles=["B*01:23:45:67N", "B*01:24:44"],
-                    ),
-                    GroupedAllele(
-                        alleles=["B*57:01:02"],
-                        exon2="C" * 270,
-                        exon3="GT" * 138,
-                    ),
-                    GroupedAllele(
-                        alleles=["B*100:101:111"],
-                        exon2="AT" * 135,
-                        exon3="G" * 276,
-                    ),
-                ],
-                "C": [
-                    GroupedAllele(
-                        alleles=["C*101:102:103", "C*105:106:107:108N"],
-                        exon2="T" * 270,
-                        exon3="A" * 276,
-                    ),
-                    GroupedAllele(
-                        alleles=["C*77:01:03"],
-                        exon2="TG" * 135,
-                        exon3="CA" * 138,
-                    ),
-                ],
-            },
-            {
-                "A": {
-                    "A*01:23:45:67N": HLAStandard(
-                        allele="A*01:23:45:67N",
-                        two=(4,) * 270,
-                        three=(1,) * 276,
-                    ),
-                    "A*55:66:77G": HLAStandard(
-                        allele="A*55:66:77G",
-                        two=(4, 8) * 135,
-                        three=(1, 2) * 138,
-                    ),
-                },
-                "B": {
-                    "B*01:23:45G": HLAStandard(
-                        allele="B*01:23:45G",
-                        two=(1,) * 270,
-                        three=(8,) * 276,
-                    ),
-                    "B*57:01:02": HLAStandard(
-                        allele="B*57:01:02",
-                        two=(2,) * 270,
-                        three=(4, 8) * 138,
-                    ),
-                    "B*100:101:111": HLAStandard(
-                        allele="B*100:101:111",
-                        two=(1, 8) * 135,
-                        three=(4,) * 276,
-                    ),
-                },
-                "C": {
-                    "C*101:102:103G": HLAStandard(
-                        allele="C*101:102:103G",
-                        two=(8,) * 270,
-                        three=(1,) * 276,
-                    ),
-                    "C*77:01:03": HLAStandard(
-                        allele="C*77:01:03",
-                        two=(8, 4) * 135,
-                        three=(2, 1) * 138,
-                    ),
-                },
-            },
+            READ_HLA_STANDARDS_TYPICAL_CASE_INPUT,
+            READ_HLA_STANDARDS_TYPICAL_CASE_OUTPUT,
             id="typical_case",
         ),
     ],
@@ -1322,6 +1328,84 @@ def test_read_hla_standards(
     mocker.patch.object(os.path, "join", return_value=str(p))
     load_result: list[HLAStandard] = EasyHLA.load_default_hla_standards()
     assert load_result == expected_result
+
+
+READ_HLA_FREQUENCIES_TYPICAL_CASE_INPUT: list[str] = [
+    "1423,2233,5701,5703,2529,4043",
+    "1734,8882,5202,5611,1982,1982",
+    "5432,9876,5701,5703,1111,2222",
+    "5432,9876,5701,5703,1982,1982",
+    "5432,9874,5702,5703,1111,2222",
+]
+
+READ_HLA_FREQUENCIES_TYPICAL_CASE_OUTPUT: dict[HLA_LOCUS, dict[HLAProteinPair, int]] = {
+    "A": {
+        HLAProteinPair(
+            first_field_1="14",
+            first_field_2="23",
+            second_field_1="22",
+            second_field_2="33",
+        ): 1,
+        HLAProteinPair(
+            first_field_1="17",
+            first_field_2="34",
+            second_field_1="88",
+            second_field_2="82",
+        ): 1,
+        HLAProteinPair(
+            first_field_1="54",
+            first_field_2="32",
+            second_field_1="98",
+            second_field_2="76",
+        ): 2,
+        HLAProteinPair(
+            first_field_1="54",
+            first_field_2="32",
+            second_field_1="98",
+            second_field_2="74",
+        ): 1,
+    },
+    "B": {
+        HLAProteinPair(
+            first_field_1="57",
+            first_field_2="01",
+            second_field_1="57",
+            second_field_2="03",
+        ): 3,
+        HLAProteinPair(
+            first_field_1="52",
+            first_field_2="02",
+            second_field_1="56",
+            second_field_2="11",
+        ): 1,
+        HLAProteinPair(
+            first_field_1="57",
+            first_field_2="02",
+            second_field_1="57",
+            second_field_2="03",
+        ): 1,
+    },
+    "C": {
+        HLAProteinPair(
+            first_field_1="25",
+            first_field_2="29",
+            second_field_1="40",
+            second_field_2="43",
+        ): 1,
+        HLAProteinPair(
+            first_field_1="19",
+            first_field_2="82",
+            second_field_1="19",
+            second_field_2="82",
+        ): 2,
+        HLAProteinPair(
+            first_field_1="11",
+            first_field_2="11",
+            second_field_1="22",
+            second_field_2="22",
+        ): 2,
+    },
+}
 
 
 @pytest.mark.parametrize(
@@ -1467,79 +1551,10 @@ def test_read_hla_standards(
             id="multiple_rows_locus_b_greater_than_one",
         ),
         pytest.param(
-            [
-                "1423,2233,5701,5703,2529,4043",
-                "1734,8882,5202,5611,1982,1982",
-                "5432,9876,5701,5703,1111,2222",
-                "5432,9876,5701,5703,1982,1982",
-                "5432,9874,5702,5703,1111,2222",
-            ],
-            {
-                HLAProteinPair(
-                    first_field_1="14",
-                    first_field_2="23",
-                    second_field_1="22",
-                    second_field_2="33",
-                ): 1,
-                HLAProteinPair(
-                    first_field_1="17",
-                    first_field_2="34",
-                    second_field_1="88",
-                    second_field_2="82",
-                ): 1,
-                HLAProteinPair(
-                    first_field_1="54",
-                    first_field_2="32",
-                    second_field_1="98",
-                    second_field_2="76",
-                ): 2,
-                HLAProteinPair(
-                    first_field_1="54",
-                    first_field_2="32",
-                    second_field_1="98",
-                    second_field_2="74",
-                ): 1,
-            },
-            {
-                HLAProteinPair(
-                    first_field_1="57",
-                    first_field_2="01",
-                    second_field_1="57",
-                    second_field_2="03",
-                ): 3,
-                HLAProteinPair(
-                    first_field_1="52",
-                    first_field_2="02",
-                    second_field_1="56",
-                    second_field_2="11",
-                ): 1,
-                HLAProteinPair(
-                    first_field_1="57",
-                    first_field_2="02",
-                    second_field_1="57",
-                    second_field_2="03",
-                ): 1,
-            },
-            {
-                HLAProteinPair(
-                    first_field_1="25",
-                    first_field_2="29",
-                    second_field_1="40",
-                    second_field_2="43",
-                ): 1,
-                HLAProteinPair(
-                    first_field_1="19",
-                    first_field_2="82",
-                    second_field_1="19",
-                    second_field_2="82",
-                ): 2,
-                HLAProteinPair(
-                    first_field_1="11",
-                    first_field_2="11",
-                    second_field_1="22",
-                    second_field_2="22",
-                ): 2,
-            },
+            READ_HLA_FREQUENCIES_TYPICAL_CASE_INPUT,
+            READ_HLA_FREQUENCIES_TYPICAL_CASE_OUTPUT["A"],
+            READ_HLA_FREQUENCIES_TYPICAL_CASE_OUTPUT["B"],
+            READ_HLA_FREQUENCIES_TYPICAL_CASE_OUTPUT["C"],
             id="typical_case",
         ),
     ],
@@ -1611,6 +1626,58 @@ def test_init_all_defaults(
     assert easyhla.last_updated == fake_loaded_standards["last_updated"]
     assert easyhla.hla_standards == fake_loaded_standards["standards"]
     assert easyhla.hla_frequencies == fake_frequencies
+
+
+@pytest.fixture
+def fake_stored_standards() -> StoredHLAStandards:
+    return StoredHLAStandards(
+        tag="0.1.0-dummy-test",
+        commit_hash="foobar",
+        last_updated=datetime(2025, 6, 2, 12, 0, 0),
+        standards=READ_HLA_STANDARDS_TYPICAL_CASE_INPUT,
+    )
+
+
+def test_use_config_no_defaults(
+    fake_stored_standards: StoredHLAStandards, tmp_path: Path
+):
+    standards_path: Path = tmp_path / "hla_standards.yaml"
+    standards_path.write_text(yaml.safe_dump(fake_stored_standards.model_dump()))
+
+    fake_frequencies_str: str = (
+        "\n".join(READ_HLA_FREQUENCIES_TYPICAL_CASE_INPUT) + "\n"
+    )
+    freq_path: Path = tmp_path / "hla_frequencies.csv"
+    freq_path.write_text(fake_frequencies_str)
+
+    easyhla: EasyHLA = EasyHLA.use_config(standards_path, freq_path)
+    assert easyhla.tag == fake_stored_standards.tag
+    assert easyhla.last_updated == fake_stored_standards.last_updated
+    assert easyhla.hla_standards == READ_HLA_STANDARDS_TYPICAL_CASE_OUTPUT
+    assert easyhla.hla_frequencies == READ_HLA_FREQUENCIES_TYPICAL_CASE_OUTPUT
+
+
+def test_use_config_all_defaults(
+    fake_stored_standards: StoredHLAStandards, tmp_path: Path, mocker: MockerFixture
+):
+    standards_path: Path = tmp_path / "hla_standards.yaml"
+    standards_path.write_text(yaml.safe_dump(fake_stored_standards.model_dump()))
+
+    fake_frequencies_str: str = (
+        "\n".join(READ_HLA_FREQUENCIES_TYPICAL_CASE_INPUT) + "\n"
+    )
+    freq_path: Path = tmp_path / "hla_frequencies.csv"
+    freq_path.write_text(fake_frequencies_str)
+
+    mocker.patch.object(
+        os.path, "join", side_effect=[str(standards_path), str(freq_path)]
+    )
+
+    easyhla: EasyHLA = EasyHLA.use_config()
+    assert easyhla.tag == fake_stored_standards.tag
+    assert easyhla.last_updated == fake_stored_standards.last_updated
+    assert easyhla.hla_standards == READ_HLA_STANDARDS_TYPICAL_CASE_OUTPUT
+    assert easyhla.hla_frequencies == READ_HLA_FREQUENCIES_TYPICAL_CASE_OUTPUT
 
 
 @pytest.mark.parametrize(
@@ -1769,11 +1836,11 @@ def test_get_matching_standards(
     sequence: np.ndarray,
     hla_stds: Iterable[HLAStandard],
     mismatch_threshold: int,
-    exp_result: Iterable[HLAStandardMatch],
+    exp_result: list[HLAStandardMatch],
 ):
-    result = EasyHLA.get_matching_standards(
+    result: list[HLAStandardMatch] = EasyHLA.get_matching_standards(
         seq=sequence, hla_stds=hla_stds, mismatch_threshold=mismatch_threshold
-    )  # type: ignore
+    )
     print(result)
     assert result == exp_result
 
