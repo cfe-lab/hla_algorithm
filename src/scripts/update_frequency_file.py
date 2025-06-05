@@ -4,6 +4,7 @@ import argparse
 import csv
 import logging
 import re
+from collections import Counter
 from dataclasses import dataclass, fields
 from io import TextIOBase
 from typing import ClassVar, Final, Optional, Self, TypedDict
@@ -98,6 +99,8 @@ def parse_nomenclature(remapping_str: str) -> dict[OldName, NewName]:
         except OtherLocusException:
             continue
         new_name: NewName = NewName.from_string(new_name_str)
+        if new_name.locus is None:
+            logger.info(f"Allele {old_name_str} is deprecated.")
         if old_name in remapping:
             if new_name.locus is None:
                 logger.info(
@@ -168,7 +171,10 @@ def update_old_frequencies(
 ) -> list[FrequencyRow]:
     old_frequencies_csv: csv.reader = csv.reader(old_frequencies_file)
 
-    unmapped_alleles: set[tuple[HLA_LOCUS, str]] = set()
+    # Report to the user any frequencies that are either unmapped or
+    # deprecated.
+    unmapped_alleles: Counter[tuple[HLA_LOCUS, str]] = Counter()
+    deprecated_alleles_seen: Counter[tuple[HLA_LOCUS, str]] = Counter()
 
     updated_frequencies: list[FrequencyRow] = []
     for row in old_frequencies_csv:
@@ -180,13 +186,35 @@ def update_old_frequencies(
             old_name: OldName = OldName.from_old_frequency_format(locus, row[idx])
             new_name: Optional[NewName] = old_to_new.get(old_name)
 
-            if new_name is None and (locus, row[idx]) not in unmapped_alleles:
-                logger.info(f'No mapping found for HLA-{locus} allele "{row[idx]}".')
-                unmapped_alleles.add((locus, row[idx]))
+            if new_name is None:
+                unmapped_alleles[(locus, row[idx])] += 1
+            elif new_name.locus is None:
+                deprecated_alleles_seen[(locus, row[idx])] += 1
 
             updated.append(new_name)
 
         updated_frequencies.append(FrequencyRow(*updated))
+
+    if len(unmapped_alleles) > 1:
+        logger.info(
+            "Alleles present in the old frequencies that do not have a mapping "
+            "in the new nomenclature, and their numbers of occurrences:"
+        )
+        for locus, name in unmapped_alleles:
+            logger.info(
+                f'HLA-{locus} allele "{name}": {unmapped_alleles[(locus, name)]}'
+            )
+
+    if len(deprecated_alleles_seen) > 1:
+        logger.info(
+            "Alleles present in the old frequencies that are deprecated "
+            "in the new nomenclature, and their numbers of occurrences:"
+        )
+        for locus, name in deprecated_alleles_seen:
+            logger.info(
+                f'HLA-{locus} allele "{name}": {deprecated_alleles_seen[(locus, name)]}'
+            )
+
     return updated_frequencies
 
 

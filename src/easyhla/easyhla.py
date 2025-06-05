@@ -1,3 +1,4 @@
+import csv
 import os
 from collections.abc import Iterable, Sequence
 from datetime import datetime
@@ -161,20 +162,45 @@ class EasyHLA:
             "B": {},
             "C": {},
         }
-        for line in frequencies_io.readlines():
-            for locus in ("A", "B", "C"):
-                column_id = EasyHLA.COLUMN_IDS[locus]
-                line_array = line.strip().split(",")[column_id : column_id + 2]
 
-                protein_pair: HLAProteinPair = HLAProteinPair(
-                    first_field_1=line_array[0][0:2],
-                    first_field_2=line_array[0][2:4],
-                    second_field_1=line_array[1][0:2],
-                    second_field_2=line_array[1][2:4],
-                )
-                if hla_freqs[locus].get(protein_pair, None) is None:
-                    hla_freqs[locus][protein_pair] = 0
-                hla_freqs[locus][protein_pair] += 1
+        locus_columns: dict[HLA_LOCUS, tuple[str, str]] = {
+            "A": ("a_first", "a_second"),
+            "B": ("b_first", "b_second"),
+            "C": ("c_first", "c_second"),
+        }
+        with frequencies_io:
+            frequencies_csv: csv.DictReader = csv.DictReader(frequencies_io)
+
+            for row in frequencies_csv:
+                for locus in ("A", "B", "C"):
+                    curr_col1: str
+                    curr_col2: str
+                    curr_col1, curr_col2 = locus_columns[locus]
+                    raw_allele_1: str = row[curr_col1]
+                    raw_allele_2: str = row[curr_col2]
+
+                    if raw_allele_1 in ("unknown", "deprecated"):
+                        continue
+                    if raw_allele_2 in ("unknown", "deprecated"):
+                        continue
+
+                    first_field_1: str
+                    first_field_2: str
+                    second_field_1: str
+                    second_field_2: str
+
+                    first_field_1, first_field_2 = raw_allele_1.split(":")
+                    second_field_1, second_field_2 = raw_allele_2.split(":")
+
+                    protein_pair: HLAProteinPair = HLAProteinPair(
+                        first_field_1=first_field_1,
+                        first_field_2=first_field_2,
+                        second_field_1=second_field_1,
+                        second_field_2=second_field_2,
+                    )
+                    if hla_freqs[locus].get(protein_pair, None) is None:
+                        hla_freqs[locus][protein_pair] = 0
+                    hla_freqs[locus][protein_pair] += 1
         return hla_freqs
 
     @staticmethod
