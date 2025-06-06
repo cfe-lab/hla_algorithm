@@ -1331,11 +1331,14 @@ def test_read_hla_standards(
 
 
 READ_HLA_FREQUENCIES_TYPICAL_CASE_INPUT: list[str] = [
-    "1423,2233,5701,5703,2529,4043",
-    "1734,8882,5202,5611,1982,1982",
-    "5432,9876,5701,5703,1111,2222",
-    "5432,9876,5701,5703,1982,1982",
-    "5432,9874,5702,5703,1111,2222",
+    "14:23,22:33,57:01,57:03,25:29,40:43",
+    "17:34,88:82,52:02,56:11,19:82,19:82",
+    "54:32,98:76,57:01,57:03,11:11,22:22",
+    "14:23,deprecated,57:01,57:03,25:29,40:43",
+    "54:32,98:76,57:01,57:03,19:82,19:82",
+    "54:32,98:74,57:02,57:03,11:11,22:22",
+    "54:32,98:76,57:01,57:03,19:82,unknown",
+    "54:32,98:74,unknown,deprecated,11:11,22:22",
 ]
 
 READ_HLA_FREQUENCIES_TYPICAL_CASE_OUTPUT: dict[HLA_LOCUS, dict[HLAProteinPair, int]] = {
@@ -1357,13 +1360,13 @@ READ_HLA_FREQUENCIES_TYPICAL_CASE_OUTPUT: dict[HLA_LOCUS, dict[HLAProteinPair, i
             first_field_2="32",
             second_field_1="98",
             second_field_2="76",
-        ): 2,
+        ): 3,
         HLAProteinPair(
             first_field_1="54",
             first_field_2="32",
             second_field_1="98",
             second_field_2="74",
-        ): 1,
+        ): 2,
     },
     "B": {
         HLAProteinPair(
@@ -1371,7 +1374,7 @@ READ_HLA_FREQUENCIES_TYPICAL_CASE_OUTPUT: dict[HLA_LOCUS, dict[HLAProteinPair, i
             first_field_2="01",
             second_field_1="57",
             second_field_2="03",
-        ): 3,
+        ): 5,
         HLAProteinPair(
             first_field_1="52",
             first_field_2="02",
@@ -1391,7 +1394,7 @@ READ_HLA_FREQUENCIES_TYPICAL_CASE_OUTPUT: dict[HLA_LOCUS, dict[HLAProteinPair, i
             first_field_2="29",
             second_field_1="40",
             second_field_2="43",
-        ): 1,
+        ): 2,
         HLAProteinPair(
             first_field_1="19",
             first_field_2="82",
@@ -1403,7 +1406,7 @@ READ_HLA_FREQUENCIES_TYPICAL_CASE_OUTPUT: dict[HLA_LOCUS, dict[HLAProteinPair, i
             first_field_2="11",
             second_field_1="22",
             second_field_2="22",
-        ): 2,
+        ): 3,
     },
 }
 
@@ -1412,7 +1415,7 @@ READ_HLA_FREQUENCIES_TYPICAL_CASE_OUTPUT: dict[HLA_LOCUS, dict[HLAProteinPair, i
     "raw_hlas_observed, expected_locus_a, expected_locus_b, expected_locus_c",
     [
         pytest.param(
-            ["1423,2233,5701,5703,2529,4043"],
+            ["14:23,22:33,57:01,57:03,25:29,40:43"],
             {
                 HLAProteinPair(
                     first_field_1="14",
@@ -1440,9 +1443,79 @@ READ_HLA_FREQUENCIES_TYPICAL_CASE_OUTPUT: dict[HLA_LOCUS, dict[HLAProteinPair, i
             id="single_row",
         ),
         pytest.param(
+            ["14:23,unknown,57:01,57:03,25:29,40:43"],
+            {},
+            {
+                HLAProteinPair(
+                    first_field_1="57",
+                    first_field_2="01",
+                    second_field_1="57",
+                    second_field_2="03",
+                ): 1,
+            },
+            {
+                HLAProteinPair(
+                    first_field_1="25",
+                    first_field_2="29",
+                    second_field_1="40",
+                    second_field_2="43",
+                ): 1,
+            },
+            id="single_row_a_non_allele",
+        ),
+        pytest.param(
+            ["14:23,22:33,deprecated,57:03,25:29,40:43"],
+            {
+                HLAProteinPair(
+                    first_field_1="14",
+                    first_field_2="23",
+                    second_field_1="22",
+                    second_field_2="33",
+                ): 1,
+            },
+            {},
+            {
+                HLAProteinPair(
+                    first_field_1="25",
+                    first_field_2="29",
+                    second_field_1="40",
+                    second_field_2="43",
+                ): 1,
+            },
+            id="single_row_b_non_allele",
+        ),
+        pytest.param(
+            ["14:23,22:33,57:01,57:03,deprecated,unknown"],
+            {
+                HLAProteinPair(
+                    first_field_1="14",
+                    first_field_2="23",
+                    second_field_1="22",
+                    second_field_2="33",
+                ): 1,
+            },
+            {
+                HLAProteinPair(
+                    first_field_1="57",
+                    first_field_2="01",
+                    second_field_1="57",
+                    second_field_2="03",
+                ): 1,
+            },
+            {},
+            id="single_row_c_non_allele",
+        ),
+        pytest.param(
+            ["unknown,deprecated,57:01,unknown,deprecated,40:43"],
+            {},
+            {},
+            {},
+            id="single_row_all_non_alleles",
+        ),
+        pytest.param(
             [
-                "1423,2233,5701,5703,2529,4043",
-                "1434,2233,5701,5611,2529,5150",
+                "14:23,22:33,57:01,57:03,25:29,40:43",
+                "14:34,22:33,57:01,56:11,25:29,51:50",
             ],
             {
                 HLAProteinPair(
@@ -1490,9 +1563,9 @@ READ_HLA_FREQUENCIES_TYPICAL_CASE_OUTPUT: dict[HLA_LOCUS, dict[HLAProteinPair, i
         ),
         pytest.param(
             [
-                "1423,2233,5701,5703,2529,4043",
-                "1734,8882,5202,5611,1982,1982",
-                "5432,9876,5701,5703,1111,2222",
+                "14:23,22:33,57:01,57:03,25:29,40:43",
+                "17:34,88:82,52:02,56:11,19:82,19:82",
+                "54:32,98:76,57:01,57:03,11:11,22:22",
             ],
             {
                 HLAProteinPair(
@@ -1567,7 +1640,11 @@ def test_read_hla_frequencies(
     tmp_path: Path,
     mocker: MockerFixture,
 ):
-    frequencies_str: str = "\n".join(raw_hlas_observed) + "\n"
+    frequencies_str: str = (
+        "a_first,a_second,b_first,b_second,c_first,c_second\n"
+        + "\n".join(raw_hlas_observed)
+        + "\n"
+    )
     expected_results: dict[HLA_LOCUS, dict[HLAProteinPair, int]] = {
         "A": expected_locus_a,
         "B": expected_locus_b,
@@ -1645,7 +1722,9 @@ def test_use_config_no_defaults(
     standards_path.write_text(yaml.safe_dump(fake_stored_standards.model_dump()))
 
     fake_frequencies_str: str = (
-        "\n".join(READ_HLA_FREQUENCIES_TYPICAL_CASE_INPUT) + "\n"
+        "a_first,a_second,b_first,b_second,c_first,c_second\n"
+        + "\n".join(READ_HLA_FREQUENCIES_TYPICAL_CASE_INPUT)
+        + "\n"
     )
     freq_path: Path = tmp_path / "hla_frequencies.csv"
     freq_path.write_text(fake_frequencies_str)
@@ -1664,8 +1743,11 @@ def test_use_config_all_defaults(
     standards_path.write_text(yaml.safe_dump(fake_stored_standards.model_dump()))
 
     fake_frequencies_str: str = (
-        "\n".join(READ_HLA_FREQUENCIES_TYPICAL_CASE_INPUT) + "\n"
+        "a_first,a_second,b_first,b_second,c_first,c_second\n"
+        + "\n".join(READ_HLA_FREQUENCIES_TYPICAL_CASE_INPUT)
+        + "\n"
     )
+
     freq_path: Path = tmp_path / "hla_frequencies.csv"
     freq_path.write_text(fake_frequencies_str)
 

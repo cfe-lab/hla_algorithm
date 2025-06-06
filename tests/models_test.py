@@ -229,6 +229,146 @@ class TestHLAProteinPair:
         )
         assert not (protein_pair < protein_pair)
 
+    @pytest.mark.parametrize(
+        "raw_allele_1, raw_allele_2, expected_result",
+        [
+            pytest.param(
+                "57:01",
+                "57:03",
+                None,
+                id="good_allele_pair",
+            ),
+            pytest.param(
+                "unknown",
+                "57:03",
+                HLAProteinPair.NonAlleleException(first_unknown=True),
+                id="first_unknown",
+            ),
+            pytest.param(
+                "deprecated",
+                "57:03",
+                HLAProteinPair.NonAlleleException(first_deprecated=True),
+                id="first_deprecated",
+            ),
+            pytest.param(
+                "57:01",
+                "unknown",
+                HLAProteinPair.NonAlleleException(second_unknown=True),
+                id="second_unknown",
+            ),
+            pytest.param(
+                "57:01",
+                "deprecated",
+                HLAProteinPair.NonAlleleException(second_deprecated=True),
+                id="second_deprecated",
+            ),
+            pytest.param(
+                "unknown",
+                "unknown",
+                HLAProteinPair.NonAlleleException(
+                    first_unknown=True, second_unknown=True
+                ),
+                id="both_unknown",
+            ),
+            pytest.param(
+                "unknown",
+                "deprecated",
+                HLAProteinPair.NonAlleleException(
+                    first_unknown=True, second_deprecated=True
+                ),
+                id="unknown_deprecated",
+            ),
+            pytest.param(
+                "deprecated",
+                "unknown",
+                HLAProteinPair.NonAlleleException(
+                    first_deprecated=True, second_unknown=True
+                ),
+                id="deprecated_unknown",
+            ),
+            pytest.param(
+                "deprecated",
+                "deprecated",
+                HLAProteinPair.NonAlleleException(
+                    first_deprecated=True, second_deprecated=True
+                ),
+                id="both_deprecated",
+            ),
+        ],
+    )
+    def test_non_allele_exception_from_frequency_entry(
+        self,
+        raw_allele_1: str,
+        raw_allele_2: str,
+        expected_result: Optional[HLAProteinPair.NonAlleleException],
+    ):
+        result: Optional[HLAProteinPair.NonAlleleException] = (
+            HLAProteinPair.NonAlleleException.from_frequency_entry(
+                raw_allele_1, raw_allele_2
+            )
+        )
+        if expected_result is None:
+            assert result is None
+        else:
+            for field in (
+                "first_unknown",
+                "first_deprecated",
+                "second_unknown",
+                "second_deprecated",
+            ):
+                assert getattr(result, field) == getattr(expected_result, field)
+
+    def test_from_frequency_entry_good_case(self):
+        result: HLAProteinPair = HLAProteinPair.from_frequency_entry("57:01", "56:220")
+        expected_result: HLAProteinPair = HLAProteinPair(
+            first_field_1="57",
+            first_field_2="01",
+            second_field_1="56",
+            second_field_2="220",
+        )
+        assert result == expected_result
+
+    @pytest.mark.parametrize(
+        "raw_first_allele, raw_second_allele, expected_exception",
+        [
+            pytest.param(
+                "unknown",
+                "56:220",
+                HLAProteinPair.NonAlleleException(first_unknown=True),
+                id="first_unknown",
+            ),
+            pytest.param(
+                "57:02",
+                "deprecated",
+                HLAProteinPair.NonAlleleException(first_unknown=True),
+                id="second_deprecated",
+            ),
+            pytest.param(
+                "deprecated",
+                "unknown",
+                HLAProteinPair.NonAlleleException(
+                    first_deprecated=True, second_unknown=True
+                ),
+                id="deprecated_unknown",
+            ),
+        ],
+    )
+    def test_from_frequency_entry_exceptions(
+        self,
+        raw_first_allele: str,
+        raw_second_allele: str,
+        expected_exception: HLAProteinPair.NonAlleleException,
+    ):
+        with pytest.raises(HLAProteinPair.NonAlleleException) as e:
+            HLAProteinPair.from_frequency_entry(raw_first_allele, raw_second_allele)
+            for field in (
+                "first_unknown",
+                "first_deprecated",
+                "second_unknown",
+                "second_deprecated",
+            ):
+                assert getattr(e, field) == getattr(expected_exception, field)
+
 
 class TestAllelePairs:
     @pytest.mark.parametrize(

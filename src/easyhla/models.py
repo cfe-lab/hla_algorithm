@@ -1,7 +1,7 @@
 import re
 from collections.abc import Iterable
 from operator import itemgetter
-from typing import Optional, Self
+from typing import ClassVar, Final, Optional, Self
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict
@@ -132,6 +132,78 @@ class HLAProteinPair(BaseModel):
             other.second_field_2,
         )
         return me_tuple < other_tuple
+
+    UNKNOWN: ClassVar[Final[str]] = "unknown"
+    DEPRECATED: ClassVar[Final[str]] = "deprecated"
+
+    class NonAlleleException(Exception):
+        def __init__(
+            self,
+            first_unknown: bool = False,
+            first_deprecated: bool = False,
+            second_unknown: bool = False,
+            second_deprecated: bool = False,
+        ):
+            self.first_unknown = first_unknown
+            self.first_deprecated = first_deprecated
+            self.second_unknown = second_unknown
+            self.second_deprecated = second_deprecated
+
+        @classmethod
+        def from_frequency_entry(
+            cls, raw_first_allele: str, raw_second_allele: str
+        ) -> Optional[Self]:
+            first_unknown: bool = False
+            first_deprecated: bool = False
+            second_unknown: bool = False
+            second_deprecated: bool = False
+
+            if raw_first_allele == HLAProteinPair.UNKNOWN:
+                first_unknown = True
+            elif raw_first_allele == HLAProteinPair.DEPRECATED:
+                first_deprecated = True
+
+            if raw_second_allele == HLAProteinPair.UNKNOWN:
+                second_unknown = True
+            elif raw_second_allele == HLAProteinPair.DEPRECATED:
+                second_deprecated = True
+
+            if any(
+                (first_unknown, first_deprecated, second_unknown, second_deprecated)
+            ):
+                return cls(
+                    first_unknown, first_deprecated, second_unknown, second_deprecated
+                )
+            return None
+
+    @classmethod
+    def from_frequency_entry(
+        cls,
+        raw_first_allele: str,
+        raw_second_allele: str,
+    ) -> Self:
+        any_problems: Optional[HLAProteinPair.NonAlleleException] = (
+            HLAProteinPair.NonAlleleException.from_frequency_entry(
+                raw_first_allele, raw_second_allele
+            )
+        )
+        if any_problems is not None:
+            raise any_problems
+
+        first_field_1: str
+        first_field_2: str
+        second_field_1: str
+        second_field_2: str
+
+        first_field_1, first_field_2 = raw_first_allele.split(":")
+        second_field_1, second_field_2 = raw_second_allele.split(":")
+
+        return cls(
+            first_field_1=first_field_1,
+            first_field_2=first_field_2,
+            second_field_1=second_field_1,
+            second_field_2=second_field_2,
+        )
 
 
 class AllelePairs(BaseModel):

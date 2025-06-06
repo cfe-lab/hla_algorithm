@@ -142,6 +142,12 @@ class EasyHLA:
         with open(standards_filename) as standards_file:
             return EasyHLA.read_hla_standards(standards_file)
 
+    FREQUENCY_LOCUS_COLUMNS: dict[HLA_LOCUS, tuple[str, str]] = {
+        "A": ("a_first", "a_second"),
+        "B": ("b_first", "b_second"),
+        "C": ("c_first", "c_second"),
+    }
+
     @staticmethod
     def read_hla_frequencies(
         frequencies_io: TextIOBase,
@@ -163,11 +169,6 @@ class EasyHLA:
             "C": {},
         }
 
-        locus_columns: dict[HLA_LOCUS, tuple[str, str]] = {
-            "A": ("a_first", "a_second"),
-            "B": ("b_first", "b_second"),
-            "C": ("c_first", "c_second"),
-        }
         with frequencies_io:
             frequencies_csv: csv.DictReader = csv.DictReader(frequencies_io)
 
@@ -175,29 +176,17 @@ class EasyHLA:
                 for locus in ("A", "B", "C"):
                     curr_col1: str
                     curr_col2: str
-                    curr_col1, curr_col2 = locus_columns[locus]
-                    raw_allele_1: str = row[curr_col1]
-                    raw_allele_2: str = row[curr_col2]
+                    curr_col1, curr_col2 = EasyHLA.FREQUENCY_LOCUS_COLUMNS[locus]
 
-                    if raw_allele_1 in ("unknown", "deprecated"):
+                    try:
+                        protein_pair: HLAProteinPair = (
+                            HLAProteinPair.from_frequency_entry(
+                                row[curr_col1], row[curr_col2]
+                            )
+                        )
+                    except HLAProteinPair.NonAlleleException:
                         continue
-                    if raw_allele_2 in ("unknown", "deprecated"):
-                        continue
 
-                    first_field_1: str
-                    first_field_2: str
-                    second_field_1: str
-                    second_field_2: str
-
-                    first_field_1, first_field_2 = raw_allele_1.split(":")
-                    second_field_1, second_field_2 = raw_allele_2.split(":")
-
-                    protein_pair: HLAProteinPair = HLAProteinPair(
-                        first_field_1=first_field_1,
-                        first_field_2=first_field_2,
-                        second_field_1=second_field_1,
-                        second_field_2=second_field_2,
-                    )
                     if hla_freqs[locus].get(protein_pair, None) is None:
                         hla_freqs[locus][protein_pair] = 0
                     hla_freqs[locus][protein_pair] += 1
@@ -206,12 +195,7 @@ class EasyHLA:
     @staticmethod
     def load_default_hla_frequencies() -> dict[HLA_LOCUS, dict[HLAProteinPair, int]]:
         """
-        Load HLA frequencies from reference file.
-
-        This takes two columns AAAA,BBBB out of 6 (...FFFF), and then uses a
-        subset of these two columns (AABB,CCDD) to use as the key, in this case
-        "AA|BB,CC|DD", we then count the number of times this key appears in our
-        columns.
+        Load HLA frequencies from the default reference file.
 
         :return: Lookup table of HLA frequencies.
         :rtype: dict[HLA_LOCUS, dict[HLAProteinPair, int]]

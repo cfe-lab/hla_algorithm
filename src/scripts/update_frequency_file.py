@@ -9,6 +9,7 @@ from dataclasses import dataclass, fields
 from io import TextIOBase
 from typing import ClassVar, Final, Optional, Self, TypedDict
 
+from easyhla.models import HLAProteinPair
 from easyhla.utils import HLA_LOCUS
 
 logging.basicConfig()
@@ -78,7 +79,7 @@ class NewName:
 
     def to_frequency_format(self) -> str:
         if self.locus is None:
-            return "deprecated"
+            return HLAProteinPair.DEPRECATED
         return f"{self.field_1}:{self.field_2}"
 
 
@@ -160,7 +161,7 @@ class FrequencyRow:
         for field in fields(self):
             curr_new_name: Optional[NewName] = getattr(self, field.name)
             if curr_new_name is None:
-                row_dict[field.name] = "unknown"
+                row_dict[field.name] = HLAProteinPair.UNKNOWN
             else:
                 row_dict[field.name] = curr_new_name.to_frequency_format()
         return row_dict
