@@ -133,46 +133,46 @@ class HLAProteinPair(BaseModel):
         )
         return me_tuple < other_tuple
 
-    UNKNOWN: ClassVar[Final[str]] = "unknown"
+    UNMAPPED: ClassVar[Final[str]] = "unmapped"
     DEPRECATED: ClassVar[Final[str]] = "deprecated"
 
     class NonAlleleException(Exception):
         def __init__(
             self,
-            first_unknown: bool = False,
+            first_unmapped: bool = False,
             first_deprecated: bool = False,
-            second_unknown: bool = False,
+            second_unmapped: bool = False,
             second_deprecated: bool = False,
         ):
-            self.first_unknown = first_unknown
+            self.first_unmapped = first_unmapped
             self.first_deprecated = first_deprecated
-            self.second_unknown = second_unknown
+            self.second_unmapped = second_unmapped
             self.second_deprecated = second_deprecated
 
         @classmethod
         def from_frequency_entry(
             cls, raw_first_allele: str, raw_second_allele: str
         ) -> Optional[Self]:
-            first_unknown: bool = False
+            first_unmapped: bool = False
             first_deprecated: bool = False
-            second_unknown: bool = False
+            second_unmapped: bool = False
             second_deprecated: bool = False
 
-            if raw_first_allele == HLAProteinPair.UNKNOWN:
-                first_unknown = True
+            if raw_first_allele == HLAProteinPair.UNMAPPED:
+                first_unmapped = True
             elif raw_first_allele == HLAProteinPair.DEPRECATED:
                 first_deprecated = True
 
-            if raw_second_allele == HLAProteinPair.UNKNOWN:
-                second_unknown = True
+            if raw_second_allele == HLAProteinPair.UNMAPPED:
+                second_unmapped = True
             elif raw_second_allele == HLAProteinPair.DEPRECATED:
                 second_deprecated = True
 
             if any(
-                (first_unknown, first_deprecated, second_unknown, second_deprecated)
+                (first_unmapped, first_deprecated, second_unmapped, second_deprecated)
             ):
                 return cls(
-                    first_unknown, first_deprecated, second_unknown, second_deprecated
+                    first_unmapped, first_deprecated, second_unmapped, second_deprecated
                 )
             return None
 

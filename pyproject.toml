@@ -63,6 +63,7 @@ clinical_hla = "easyhla.clinical_hla:main"
 interpret_from_json = "easyhla.interpret_from_json:main"
 bblab = "easyhla.bblab:main"
 update_alleles = "easyhla.update_alleles:main"
+update_frequency_file = "easyhla.update_frequency_file:main"
 
 [project.optional-dependencies]
 database = [
@@ -116,6 +117,7 @@ omit = [
   "src/easyhla/clinical_hla.py",
   "src/easyhla/interpret_from_json.py",
   "src/easyhla/update_alleles.py",
+  "src/easyhla/update_frequency_file.py",
   "src/scripts/*.py",
 ]
 

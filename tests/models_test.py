@@ -239,10 +239,10 @@ class TestHLAProteinPair:
                 id="good_allele_pair",
             ),
             pytest.param(
-                "unknown",
+                "unmapped",
                 "57:03",
-                HLAProteinPair.NonAlleleException(first_unknown=True),
-                id="first_unknown",
+                HLAProteinPair.NonAlleleException(first_unmapped=True),
+                id="first_unmapped",
             ),
             pytest.param(
                 "deprecated",
@@ -252,9 +252,9 @@ class TestHLAProteinPair:
             ),
             pytest.param(
                 "57:01",
-                "unknown",
-                HLAProteinPair.NonAlleleException(second_unknown=True),
-                id="second_unknown",
+                "unmapped",
+                HLAProteinPair.NonAlleleException(second_unmapped=True),
+                id="second_unmapped",
             ),
             pytest.param(
                 "57:01",
@@ -263,28 +263,28 @@ class TestHLAProteinPair:
                 id="second_deprecated",
             ),
             pytest.param(
-                "unknown",
-                "unknown",
+                "unmapped",
+                "unmapped",
                 HLAProteinPair.NonAlleleException(
-                    first_unknown=True, second_unknown=True
+                    first_unmapped=True, second_unmapped=True
                 ),
-                id="both_unknown",
+                id="both_unmapped",
             ),
             pytest.param(
-                "unknown",
+                "unmapped",
                 "deprecated",
                 HLAProteinPair.NonAlleleException(
-                    first_unknown=True, second_deprecated=True
+                    first_unmapped=True, second_deprecated=True
                 ),
-                id="unknown_deprecated",
+                id="unmapped_deprecated",
             ),
             pytest.param(
                 "deprecated",
-                "unknown",
+                "unmapped",
                 HLAProteinPair.NonAlleleException(
-                    first_deprecated=True, second_unknown=True
+                    first_deprecated=True, second_unmapped=True
                 ),
-                id="deprecated_unknown",
+                id="deprecated_unmapped",
             ),
             pytest.param(
                 "deprecated",
@@ -311,9 +311,9 @@ class TestHLAProteinPair:
             assert result is None
         else:
             for field in (
-                "first_unknown",
+                "first_unmapped",
                 "first_deprecated",
-                "second_unknown",
+                "second_unmapped",
                 "second_deprecated",
             ):
                 assert getattr(result, field) == getattr(expected_result, field)
@@ -332,24 +332,24 @@ class TestHLAProteinPair:
         "raw_first_allele, raw_second_allele, expected_exception",
         [
             pytest.param(
-                "unknown",
+                "unmapped",
                 "56:220",
-                HLAProteinPair.NonAlleleException(first_unknown=True),
-                id="first_unknown",
+                HLAProteinPair.NonAlleleException(first_unmapped=True),
+                id="first_unmapped",
             ),
             pytest.param(
                 "57:02",
                 "deprecated",
-                HLAProteinPair.NonAlleleException(first_unknown=True),
+                HLAProteinPair.NonAlleleException(second_deprecated=True),
                 id="second_deprecated",
             ),
             pytest.param(
                 "deprecated",
-                "unknown",
+                "unmapped",
                 HLAProteinPair.NonAlleleException(
-                    first_deprecated=True, second_unknown=True
+                    first_deprecated=True, second_unmapped=True
                 ),
-                id="deprecated_unknown",
+                id="deprecated_unmapped",
             ),
         ],
     )
@@ -362,9 +362,9 @@ class TestHLAProteinPair:
         with pytest.raises(HLAProteinPair.NonAlleleException) as e:
             HLAProteinPair.from_frequency_entry(raw_first_allele, raw_second_allele)
             for field in (
-                "first_unknown",
+                "first_unmapped",
                 "first_deprecated",
-                "second_unknown",
+                "second_unmapped",
                 "second_deprecated",
             ):
                 assert getattr(e, field) == getattr(expected_exception, field)
