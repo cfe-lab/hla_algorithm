@@ -1337,8 +1337,8 @@ READ_HLA_FREQUENCIES_TYPICAL_CASE_INPUT: list[str] = [
     "14:23,deprecated,57:01,57:03,25:29,40:43",
     "54:32,98:76,57:01,57:03,19:82,19:82",
     "54:32,98:74,57:02,57:03,11:11,22:22",
-    "54:32,98:76,57:01,57:03,19:82,unknown",
-    "54:32,98:74,unknown,deprecated,11:11,22:22",
+    "54:32,98:76,57:01,57:03,19:82,unmapped",
+    "54:32,98:74,unmapped,deprecated,11:11,22:22",
 ]
 
 READ_HLA_FREQUENCIES_TYPICAL_CASE_OUTPUT: dict[HLA_LOCUS, dict[HLAProteinPair, int]] = {
@@ -1443,7 +1443,7 @@ READ_HLA_FREQUENCIES_TYPICAL_CASE_OUTPUT: dict[HLA_LOCUS, dict[HLAProteinPair, i
             id="single_row",
         ),
         pytest.param(
-            ["14:23,unknown,57:01,57:03,25:29,40:43"],
+            ["14:23,unmapped,57:01,57:03,25:29,40:43"],
             {},
             {
                 HLAProteinPair(
@@ -1485,7 +1485,7 @@ READ_HLA_FREQUENCIES_TYPICAL_CASE_OUTPUT: dict[HLA_LOCUS, dict[HLAProteinPair, i
             id="single_row_b_non_allele",
         ),
         pytest.param(
-            ["14:23,22:33,57:01,57:03,deprecated,unknown"],
+            ["14:23,22:33,57:01,57:03,deprecated,unmapped"],
             {
                 HLAProteinPair(
                     first_field_1="14",
@@ -1506,7 +1506,7 @@ READ_HLA_FREQUENCIES_TYPICAL_CASE_OUTPUT: dict[HLA_LOCUS, dict[HLAProteinPair, i
             id="single_row_c_non_allele",
         ),
         pytest.param(
-            ["unknown,deprecated,57:01,unknown,deprecated,40:43"],
+            ["unmapped,deprecated,57:01,unmapped,deprecated,40:43"],
             {},
             {},
             {},

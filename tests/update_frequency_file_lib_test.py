@@ -147,9 +147,16 @@ def test_new_name_from_string_good_cases(
         ),
     ],
 )
-def test_new_name_from_string_exception_cases(new_name_str: str):
+def test_new_name_from_string_bad_locus_exception_cases(new_name_str: str):
     with pytest.raises(OtherLocusException):
         NewName.from_string(new_name_str)
+
+
+def test_new_name_from_string_cannot_parse_exception():
+    error_msg: str = 'Could not parse "A*01:fdsa" into a proper allele name'
+    with pytest.raises(ValueError) as e:
+        NewName.from_string("A*01:fdsa")
+        assert error_msg in str(e.value)
 
 
 @pytest.mark.parametrize(
@@ -231,6 +238,17 @@ def test_new_name_to_frequency_format(
         ),
         pytest.param(
             [
+                ("B*505001", "B*50:50:01"),
+                ("B*505002", "B*50:50:02"),
+            ],
+            {OldName("B", "50", "50"): NewName("B", "50", "50")},
+            [],
+            [],
+            [],
+            id="two_compatible_mappings_overrides_deprecated",
+        ),
+        pytest.param(
+            [
                 ("A*020119", "A*02:01:19"),
                 ("A*020120", "None"),
                 ("A*493352N", "A*48:122"),
@@ -238,6 +256,7 @@ def test_new_name_to_frequency_format(
                 ("B*505001", "None"),
                 ("B*505002", "B*49:32:11"),
                 ("B*570101", "B*57:01:01"),
+                ("B*570111", "B*57:01:11"),
                 ("Cw*223344", "C*22:122"),
                 ("Cw*223445", "None"),
                 ("DPB1*020102", "DPB1*02:01:02"),
@@ -364,7 +383,40 @@ def test_parse_nomenclature(
                 }
             ),
             Counter(),
-            id="one_row_all_unmapped",
+            id="one_row_all_unmapped_no_mappings",
+        ),
+        pytest.param(
+            ["1234,5678,5701,5603,2233,4455"],
+            {
+                OldName("A", "55", "34"): NewName("A", "12", "340"),
+                OldName("A", "77", "78"): NewName("A", "56", "110"),
+                OldName("B", "10", "01"): NewName("B", "55", "02"),
+                OldName("B", "22", "03"): NewName("B", "53", "04"),
+                OldName("C", "85", "33"): NewName("C", "22", "115"),
+                OldName("C", "12", "55"): NewName("C", "43", "02"),
+            },
+            [
+                {
+                    "a_first": "unmapped",
+                    "a_second": "unmapped",
+                    "b_first": "unmapped",
+                    "b_second": "unmapped",
+                    "c_first": "unmapped",
+                    "c_second": "unmapped",
+                },
+            ],
+            Counter(
+                {
+                    ("A", "1234"): 1,
+                    ("A", "5678"): 1,
+                    ("B", "5701"): 1,
+                    ("B", "5603"): 1,
+                    ("C", "2233"): 1,
+                    ("C", "4455"): 1,
+                }
+            ),
+            Counter(),
+            id="one_row_all_unmapped_no_mappings_used",
         ),
         pytest.param(
             ["1234,5678,5701,5603,2233,4455"],
@@ -398,6 +450,119 @@ def test_parse_nomenclature(
                 }
             ),
             id="one_row_all_deprecated",
+        ),
+        pytest.param(
+            [
+                "1234,5678,5701,5603,2233,4455",
+                "1234,5678,6602,6303,2233,5471",
+            ],
+            {
+                OldName("A", "12", "34"): NewName("A", "12", "34"),
+                OldName("A", "56", "78"): NewName(None, "", ""),
+                OldName("B", "57", "01"): NewName("B", "57", "01"),
+                OldName("B", "56", "03"): NewName("B", "56", "03"),
+                OldName("C", "44", "55"): NewName("C", "44", "55"),
+                OldName("B", "66", "02"): NewName("B", "64", "11"),
+                OldName("B", "63", "03"): NewName("B", "63", "03"),
+                OldName("C", "54", "71"): NewName("C", "53", "110"),
+            },
+            [
+                {
+                    "a_first": "12:34",
+                    "a_second": "deprecated",
+                    "b_first": "57:01",
+                    "b_second": "56:03",
+                    "c_first": "unmapped",
+                    "c_second": "44:55",
+                },
+                {
+                    "a_first": "12:34",
+                    "a_second": "deprecated",
+                    "b_first": "64:11",
+                    "b_second": "63:03",
+                    "c_first": "unmapped",
+                    "c_second": "53:110",
+                },
+            ],
+            Counter({("C", "2233"): 2}),
+            Counter({("A", "5678"): 2}),
+            id="two_rows_multiple_deprecated_and_unmapped",
+        ),
+        pytest.param(
+            [
+                "1234,5678,5701,5603,2233,4455",
+                "5501,7400,5523,5823,1500,1503",
+                "1111,2222,3333,4444,5555,6666",
+                "1234,7400,4444,5823,1501,1507",
+            ],
+            {
+                OldName("A", "12", "34"): NewName("A", "12", "34"),
+                OldName("A", "56", "78"): NewName("A", "56", "110"),
+                OldName("B", "57", "01"): NewName("B", "57", "01"),
+                OldName("B", "56", "03"): NewName("B", "55", "114"),
+                OldName("C", "22", "33"): NewName("C", "22", "33"),
+                OldName("C", "44", "55"): NewName("C", "44", "55"),
+                OldName("A", "55", "01"): NewName("A", "55", "01"),
+                OldName("B", "55", "23"): NewName("B", "55", "23"),
+                OldName("B", "58", "23"): NewName("B", "58", "23"),
+                OldName("C", "15", "03"): NewName(None, "", ""),
+                OldName("A", "11", "11"): NewName("A", "10", "223"),
+                OldName("A", "22", "34"): NewName("A", "22", "35"),  # unused
+                OldName("A", "22", "22"): NewName("A", "19", "190"),
+                OldName("B", "33", "33"): NewName("B", "33", "33"),
+                OldName("B", "44", "44"): NewName(None, "", ""),
+                OldName("C", "55", "55"): NewName("C", "55", "55"),
+                OldName("C", "66", "66"): NewName("C", "62", "114"),
+                OldName("C", "15", "01"): NewName("C", "15", "01"),
+                OldName("C", "15", "07"): NewName("C", "15", "07"),
+            },
+            [
+                {
+                    "a_first": "12:34",
+                    "a_second": "56:110",
+                    "b_first": "57:01",
+                    "b_second": "55:114",
+                    "c_first": "22:33",
+                    "c_second": "44:55",
+                },
+                {
+                    "a_first": "55:01",
+                    "a_second": "unmapped",
+                    "b_first": "55:23",
+                    "b_second": "58:23",
+                    "c_first": "unmapped",
+                    "c_second": "deprecated",
+                },
+                {
+                    "a_first": "10:223",
+                    "a_second": "19:190",
+                    "b_first": "33:33",
+                    "b_second": "deprecated",
+                    "c_first": "55:55",
+                    "c_second": "62:114",
+                },
+                {
+                    "a_first": "12:34",
+                    "a_second": "unmapped",
+                    "b_first": "deprecated",
+                    "b_second": "58:23",
+                    "c_first": "15:01",
+                    "c_second": "15:07",
+                },
+            ],
+            Counter(
+                {
+                    ("A", "7400"): 2,
+                    ("C", "1500"): 1,
+                }
+            ),
+            Counter(
+                {
+                    ("C", "1503"): 1,
+                    ("B", "4444"): 2,
+                }
+            ),
+            id="typical_case",
         ),
     ],
 )

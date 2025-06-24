@@ -87,7 +87,7 @@ class NewName:
         field_2_match: Optional[re.Match] = re.match(r"(\d+)[a-zA-Z]*", coords[1])
         if field_2_match is None:
             raise ValueError(
-                f"Could not parse {new_name_str} into a proper allele name"
+                f'Could not parse "{new_name_str}" into a proper allele name'
             )
         field_2: str = field_2_match.group(1)
         return cls(locus, field_1, field_2)
