@@ -1,11 +1,16 @@
+from collections import Counter
+from io import StringIO
+
 import pytest
 
 from easyhla.models import HLAProteinPair
 from easyhla.update_frequency_file_lib import (
+    FrequencyRowDict,
     NewName,
     OldName,
     OtherLocusException,
     parse_nomenclature,
+    update_old_frequencies,
 )
 from easyhla.utils import HLA_LOCUS
 
@@ -161,9 +166,6 @@ def test_new_name_to_frequency_format(
     assert new_name.to_frequency_format() == expected_result
 
 
-#    dict[OldName, NewName], list[str], list[tuple[str, str]], list[tuple[str, str]]
-
-
 @pytest.mark.parametrize(
     (
         "rows, expected_remapping, expected_deprecated, "
@@ -237,6 +239,7 @@ def test_new_name_to_frequency_format(
                 ("B*505002", "B*49:32:11"),
                 ("B*570101", "B*57:01:01"),
                 ("Cw*223344", "C*22:122"),
+                ("Cw*223445", "None"),
                 ("DPB1*020102", "DPB1*02:01:02"),
             ],
             {
@@ -246,10 +249,12 @@ def test_new_name_to_frequency_format(
                 OldName("B", "50", "50"): NewName("B", "49", "32"),
                 OldName("B", "57", "01"): NewName("B", "57", "01"),
                 OldName("C", "22", "33"): NewName("C", "22", "122"),
+                OldName("C", "22", "34"): NewName(None, "", ""),
             },
             [
                 "A*020120",
                 "B*505001",
+                "Cw*223445",
             ],
             [("A*020120", NewName("A", "02", "01"))],
             [("B*505002", NewName("B", "49", "32"))],
@@ -279,3 +284,139 @@ def test_parse_nomenclature(
         assert result[1] == expected_deprecated
         assert result[2] == expected_deprecated_maps_to_other
         assert result[3] == expected_mapping_overrides_deprecated
+
+
+@pytest.mark.parametrize(
+    (
+        "old_frequency_lines, remapping, expected_updated_frequencies, "
+        "expected_unmapped_alleles, expected_deprecated_alleles_seen"
+    ),
+    [
+        pytest.param(
+            ["1234,5678,5701,5603,2233,4455"],
+            {
+                OldName("A", "12", "34"): NewName("A", "12", "34"),
+                OldName("A", "56", "78"): NewName("A", "56", "78"),
+                OldName("B", "57", "01"): NewName("B", "57", "01"),
+                OldName("B", "56", "03"): NewName("B", "56", "03"),
+                OldName("C", "22", "33"): NewName("C", "22", "33"),
+                OldName("C", "44", "55"): NewName("C", "44", "55"),
+            },
+            [
+                {
+                    "a_first": "12:34",
+                    "a_second": "56:78",
+                    "b_first": "57:01",
+                    "b_second": "56:03",
+                    "c_first": "22:33",
+                    "c_second": "44:55",
+                },
+            ],
+            Counter(),
+            Counter(),
+            id="one_row_all_trivial",
+        ),
+        pytest.param(
+            ["1234,5678,5701,5603,2233,4455"],
+            {
+                OldName("A", "12", "34"): NewName("A", "12", "340"),
+                OldName("A", "56", "78"): NewName("A", "56", "110"),
+                OldName("B", "57", "01"): NewName("B", "55", "02"),
+                OldName("B", "56", "03"): NewName("B", "53", "04"),
+                OldName("C", "22", "33"): NewName("C", "22", "115"),
+                OldName("C", "44", "55"): NewName("C", "43", "02"),
+            },
+            [
+                {
+                    "a_first": "12:340",
+                    "a_second": "56:110",
+                    "b_first": "55:02",
+                    "b_second": "53:04",
+                    "c_first": "22:115",
+                    "c_second": "43:02",
+                },
+            ],
+            Counter(),
+            Counter(),
+            id="one_row_all_nontrivial",
+        ),
+        pytest.param(
+            ["1234,5678,5701,5603,2233,4455"],
+            {},
+            [
+                {
+                    "a_first": "unmapped",
+                    "a_second": "unmapped",
+                    "b_first": "unmapped",
+                    "b_second": "unmapped",
+                    "c_first": "unmapped",
+                    "c_second": "unmapped",
+                },
+            ],
+            Counter(
+                {
+                    ("A", "1234"): 1,
+                    ("A", "5678"): 1,
+                    ("B", "5701"): 1,
+                    ("B", "5603"): 1,
+                    ("C", "2233"): 1,
+                    ("C", "4455"): 1,
+                }
+            ),
+            Counter(),
+            id="one_row_all_unmapped",
+        ),
+        pytest.param(
+            ["1234,5678,5701,5603,2233,4455"],
+            {
+                OldName("A", "12", "34"): NewName(None, "", ""),
+                OldName("A", "56", "78"): NewName(None, "", ""),
+                OldName("B", "57", "01"): NewName(None, "", ""),
+                OldName("B", "56", "03"): NewName(None, "", ""),
+                OldName("C", "22", "33"): NewName(None, "", ""),
+                OldName("C", "44", "55"): NewName(None, "", ""),
+            },
+            [
+                {
+                    "a_first": "deprecated",
+                    "a_second": "deprecated",
+                    "b_first": "deprecated",
+                    "b_second": "deprecated",
+                    "c_first": "deprecated",
+                    "c_second": "deprecated",
+                },
+            ],
+            Counter(),
+            Counter(
+                {
+                    ("A", "1234"): 1,
+                    ("A", "5678"): 1,
+                    ("B", "5701"): 1,
+                    ("B", "5603"): 1,
+                    ("C", "2233"): 1,
+                    ("C", "4455"): 1,
+                }
+            ),
+            id="one_row_all_deprecated",
+        ),
+    ],
+)
+def test_update_old_frequencies(
+    old_frequency_lines: list[str],
+    remapping: dict[OldName, NewName],
+    expected_updated_frequencies: list[FrequencyRowDict],
+    expected_unmapped_alleles: Counter[tuple[HLA_LOCUS, str]],
+    expected_deprecated_alleles_seen: Counter[tuple[HLA_LOCUS, str]],
+):
+    fake_old_frequency_file: StringIO = StringIO("\n".join(old_frequency_lines))
+    updated_frequencies: list[FrequencyRowDict]
+    unmapped_alleles: Counter[tuple[HLA_LOCUS, str]]
+    deprecated_alleles_seen: Counter[tuple[HLA_LOCUS, str]]
+
+    updated_frequencies, unmapped_alleles, deprecated_alleles_seen = (
+        update_old_frequencies(fake_old_frequency_file, remapping)
+    )
+
+    assert updated_frequencies == expected_updated_frequencies
+    assert unmapped_alleles == expected_unmapped_alleles
+    assert deprecated_alleles_seen == expected_deprecated_alleles_seen
