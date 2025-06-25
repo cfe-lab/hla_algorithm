@@ -37,7 +37,7 @@ class HLASequenceCommonFields(TypedDict):
     ambiguous: str
     homozygous: str
     mismatch_count: int
-    mismatches: str
+    mismatches: Optional[str]
     enterdate: datetime
 
 
@@ -62,10 +62,13 @@ class HLADBBase(MappedAsDataclass, DeclarativeBase):
         rep_cs: HLACombinedStandard
         rep_ap, alleles_clean, rep_cs = interpretation.best_common_allele_pair()
 
-        match_details: HLAMatchDetails = interpretation.matches[rep_cs]
-        mismatches_str: str = f"({rep_ap[0]} - {rep_ap[1]}) " + ";".join(
-            str(x) for x in match_details.mismatches
-        )
+        mismatches_str: Optional[str] = None
+        mismatch_count: int = interpretation.lowest_mismatch_count()
+        if mismatch_count > 0:
+            match_details: HLAMatchDetails = interpretation.matches[rep_cs]
+            mismatches_str = f"({rep_ap[0]} - {rep_ap[1]}) " + ";".join(
+                str(x) for x in match_details.mismatches
+            )
 
         return {
             "enum": interpretation.hla_sequence.name,

@@ -3,15 +3,10 @@
 import argparse
 import json
 import logging
-from typing import Optional
 
 from .easyhla import EasyHLA
 from .interpret_from_json_lib import HLAInput, HLAResult
-from .models import (
-    HLAInterpretation,
-    HLAProteinPair,
-    HLAStandard,
-)
+from .models import HLAInterpretation
 
 logger: logging.Logger = logging.getLogger(__name__)
 

@@ -73,6 +73,17 @@ def dummy_matches(locus: HLA_LOCUS) -> dict[HLACombinedStandard, HLAMatchDetails
     }
 
 
+def dummy_matches_no_mismatches(
+    locus: HLA_LOCUS,
+) -> dict[HLACombinedStandard, HLAMatchDetails]:
+    return {
+        HLACombinedStandard(
+            standard_bin=(2, 2, 1, 2, 1, 4, 4, 2, 8),
+            possible_allele_pairs=((f"{locus}*01:01:01", f"{locus}*02:02:02"),),
+        ): HLAMatchDetails(mismatch_count=0, mismatches=[]),
+    }
+
+
 DUMMY_FREQUENCIES: Final[dict[HLAProteinPair, int]] = {
     HLAProteinPair(
         first_field_1="01",
@@ -112,6 +123,33 @@ def test_hla_sequence_a_build_from_interpretation():
         homozygous="False",
         mismatch_count=1,
         mismatches="(A*10:01:10 - A*20:01) 100:A->T;150:T->G",
+        seq="CCACAGGCT",
+        enterdate=processing_datetime,
+    )
+
+    assert seq_a == expected_result
+
+
+def test_hla_sequence_a_build_from_interpretation_no_mismatches():
+    interp: HLAInterpretation = HLAInterpretation(
+        hla_sequence=dummy_hla_sequence("A"),
+        matches=dummy_matches_no_mismatches("A"),
+        allele_frequencies=DUMMY_FREQUENCIES,
+    )
+    processing_datetime: datetime = datetime(2025, 5, 9, 11, 0, 0)
+
+    seq_a: HLASequenceA = HLASequenceA.build_from_interpretation(
+        interp, processing_datetime
+    )
+
+    expected_result: HLASequenceA = HLASequenceA(
+        enum="dummy_seq",
+        alleles_clean="A*01:01:01 - A*02:02:02",
+        alleles_all="A*01:01:01 - A*02:02:02",
+        ambiguous="False",
+        homozygous="False",
+        mismatch_count=0,
+        mismatches=None,
         seq="CCACAGGCT",
         enterdate=processing_datetime,
     )
@@ -164,6 +202,58 @@ def test_hla_sequence_b_build_from_interpretation_non_b5701():
         homozygous="False",
         mismatch_count=1,
         mismatches="(B*10:01:10 - B*20:01) 100:A->T;150:T->G",
+        b5701="False",
+        b5701_dist=6,
+        seqa="CCAC",
+        seqb="AGGCT",
+        reso_status=None,
+        enterdate=processing_datetime,
+    )
+
+    assert seq_b == expected_result
+
+
+def test_hla_sequence_b_build_from_interpretation_no_mismatches():
+    b5701_standards: list[HLAStandard] = [
+        # "Forgiving distance" from sequence: 8
+        HLAStandard(
+            allele="B*57:01:01",
+            two=(8, 8, 8, 8),
+            three=(8, 8, 8, 8, 8),
+        ),
+        # "Forgiving distance" from sequence: 7
+        HLAStandard(
+            allele="B*57:01:02:01N",
+            two=(4, 8, 4, 8),
+            three=(8, 4, 8, 4, 8),
+        ),
+        # "Forgiving distance" from sequence: 6, because 12 "contains" 8
+        HLAStandard(
+            allele="B*57:01:03",
+            two=(4, 4, 8, 8),
+            three=(8, 4, 4, 8, 12),
+        ),
+    ]
+    interp: HLAInterpretation = HLAInterpretation(
+        hla_sequence=dummy_hla_sequence("B"),
+        matches=dummy_matches_no_mismatches("B"),
+        allele_frequencies=DUMMY_FREQUENCIES,
+        b5701_standards=b5701_standards,
+    )
+    processing_datetime: datetime = datetime(2025, 5, 9, 11, 0, 0)
+
+    seq_b: HLASequenceB = HLASequenceB.build_from_interpretation(
+        interp, processing_datetime
+    )
+
+    expected_result: HLASequenceB = HLASequenceB(
+        enum="dummy_seq",
+        alleles_clean="B*01:01:01 - B*02:02:02",
+        alleles_all="B*01:01:01 - B*02:02:02",
+        ambiguous="False",
+        homozygous="False",
+        mismatch_count=0,
+        mismatches=None,
         b5701="False",
         b5701_dist=6,
         seqa="CCAC",
@@ -241,6 +331,7 @@ B5701_CASE_STANDARDS: list[HLAStandard] = [
     ),
 ]
 
+
 def test_hla_sequence_b_build_from_interpretation_is_b5701():
     interp: HLAInterpretation = HLAInterpretation(
         hla_sequence=dummy_hla_sequence("B"),
@@ -299,6 +390,34 @@ def test_hla_sequence_c_build_from_interpretation():
         homozygous="False",
         mismatch_count=1,
         mismatches="(C*10:01:10 - C*20:01) 100:A->T;150:T->G",
+        seqa="CCAC",
+        seqb="AGGCT",
+        enterdate=processing_datetime,
+    )
+
+    assert seq_c == expected_result
+
+
+def test_hla_sequence_c_build_from_interpretation_no_mismatches():
+    interp: HLAInterpretation = HLAInterpretation(
+        hla_sequence=dummy_hla_sequence("C"),
+        matches=dummy_matches_no_mismatches("C"),
+        allele_frequencies=DUMMY_FREQUENCIES,
+    )
+    processing_datetime: datetime = datetime(2025, 5, 9, 11, 0, 0)
+
+    seq_c: HLASequenceC = HLASequenceC.build_from_interpretation(
+        interp, processing_datetime
+    )
+
+    expected_result: HLASequenceC = HLASequenceC(
+        enum="dummy_seq",
+        alleles_clean="C*01:01:01 - C*02:02:02",
+        alleles_all="C*01:01:01 - C*02:02:02",
+        ambiguous="False",
+        homozygous="False",
+        mismatch_count=0,
+        mismatches=None,
         seqa="CCAC",
         seqb="AGGCT",
         enterdate=processing_datetime,
