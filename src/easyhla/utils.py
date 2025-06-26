@@ -342,7 +342,7 @@ def allele_coordinates(
     Convert an allele string into a list of coordinates.
 
     For example, allele "A*01:23:45N" gets converted to
-    ["A*01", "23", "45N"] or ["01", "23", "45] depending on the value of
+    ["A*01", "23", "45N"] or ["01", "23", "45"] depending on the value of
     digits_only.
     """
     clean_allele_str: str = allele
@@ -351,14 +351,21 @@ def allele_coordinates(
     return clean_allele_str.strip().split(":")
 
 
-def allele_integer_coordinates(allele: str) -> tuple[int, ...]:
+def allele_coordinates_sort_key(allele: str) -> tuple[tuple[int, ...], str]:
     """
-    Convert an allele string into a list of integer coordinates.
+    Produce a sortable key for an allele coordinate string.
 
-    For example, allele "A*01:23:45N" gets converted to
-    (1, 23, 45)
+    For example, allele "A*01:23:45N" gets converted to ((1, 23, 45), "N").  If
+    there's no trailing letter, it becomes ((1, 23, 45), "").
     """
-    return tuple(int(coord) for coord in allele_coordinates(allele, True))
+    integer_part: tuple[int, ...] = tuple(
+        int(coord) for coord in allele_coordinates(allele, True)
+    )
+    letters_at_end_match: Optional[re.Match] = re.match(r".*\d+([a-zA-Z]+)$", allele)
+    letters_at_end: str = ""
+    if letters_at_end_match is not None:
+        letters_at_end = letters_at_end_match.group(1)
+    return (integer_part, letters_at_end)
 
 
 class HLARawStandard(BaseModel):
@@ -430,7 +437,7 @@ def collate_standards(
             )
 
     for locus in ("A", "B", "C"):
-        standards[locus].sort(key=lambda x: allele_integer_coordinates(x.allele))
+        standards[locus].sort(key=lambda x: allele_coordinates_sort_key(x.allele))
 
     return standards
 

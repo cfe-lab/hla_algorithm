@@ -198,6 +198,26 @@ class TestHLAProteinPair:
                 ("15", "84", "89", "92"),
                 ("15", "91", "91", "01"),
             ),
+            pytest.param(
+                ("15", "84", "89", "92"),
+                ("110", "91", "91", "01"),
+                id="three_digits_sorted_by_number_and_not_alphabetically_first_first",
+            ),
+            pytest.param(
+                ("15", "84", "89", "92"),
+                ("15", "111", "91", "01"),
+                id="three_digits_sorted_by_number_and_not_alphabetically_first_second",
+            ),
+            pytest.param(
+                ("15", "84", "89", "92"),
+                ("15", "84", "101", "01"),
+                id="three_digits_sorted_by_number_and_not_alphabetically_second_first",
+            ),
+            pytest.param(
+                ("15", "84", "89", "92"),
+                ("15", "84", "89", "100"),
+                id="three_digits_sorted_by_number_and_not_alphabetically_second_second",
+            ),
         ],
     )
     def test_strictly_less_than(
@@ -1109,9 +1129,95 @@ class TestAllelePairs:
         assert result_alleles.allele_pairs == exp_alleles
 
     @pytest.mark.parametrize(
-        "raw_allele_pairs, max_length, exp_stringification",
+        "raw_allele_pairs, exp_result",
         [
-            (
+            pytest.param(
+                [],
+                [],
+                id="empty_list",
+            ),
+            pytest.param(
+                [
+                    ("A*11:01:01G", "A*26:01:01G"),
+                ],
+                [
+                    ("A*11:01:01G", "A*26:01:01G"),
+                ],
+                id="single_element",
+            ),
+            pytest.param(
+                [
+                    ("A*11:01:01", "A*26:01:01"),
+                    ("A*12:01:01", "A*26:01:01"),
+                ],
+                [
+                    ("A*11:01:01", "A*26:01:01"),
+                    ("A*12:01:01", "A*26:01:01"),
+                ],
+                id="two_elements_trivial_sort",
+            ),
+            pytest.param(
+                [
+                    ("A*12:01:01", "A*26:01:01"),
+                    ("A*11:01:01", "A*26:01:01"),
+                ],
+                [
+                    ("A*11:01:01", "A*26:01:01"),
+                    ("A*12:01:01", "A*26:01:01"),
+                ],
+                id="two_elements_nontrivial_sort",
+            ),
+            pytest.param(
+                [
+                    ("A*11:01:01G", "A*25:01:01"),
+                    ("A*11:01:01", "A*26:01:01"),
+                ],
+                [
+                    ("A*11:01:01", "A*26:01:01"),
+                    ("A*11:01:01G", "A*25:01:01"),
+                ],
+                id="two_elements_letter_vs_no_letter",
+            ),
+            pytest.param(
+                [
+                    ("A*11:01:01N", "A*25:01:01"),
+                    ("A*11:01:01G", "A*26:01:01"),
+                ],
+                [
+                    ("A*11:01:01G", "A*26:01:01"),
+                    ("A*11:01:01N", "A*25:01:01"),
+                ],
+                id="two_elements_letter_tiebreak",
+            ),
+            pytest.param(
+                [
+                    ("A*11:01:01G", "A*26:01:01N"),
+                    ("A*11:01:01G", "A*26:01:01G"),
+                    ("A*11:01:07", "A*26:01:17"),
+                    ("A*11:40", "A*66:01G"),
+                ],
+                [
+                    ("A*11:01:01G", "A*26:01:01G"),
+                    ("A*11:01:01G", "A*26:01:01N"),
+                    ("A*11:01:07", "A*26:01:17"),
+                    ("A*11:40", "A*66:01G"),
+                ],
+                id="typical_case",
+            ),
+        ],
+    )
+    def test_sort_pairs(
+        self,
+        raw_allele_pairs: list[tuple[str, str]],
+        exp_result: list[tuple[str, str]],
+    ):
+        ap: AllelePairs = AllelePairs(allele_pairs=raw_allele_pairs)
+        assert ap.sort_pairs() == exp_result
+
+    @pytest.mark.parametrize(
+        "raw_allele_pairs, sorted, max_length, exp_stringification",
+        [
+            pytest.param(
                 [
                     ("A*02:01:01G", "A*03:01:01G"),
                     ("A*02:01:52", "A*03:01:03"),
@@ -1128,6 +1234,7 @@ class TestAllelePairs:
                     ("A*02:86", "A*03:123"),
                     ("A*02:20:01", "A*03:157"),
                 ],
+                False,
                 3900,
                 # NOTE: This is one string concatenated together
                 (
@@ -1146,14 +1253,16 @@ class TestAllelePairs:
                     "A*02:86 - A*03:123;"
                     "A*02:20:01 - A*03:157"
                 ),
+                id="typical_case_no_truncation",
             ),
-            (
+            pytest.param(
                 [
                     ("A*11:01:01G", "A*26:01:01G"),
                     ("A*11:01:07", "A*26:01:17"),
                     ("A*11:19", "A*26:13"),
                     ("A*11:40", "A*66:01G"),
                 ],
+                False,
                 3900,
                 (
                     "A*11:01:01G - A*26:01:01G;"
@@ -1161,14 +1270,67 @@ class TestAllelePairs:
                     "A*11:19 - A*26:13;"
                     "A*11:40 - A*66:01G"
                 ),
+                id="no_truncation_no_sorting",
             ),
-            (
+            pytest.param(
                 [
                     ("A*11:01:01G", "A*26:01:01G"),
                     ("A*11:01:07", "A*26:01:17"),
                     ("A*11:19", "A*26:13"),
                     ("A*11:40", "A*66:01G"),
                 ],
+                True,
+                3900,
+                (
+                    "A*11:01:01G - A*26:01:01G;"
+                    "A*11:01:07 - A*26:01:17;"
+                    "A*11:19 - A*26:13;"
+                    "A*11:40 - A*66:01G"
+                ),
+                id="no_truncation_trivial_sorting",
+            ),
+            pytest.param(
+                [
+                    ("A*11:19", "A*26:13"),
+                    ("A*11:01:01G", "A*26:01:01G"),
+                    ("A*11:40", "A*66:01G"),
+                    ("A*11:01:07", "A*26:01:17"),
+                ],
+                True,
+                3900,
+                (
+                    "A*11:01:01G - A*26:01:01G;"
+                    "A*11:01:07 - A*26:01:17;"
+                    "A*11:19 - A*26:13;"
+                    "A*11:40 - A*66:01G"
+                ),
+                id="no_truncation_meaningful_sorting",
+            ),
+            pytest.param(
+                [
+                    ("A*11:01:01G", "A*26:01:01N"),
+                    ("A*11:01:01G", "A*26:01:01G"),
+                    ("A*11:01:07", "A*26:01:17"),
+                    ("A*11:40", "A*66:01G"),
+                ],
+                True,
+                3900,
+                (
+                    "A*11:01:01G - A*26:01:01G;"
+                    "A*11:01:01G - A*26:01:01N;"
+                    "A*11:01:07 - A*26:01:17;"
+                    "A*11:40 - A*66:01G"
+                ),
+                id="no_truncation_sorting_with_letter_tiebreak",
+            ),
+            pytest.param(
+                [
+                    ("A*11:01:01G", "A*26:01:01G"),
+                    ("A*11:01:07", "A*26:01:17"),
+                    ("A*11:19", "A*26:13"),
+                    ("A*11:40", "A*66:01G"),
+                ],
+                False,
                 60,
                 (
                     "A*11:01:01G - A*26:01:01G;"
@@ -1176,27 +1338,31 @@ class TestAllelePairs:
                     "A*11:19 - A*26:13;"
                     "...TRUNCATED"
                 ),
+                id="with_truncation",
             ),
-            (
+            pytest.param(
                 [
                     ("A*11:01:01G", "A*26:01:01G"),
                     ("A*11:01:07", "A*26:01:17"),
                     ("A*11:19", "A*26:13"),
                     ("A*11:40", "A*66:01G"),
                 ],
+                False,
                 25,
                 "A*11:01:01G - A*26:01:01G;...TRUNCATED",
+                id="with_strong_truncation",
             ),
         ],
     )
     def test_stringify(
         self,
         raw_allele_pairs: list[tuple[str, str]],
+        sorted: bool,
         max_length: int,
         exp_stringification: str,
     ):
         ap: AllelePairs = AllelePairs(allele_pairs=raw_allele_pairs)
-        assert ap.stringify(max_length) == exp_stringification
+        assert ap.stringify(sorted, max_length) == exp_stringification
 
     @pytest.mark.parametrize(
         "raw_allele_pairs, allele_name, expected_result",

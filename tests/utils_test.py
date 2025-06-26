@@ -22,7 +22,7 @@ from easyhla.utils import (
     HLARawStandard,
     InvalidBaseException,
     StoredHLAStandards,
-    allele_integer_coordinates,
+    allele_coordinates_sort_key,
     bin2nuc,
     calc_padding,
     check_bases,
@@ -1067,14 +1067,27 @@ def test_get_acceptable_match_error_case(sequence: str, reference: str):
 @pytest.mark.parametrize(
     "allele, expected_coords",
     [
-        pytest.param("A*01", (1,), id="single_coordinate"),
-        pytest.param("B*57:02", (57, 2), id="two_coordinates"),
-        pytest.param("B*57:02:15G", (57, 2, 15), id="three_coordinates"),
-        pytest.param("B*57:02:15:02", (57, 2, 15, 2), id="four_coordinates"),
+        pytest.param("A*01", ((1,), ""), id="single_coordinate"),
+        pytest.param("A*01N", ((1,), "N"), id="single_coordinate_trailing_letter"),
+        pytest.param("B*57:02", ((57, 2), ""), id="two_coordinates"),
+        pytest.param("B*57:02G", ((57, 2), "G"), id="two_coordinates_trailing_letter"),
+        pytest.param("B*57:02:15", ((57, 2, 15), ""), id="three_coordinates"),
+        pytest.param(
+            "B*57:02:15G", ((57, 2, 15), "G"), id="three_coordinates_trailing_letter"
+        ),
+        pytest.param("B*57:02:15:02", ((57, 2, 15, 2), ""), id="four_coordinates"),
+        pytest.param(
+            "B*57:02:15:02G",
+            ((57, 2, 15, 2), "G"),
+            id="four_coordinates_trailing_letter",
+        ),
     ],
 )
-def test_allele_integer_coordinates(allele: str, expected_coords: tuple[int, ...]):
-    assert allele_integer_coordinates(allele) == expected_coords
+def test_allele_coordinates_sort_key(
+    allele: str,
+    expected_coords: tuple[tuple[int, ...], str],
+):
+    assert allele_coordinates_sort_key(allele) == expected_coords
 
 
 EXON_REFERENCES: dict[HLA_LOCUS, dict[EXON_NAME, str]] = {
@@ -1409,6 +1422,33 @@ EXON_REFERENCES: dict[HLA_LOCUS, dict[EXON_NAME, str]] = {
             [],
             ['Rejecting "B*57:01:04": 20 exon2 mismatches, 0 exon3 mismatches.'],
             id="good_exon3_bad_exon2_with_logging_no_status_update",
+        ),
+        pytest.param(
+            [
+                SeqRecord(
+                    Seq("TACG" * 10 + "C" * 40 + "GCAT" * 9 + "GCAA"),
+                    id="HLA_4",
+                    description="HLA_4 C*22:33:43N 120bp",
+                ),
+                SeqRecord(
+                    Seq("TACG" * 10 + "C" * 40 + "GCAT" * 10 + "AAAA" * 10),
+                    id="HLA_3",
+                    description="HLA_3 C*22:33:43 160bp",
+                ),
+            ],
+            EXON_REFERENCES,
+            5,
+            0,
+            1000,
+            False,
+            [],
+            [],
+            [
+                ("C*22:33:43", "TACG" * 10, "GCAT" * 10),
+                ("C*22:33:43N", "TACG" * 10, "GCAT" * 9 + "GCAA"),
+            ],
+            [],
+            id="two_sequences_properly_sorted",
         ),
         pytest.param(
             [

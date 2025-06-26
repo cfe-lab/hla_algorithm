@@ -10,6 +10,7 @@ from .utils import (
     HLA_LOCUS,
     HLARawStandard,
     allele_coordinates,
+    allele_coordinates_sort_key,
     bin2nuc,
     count_forgiving_mismatches,
     nuc2bin,
@@ -120,16 +121,16 @@ class HLAProteinPair(BaseModel):
 
     def __lt__(self, other: "HLAProteinPair") -> bool:
         me_tuple: tuple[int, int, int, int] = (
-            self.first_field_1,
-            self.first_field_2,
-            self.second_field_1,
-            self.second_field_2,
+            int(self.first_field_1),
+            int(self.first_field_2),
+            int(self.second_field_1),
+            int(self.second_field_2),
         )
         other_tuple: tuple[int, int, int, int] = (
-            other.first_field_1,
-            other.first_field_2,
-            other.second_field_1,
-            other.second_field_2,
+            int(other.first_field_1),
+            int(other.first_field_2),
+            int(other.second_field_1),
+            int(other.second_field_2),
         )
         return me_tuple < other_tuple
 
@@ -383,7 +384,21 @@ class AllelePairs(BaseModel):
         clean_allele_pair_str: str = " - ".join(clean_allele)
         return (clean_allele_pair_str, set(unambiguous_aps.allele_pairs))
 
-    def stringify(self, max_length: int = 3900) -> str:
+    def sort_pairs(self) -> list[tuple[str, str]]:
+        """
+        Sort the pairs according to "coordinate order".
+
+        If there's a tie, a last letter is used to attempt to break the tie.
+        """
+        return sorted(
+            self.allele_pairs,
+            key=lambda pair: (
+                allele_coordinates_sort_key(pair[0]),
+                allele_coordinates_sort_key(pair[1]),
+            ),
+        )
+
+    def stringify(self, sorted=True, max_length: int = 3900) -> str:
         """
         Produce a final outputtable string.
 
@@ -393,7 +408,10 @@ class AllelePairs(BaseModel):
         :return: ...
         :rtype: str
         """
-        summary_str: str = ";".join([f"{_a[0]} - {_a[1]}" for _a in self.allele_pairs])
+        allele_pairs: list[tuple[str, str]] = self.allele_pairs
+        if sorted:
+            allele_pairs = self.sort_pairs()
+        summary_str: str = ";".join([f"{_a[0]} - {_a[1]}" for _a in allele_pairs])
         if len(summary_str) > max_length:
             summary_str = re.sub(
                 r";[^;]+$",
