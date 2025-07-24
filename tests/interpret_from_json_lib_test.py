@@ -231,7 +231,7 @@ def test_hla_input_hla_sequence_locus_bc():
                 alleles_all=[
                     "A*01:01:01 - A*02:02:02",
                     "A*10:01:10 - A*20:01",
-                    "A*10:01:10 - A*22:22:22",
+                    "A*10:01:10 - A*111:22:22",
                     "A*10:01:15 - A*20:02:03",
                 ],
                 alleles_clean="A*10:01 - A*20",
@@ -279,7 +279,7 @@ def test_hla_input_hla_sequence_locus_bc():
                 alleles_all=[
                     "C*01:01:01 - C*02:02:02",
                     "C*10:01:10 - C*20:01",
-                    "C*10:01:10 - C*22:22:22",
+                    "C*10:01:10 - C*111:22:22",
                     "C*10:01:15 - C*20:02:03",
                 ],
                 alleles_clean="C*10:01 - C*20",

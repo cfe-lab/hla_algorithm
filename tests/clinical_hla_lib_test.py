@@ -61,7 +61,7 @@ def dummy_matches(locus: HLA_LOCUS) -> dict[HLACombinedStandard, HLAMatchDetails
             standard_bin=(2, 4, 10, 2),
             possible_allele_pairs=(
                 (f"{locus}*10:01:10", f"{locus}*20:01"),
-                (f"{locus}*10:01:10", f"{locus}*22:22:22"),
+                (f"{locus}*10:01:10", f"{locus}*111:22:22"),
             ),
         ): HLAMatchDetails(
             mismatch_count=1,
@@ -117,7 +117,7 @@ def test_hla_sequence_a_build_from_interpretation():
         alleles_clean="A*10:01 - A*20",
         alleles_all=(
             "A*01:01:01 - A*02:02:02;A*10:01:10 - A*20:01;"
-            "A*10:01:10 - A*22:22:22;A*10:01:15 - A*20:02:03"
+            "A*10:01:10 - A*111:22:22;A*10:01:15 - A*20:02:03"
         ),
         ambiguous="True",
         homozygous="False",
@@ -196,7 +196,7 @@ def test_hla_sequence_b_build_from_interpretation_non_b5701():
         alleles_clean="B*10:01 - B*20",
         alleles_all=(
             "B*01:01:01 - B*02:02:02;B*10:01:10 - B*20:01;"
-            "B*10:01:10 - B*22:22:22;B*10:01:15 - B*20:02:03"
+            "B*10:01:10 - B*111:22:22;B*10:01:15 - B*20:02:03"
         ),
         ambiguous="True",
         homozygous="False",
@@ -384,7 +384,7 @@ def test_hla_sequence_c_build_from_interpretation():
         alleles_clean="C*10:01 - C*20",
         alleles_all=(
             "C*01:01:01 - C*02:02:02;C*10:01:10 - C*20:01;"
-            "C*10:01:10 - C*22:22:22;C*10:01:15 - C*20:02:03"
+            "C*10:01:10 - C*111:22:22;C*10:01:15 - C*20:02:03"
         ),
         ambiguous="True",
         homozygous="False",

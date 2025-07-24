@@ -44,16 +44,10 @@ end
 
 class HLAAlgorithm
   def initialize(
-    hla_a_std_path=nil,
-    hla_b_std_path=nil,
-    hla_c_std_path=nil,
+    hla_std_path=nil,
     hla_freq_path=nil
   )
-    @hla_std_paths = {
-      'A' => hla_a_std_path,
-      'B' => hla_b_std_path,
-      'C' => hla_c_std_path
-    }
+    @hla_std_path = hla_std_path
     @hla_freq_path = hla_freq_path
   end
 
@@ -62,9 +56,16 @@ class HLAAlgorithm
       "seq1" => seqs[0],
       "seq2" => seqs[1],
       "locus" => locus,
-      "hla_std_path" => File.expand_path(@hla_std_paths[locus]),
+      "hla_std_path" => File.expand_path(@hla_std_path),
       "hla_freq_path" => File.expand_path(@hla_freq_path)
     }
+
+    if (!@hla_std_path.nil?)
+      hla_input["hla_std_path"] = File.expand_path(@hla_std_path)
+    end
+    if (!@hla_freq_path.nil?)
+      hla_input["hla_freq_path"] = File.expand_path(@hla_freq_path)
+    end
 
     python_stdout, python_stderr, wait_thread = Open3.capture3(
       "#{HLA_INTERPRET_FROM_JSON} -",

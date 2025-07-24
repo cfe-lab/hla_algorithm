@@ -230,7 +230,7 @@ class HLAInterpretationRow(BaseModel):
             )
 
         allele_pairs: AllelePairs = interpretation.best_matching_allele_pairs()
-        alleles_all_str = allele_pairs.stringify()
+        alleles_all_str = allele_pairs.stringify(sorted=True)
 
         alleles_clean: str
         _, alleles_clean, __ = interpretation.best_common_allele_pair()
