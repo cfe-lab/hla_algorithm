@@ -1,6 +1,6 @@
 import csv
 import os
-from collections.abc import Iterable, Sequence
+from collections.abc import Generator, Iterable, Sequence
 from datetime import datetime
 from io import TextIOBase
 from operator import attrgetter
@@ -232,58 +232,67 @@ class EasyHLA:
         return matching_stds
 
     @staticmethod
-    def combine_standards_helper(
+    def combine_standards_stepper(
         matching_stds: Sequence[HLAStandardMatch],
         seq: Sequence[int],
         mismatch_threshold: int = 0,
-    ) -> dict[tuple[int, ...], tuple[int, list[tuple[str, str]]]]:
+    ) -> Generator[tuple[tuple[int, ...], int, tuple[str, str]], None, None]:
         """
-        Helper to identify "good" combined standards for the specified sequence.
+        Identifies "good" combined standards for the specified sequence.
 
-        Returns a mapping:
-        binary sequence tuple -|-> (mismatch count, allele pair list)
+        On each iteration, it continues checking combined standards until it
+        finds a "match", and yields a tuple containing the details of that
+        match:
+        - the combined standard, as a tuple of integers 0-15;
+        - the number of mismatches identified; and
+        - the allele pair (i.e. names of the two alleles in the combination).
 
-        This mapping will contain "good" combined standards.  It will always
-        contain the best-matching combined standard(s).  If mismatch_threshold
-        is 0, then we only care about the best match; if mismatch_threshold is a
-        positive integer, it will also contain any combined standards which have
-        fewer mismatches than the threshold.
-
-        The result may also contain other combined standards, which will be
-        winnowed out by the calling function.
+        A "match" is defined by the number of mismatches between the combined
+        standard and the sequence:
+        - this is the best-matching combined standard found so far (may
+          be above our mismatch threshold) or as good as the best-matching one
+          found so far; or
+        - this is below our mismatch threshold.
+        If the mismatch threshold is 0, then we will only ever get the former.
         """
-        combos: dict[tuple[int, ...], tuple[int, list[tuple[str, str]]]] = {}
+        # Keep track of matches we've already found:
+        combos: dict[tuple[int, ...], int] = {}
 
         current_rejection_threshold: int = float("inf")
         for std_ai, std_a in enumerate(matching_stds):
             if std_a.mismatch > current_rejection_threshold:
                 continue
-            for std_bi, std_b in enumerate(matching_stds):
-                if std_ai < std_bi:
-                    break
+            for std_b in matching_stds[: (std_ai + 1)]:
                 if std_b.mismatch > current_rejection_threshold:
                     continue
 
                 # "Mush" the two standards together to produce something
                 # that looks like what you get when you sequence HLA.
                 std_bin = np.array(std_b.sequence) | np.array(std_a.sequence)
-                seq_mask = np.full_like(std_bin, fill_value=15)
-                # Note that seq is implicitly cast to a NumPy array:
-                mismatches: int = np.count_nonzero((std_bin ^ seq) & seq_mask != 0)
+                allele_pair: tuple[str, str] = tuple(
+                    sorted((std_a.allele, std_b.allele))
+                )
+
+                # There could be more than one combined standard with the
+                # same sequence, so check if this one's already been found.
+                combined_std_bin: tuple[int, ...] = tuple(int(s) for s in std_bin)
+
+                mismatches: int = -1
+                if combined_std_bin in combos:
+                    mismatches = combos[combined_std_bin]
+
+                else:
+                    seq_mask = np.full_like(std_bin, fill_value=15)
+                    # Note that seq is implicitly cast to a NumPy array:
+                    mismatches: int = np.count_nonzero((std_bin ^ seq) & seq_mask != 0)
+                    combos[combined_std_bin] = mismatches  # cache this value
 
                 if mismatches > current_rejection_threshold:
                     continue
-
-                # There could be more than one combined standard with the
-                # same sequence, so keep track of all the possible combinations.
-                combined_std_bin: tuple[int, ...] = tuple(int(s) for s in std_bin)
-                if combined_std_bin not in combos:
-                    combos[combined_std_bin] = (mismatches, [])
-                combos[combined_std_bin][1].append(sorted((std_a.allele, std_b.allele)))
-
-                if mismatches < current_rejection_threshold:
+                elif mismatches < current_rejection_threshold:
                     current_rejection_threshold = max(mismatches, mismatch_threshold)
-        return combos
+
+                yield (combined_std_bin, mismatches, allele_pair)
 
     @staticmethod
     def combine_standards(
@@ -307,10 +316,10 @@ class EasyHLA:
         PRECONDITION: matching_stds should contain no duplicates.
 
         Returns a dictionary mapping HLACombinedStandards to their mismatch
-        counts.  If mismatch_threshold is None, then the result contains only
-        the best-matching combined standard(s); otherwise, the result contains
-        all combined standards with mismatch counts up to and including the
-        threshold.  All of the HLACombinedStandards have their
+        counts.  If mismatch_threshold is None or 0, then the result contains
+        only the best-matching combined standard(s); otherwise, the result
+        contains all combined standards with mismatch counts up to and including
+        the threshold.  All of the HLACombinedStandards have their
         `possible_allele_pairs` value sorted.
         """
         if mismatch_threshold is None:
@@ -319,21 +328,25 @@ class EasyHLA:
             # the current best match.
             mismatch_threshold = 0
 
-        combos: dict[tuple[int, ...], tuple[int, list[tuple[str, str]]]] = (
-            EasyHLA.combine_standards_helper(
-                matching_stds,
-                seq,
-                mismatch_threshold,
-            )
-        )
+        combos: dict[tuple[int, ...], tuple[int, list[tuple[str, str]]]] = {}
+
+        fewest_mismatches: int = float("inf")
+        for (
+            combined_std_bin,
+            mismatches,
+            allele_pair,
+        ) in EasyHLA.combine_standards_stepper(matching_stds, seq, mismatch_threshold):
+            if combined_std_bin not in combos:
+                combos[combined_std_bin] = (mismatches, [])
+            combos[combined_std_bin][1].append(allele_pair)
+            if mismatches < fewest_mismatches:
+                fewest_mismatches = mismatches
 
         # Winnow out any extraneous combined standards that don't match our
         # criteria.
         result: dict[HLACombinedStandard, int] = {}
 
-        fewest_mismatches: int = min([x[0] for x in combos.values()])
         cutoff: int = max(fewest_mismatches, mismatch_threshold)
-
         for combined_std_bin, mismatch_count_and_pair_list in combos.items():
             mismatch_count: int
             pair_list: list[tuple[str, str]]
