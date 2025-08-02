@@ -54,9 +54,9 @@ dev = [
 ]
 
 [project.urls]
-Documentation = "https://github.com/unknown/easyhla#readme"
-Issues = "https://github.com/unknown/easyhla/issues"
-Source = "https://github.com/unknown/easyhla"
+Documentation = "https://github.com/cfe-lab/pyeasyhla/blob/main/README.md"
+Issues = "https://github.com/cfe-lab/pyeasyhla/issues"
+Source = "https://github.com/cfe-lab/pyeasyhla"
 
 [project.scripts]
 clinical_hla = "easyhla.clinical_hla:main"
