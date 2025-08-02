@@ -76,14 +76,23 @@ path = "src/easyhla/__about__.py"
 
 [tool.hatch.build]
 include = [
-  "src/easyhla/*.py",
-  "src/easyhla/default_data/*.csv",
-  "src/easyhla/default_data/hla_nuc.fasta.mtime",
+  "src/easyhla/__about__.py",
+  "src/easyhla/__init__.py",
+  "src/easyhla/__main__.py",
+  "src/easyhla/easyhla.py",
+  "src/easyhla/interpret_from_json_lib.py",
+  "src/easyhla/interpret_from_json.py",
+  "src/easyhla/models.py",
+  "src/easyhla/py.typed",
+  "src/easyhla/update_alleles.py",
+  "src/easyhla/update_frequency_file_lib.py",
+  "src/easyhla/update_frequency_file.py",
+  "src/easyhla/utils.py",
+  "src/easyhla/default_data/hla_standards.yaml",
+  "src/easyhla/default_data/hla_frequencies.csv",
 ]
 exclude = [
-  "tools",
-  "tests/output",
-  "tests/input",
+  "tests",
 ]
 skip-excluded-dirs = true
 directory = "output"
