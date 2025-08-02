@@ -1,7 +1,7 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
 {
-	"image": "python:3.10-slim",
+	"image": "python:3.13.3-bookworm",
 	"features": {
 		"ghcr.io/devcontainers/features/git:1": {
 			"ppa": true,
@@ -19,7 +19,9 @@
 	"updateRemoteUserUID": true,
 	"containerEnv": {
 		"WORKON_HOME": "${containerWorkspaceFolder}/.venv",
-		"PYTHONPATH": "${containerWorkspaceFolder}"
+		"PYTHONPATH": "${containerWorkspaceFolder}",
+		"ORACLE_HOME": "/opt/oracle/instantclient",
+		"LD_LIBRARY_PATH": "/opt/oracle/instantclient"
 	},
 	"onCreateCommand": {
 		"update apt": [
@@ -38,7 +40,20 @@
 			"install",
 			"--no-install-recommends",
 			"-y",
-			"openssh-client"
+			"openssh-client",
+			"libaio-dev",
+			"unzip"
+		],
+		"install Instant Client": [
+			"/usr/bin/env",
+			"bash",
+			"${containerWorkspaceFolder}/.devcontainer/install_instant_client.bash"
+		],
+		"install Ruby": [
+			"/usr/bin/apt",
+			"install",
+			"-y",
+			"ruby"
 		]
 	},
 	"postAttachCommand": {

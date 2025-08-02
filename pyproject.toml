@@ -30,6 +30,8 @@ dependencies = [
   "pydantic>=2.10.6",
   "pydantic-numpy>=8.0.1",
   "pytz>=2025.1",
+  "pyyaml>=6.0.2",
+  "requests>=2.32.3",
   "typer>=0.15.2",
 ]
 
@@ -37,6 +39,7 @@ dependencies = [
 dev = [
   "mypy>=1.15.0",
   "mypy-extensions>=1.0.0",
+  "oracledb>=3.1.0",
   "pandas>=2.2.3",
   "pandas-stubs>=2.2.3.241126",
   "pre-commit>=4.1.0",
@@ -46,6 +49,7 @@ dev = [
   "pytest-mock>=3.14.0",
   "pytest-xdist>=3.6.1",
   "ruff>=0.9.9",
+  "sqlalchemy>=2.0.40",
   "types-pytz>=2025.1.0.20250204",
 ]
 
@@ -55,7 +59,17 @@ Issues = "https://github.com/unknown/easyhla/issues"
 Source = "https://github.com/unknown/easyhla"
 
 [project.scripts]
-easyhla = "easyhla:run"
+clinical_hla = "easyhla.clinical_hla:main"
+interpret_from_json = "easyhla.interpret_from_json:main"
+bblab = "easyhla.bblab:main"
+update_alleles = "easyhla.update_alleles:main"
+update_frequency_file = "easyhla.update_frequency_file:main"
+
+[project.optional-dependencies]
+database = [
+    "oracledb>=3.1.0",
+    "sqlalchemy>=2.0.40",
+]
 
 [tool.hatch.version]
 path = "src/easyhla/__about__.py"
@@ -63,11 +77,10 @@ path = "src/easyhla/__about__.py"
 [tool.hatch.build]
 include = [
   "src/easyhla/*.py",
-  "src/easyhla/*.csv",
-  "src/easyhla/hla_nuc.fasta.mtime",
+  "src/easyhla/default_data/*.csv",
+  "src/easyhla/default_data/hla_nuc.fasta.mtime",
 ]
 exclude = [
-  "src/easyhla/check_date_modified.py",
   "tools",
   "tests/output",
   "tests/input",
@@ -98,9 +111,14 @@ source = ["src"]
 omit = [
   "src/easyhla/__init__.py",
   "src/easyhla/__about__.py",
+  "src/easyhla/__main__.py",
   "tests/__init__.py",
-  "src/easyhla/entrypoint.py",
-  "tools/*.py",
+  "src/easyhla/bblab.py",
+  "src/easyhla/clinical_hla.py",
+  "src/easyhla/interpret_from_json.py",
+  "src/easyhla/update_alleles.py",
+  "src/easyhla/update_frequency_file.py",
+  "src/scripts/*.py",
 ]
 
 [tool.coverage.report]

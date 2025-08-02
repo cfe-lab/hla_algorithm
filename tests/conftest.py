@@ -1,6 +1,6 @@
 from typing import Tuple
 
-from easyhla import EasyHLA
+from easyhla.easyhla import EasyHLA
 
 
 def make_comparison(easyhla: EasyHLA, ref_seq: str, test_seq: str) -> str:
