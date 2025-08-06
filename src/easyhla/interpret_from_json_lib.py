@@ -68,7 +68,7 @@ class HLAInput(BaseModel):
             exon3_str = self.seq1[-276:]
         else:
             exon2_str = self.seq1
-            exon3_str = self.seq2
+            exon3_str = self.seq2 or ""
 
         num_sequences_used: int = 1 if self.locus == "A" else 2
         return HLASequence(

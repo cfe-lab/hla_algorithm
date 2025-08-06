@@ -8,7 +8,7 @@ import os
 import time
 from datetime import datetime
 from io import StringIO
-from typing import Final, Optional, TypedDict
+from typing import Final, Optional, TypedDict, cast
 
 import Bio
 import requests
@@ -169,7 +169,7 @@ def get_commit_hash(
     return None
 
 
-def get_from_git(tag: str) -> tuple[str, datetime, str]:
+def get_from_git(tag: str) -> tuple[str, datetime, Optional[str]]:
     alleles_str: str
     retrieval_datetime: datetime
     for i in range(5):
@@ -185,7 +185,7 @@ def get_from_git(tag: str) -> tuple[str, datetime, str]:
         else:
             break
 
-    commit_hash: str
+    commit_hash: Optional[str]
     for i in range(5):
         try:
             commit_hash = get_commit_hash(tag)
@@ -271,7 +271,7 @@ def main():
     logger.info(f"Retrieving alleles from tag {args.tag}....")
     alleles_str: str
     retrieval_datetime: datetime
-    commit_hash: str
+    commit_hash: Optional[str]
     alleles_str, retrieval_datetime, commit_hash = get_from_git(args.tag)
     logger.info(
         f"Alleles (version {args.tag}, commit hash {commit_hash}) retrieved at "
@@ -301,10 +301,12 @@ def main():
     logger.info("Identifying identical HLA alleles....")
     standards_for_saving: StoredHLAStandards = StoredHLAStandards(
         tag=args.tag,
-        commit_hash=commit_hash,
+        commit_hash=commit_hash or "",
         last_updated=retrieval_datetime,
         standards={
-            locus: group_identical_alleles(raw_standards[locus])
+            cast(HLA_LOCUS, locus): group_identical_alleles(
+                raw_standards[cast(HLA_LOCUS, locus)]
+            )
             for locus in ("A", "B", "C")
         },
     )

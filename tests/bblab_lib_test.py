@@ -1,5 +1,5 @@
 import pytest
-from Bio.Seq import Seq
+from Bio.Seq import MutableSeq, Seq
 from Bio.SeqIO import SeqRecord
 
 from easyhla.bblab_lib import (
@@ -352,7 +352,7 @@ from .easyhla_test import HLA_STANDARDS
 )
 def test_pair_exons_helper(
     sr: SeqRecord,
-    unmatched: dict[EXON_NAME, dict[str, Seq]],
+    unmatched: dict[EXON_NAME, dict[str, Seq | MutableSeq | None]],
     expected_id: str,
     expected_is_exon: bool,
     expected_matched: bool,
@@ -730,7 +730,7 @@ def test_pair_exons(
     expected_unmatched: dict[EXON_NAME, dict[str, Seq]],
 ):
     paired_seqs: list[HLASequence]
-    unmatched: dict[EXON_NAME, dict[str, Seq]]
+    unmatched: dict[EXON_NAME, dict[str, Seq | MutableSeq | None]]
 
     current_standard: HLARawStandard = HLA_STANDARDS[locus]
     fake_standard: HLAStandard = HLAStandard(

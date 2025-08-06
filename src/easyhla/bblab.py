@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import typer
-from Bio.Seq import Seq
+from Bio.Seq import MutableSeq, Seq
 from Bio.SeqIO import parse
 
 from .bblab_lib import (
@@ -51,7 +51,7 @@ def log_and_print(
 
 
 def report_unmatched_sequences(
-    unmatched: dict[EXON_NAME, dict[str, Seq]],
+    unmatched: dict[EXON_NAME, dict[str, Seq | MutableSeq | None]],
     to_stdout: bool = False,
 ) -> None:
     """
@@ -97,7 +97,7 @@ def process_from_file_to_files(
     )
 
     matched_sequences: list[HLASequence]
-    unmatched: dict[EXON_NAME, dict[str, Seq]]
+    unmatched: dict[EXON_NAME, dict[str, Seq | MutableSeq | None]]
 
     with open(filename, "r", encoding="utf-8") as f:
         matched_sequences, unmatched = pair_exons(

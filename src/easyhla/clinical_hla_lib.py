@@ -348,7 +348,7 @@ def identify_bc_sequence_files(
         if sample_match is None:
             logger.info(f'Skipping file "{filename}".')
             continue
-        sample_name: str = sample_match.group(1)
+        sample_name = sample_match.group(1)
         sample_exon: EXON_NAME = (
             "exon2" if sample_match.group(2).upper() == "A" else "exon3"
         )

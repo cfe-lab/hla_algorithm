@@ -103,7 +103,7 @@ class TestHLAStandard:
         two: tuple[int, ...],
         three: tuple[int, ...],
         expected_tuple: tuple[int, ...],
-        expected_array: np.array,
+        expected_array: np.ndarray,
     ):
         hla_standard: HLAStandard = HLAStandard(
             allele="B*01:23:45", two=two, three=three

@@ -3,7 +3,7 @@ from operator import attrgetter, itemgetter
 from typing import TypedDict
 
 import numpy as np
-from Bio.Seq import Seq
+from Bio.Seq import MutableSeq, Seq
 from Bio.SeqIO import SeqRecord
 from pydantic import BaseModel
 
@@ -36,7 +36,7 @@ EXON_AND_OTHER_EXON: list[tuple[EXON_NAME, EXON_NAME]] = [
 
 def pair_exons_helper(
     sequence_record: SeqRecord,
-    unmatched: dict[EXON_NAME, dict[str, Seq]],
+    unmatched: dict[EXON_NAME, dict[str, Seq | MutableSeq | None]],
 ) -> tuple[str, bool, bool, str, str]:
     """
     Helper that attempts to match the given sequence with a "partner" exon.
@@ -55,7 +55,7 @@ def pair_exons_helper(
     - exon3 sequence
     """
     # The `id`` field is expected to hold the sample name.
-    samp: str = sequence_record.id
+    samp: str = sequence_record.id or ""
     is_exon: bool = False
     matched: bool = False
     exon2: str = ""
@@ -98,7 +98,7 @@ def pair_exons(
     sequence_records: Iterable[SeqRecord],
     locus: HLA_LOCUS,
     example_standard: HLAStandard,
-) -> tuple[list[HLASequence], dict[EXON_NAME, dict[str, Seq]]]:
+) -> tuple[list[HLASequence], dict[EXON_NAME, dict[str, Seq | MutableSeq | None]]]:
     """
     Pair exons in the given input sequences.
 
@@ -109,7 +109,7 @@ def pair_exons(
     sequences and attempt to match them up.
     """
     matched_sequences: list[HLASequence] = []
-    unmatched: dict[EXON_NAME, dict[str, Seq]] = {
+    unmatched: dict[EXON_NAME, dict[str, Seq | MutableSeq | None]] = {
         "exon2": {},
         "exon3": {},
     }
@@ -118,7 +118,7 @@ def pair_exons(
         # Skip over any sequences that aren't the right length or contain
         # bad bases.
         try:
-            check_length(locus, str(sr.seq), sr.id)
+            check_length(locus, str(sr.seq), sr.id or "")
         except BadLengthException:
             continue
 
@@ -147,21 +147,21 @@ def pair_exons(
             exon3_bin = pad_short(example_standard.sequence, nuc2bin(exon3), "exon3")
             matched_sequences.append(
                 HLASequence(
-                    two=(int(x) for x in exon2_bin),
+                    two=tuple(int(x) for x in exon2_bin),
                     intron=(),
-                    three=(int(x) for x in exon3_bin),
+                    three=tuple(int(x) for x in exon3_bin),
                     name=identifier,
                     locus=locus,
                     num_sequences_used=2,
                 )
             )
         else:
-            seq_numpy: np.array = pad_short(
+            seq_numpy: np.ndarray = pad_short(
                 example_standard.sequence,
                 nuc2bin(sr.seq),  # type: ignore
                 None,
             )
-            seq: tuple[int] = tuple(int(x) for x in seq_numpy)
+            seq: tuple[int, ...] = tuple(int(x) for x in seq_numpy)
             matched_sequences.append(
                 HLASequence(
                     two=seq[:EXON2_LENGTH],
