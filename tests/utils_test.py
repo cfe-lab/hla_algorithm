@@ -2075,7 +2075,7 @@ def test_stored_hla_standards_error_case():
     # 221f472fd6986869e33e329d480bc3eca8f3fe6b801e35e2affbff7883735b33
     # (checked manually):
     with pytest.raises(ValueError) as e:
-        stored_stds: StoredHLAStandards = StoredHLAStandards(
+        StoredHLAStandards(
             tag="0.1.0-dummy-test",
             commit_hash="foobar",
             last_updated=datetime(2025, 6, 3, 10, 10, 0),
