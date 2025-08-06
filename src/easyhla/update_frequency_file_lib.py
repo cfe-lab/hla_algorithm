@@ -3,7 +3,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass
 from io import TextIOBase
-from typing import Final, Optional, Self, TypedDict
+from typing import Final, Optional, Self, TypedDict, cast
 
 from .easyhla import EasyHLA
 from .models import HLAProteinPair
@@ -32,9 +32,10 @@ class OldName:
         The old names look like "A*010507N" for loci other than C; HLA-C old
         names look like "Cw*010203N".
         """
-        locus: str = old_name_str[0]
-        if locus not in ("A", "B", "C"):
+        raw_locus: str = old_name_str[0]
+        if raw_locus not in ("A", "B", "C"):
             raise OtherLocusException()
+        locus: HLA_LOCUS = cast(HLA_LOCUS, raw_locus)
 
         raw_coordinates: str = old_name_str[2:]
         if locus == "C":
@@ -80,9 +81,10 @@ class NewName:
             return cls(None, "", "")
 
         coords: list[str] = new_name_str.split(":")
-        locus: str = coords[0][0]
-        if locus not in ("A", "B", "C"):
+        raw_locus: str = coords[0][0]
+        if raw_locus not in ("A", "B", "C"):
             raise OtherLocusException()
+        locus: HLA_LOCUS = cast(HLA_LOCUS, raw_locus)
         field_1: str = coords[0][2:]
         field_2_match: Optional[re.Match] = re.match(r"(\d+)[a-zA-Z]*", coords[1])
         if field_2_match is None:
@@ -129,8 +131,8 @@ def parse_nomenclature(
     remapping_lines: list[str] = remapping_str.split("\n")[2:-1]
 
     deprecated: list[str] = []
-    deprecated_maps_to_other: list[tuple[str, str]] = []
-    mapping_overrides_deprecated: list[tuple[str, str]] = []
+    deprecated_maps_to_other: list[tuple[str, NewName]] = []
+    mapping_overrides_deprecated: list[tuple[str, NewName]] = []
 
     remapping: dict[OldName, NewName] = {}
     for remapping_line in remapping_lines:
@@ -173,8 +175,9 @@ class FrequencyRowDict(TypedDict):
     c_second: str
 
 
-FREQUENCY_FIELDS: Final[tuple[str, str, str, str, str, str]] = sum(
-    EasyHLA.FREQUENCY_LOCUS_COLUMNS.values(), ()
+FREQUENCY_FIELDS: Final[tuple[str, str, str, str, str, str]] = cast(
+    tuple[str, str, str, str, str, str],
+    sum(EasyHLA.FREQUENCY_LOCUS_COLUMNS.values(), ()),
 )
 
 
@@ -192,7 +195,7 @@ def update_old_frequencies(
     and Counters that represent the alleles that are unmapped in the new
     naming scheme and the alleles that are deprecated in the new naming scheme.
     """
-    old_frequencies_csv: csv.reader = csv.reader(old_frequencies_file)
+    old_frequencies_csv = csv.reader(old_frequencies_file)
 
     # Report to the user any frequencies that are either unmapped or
     # deprecated.
@@ -203,7 +206,7 @@ def update_old_frequencies(
     for row in old_frequencies_csv:
         loci: tuple[HLA_LOCUS, HLA_LOCUS, HLA_LOCUS] = ("A", "B", "C")
 
-        updated: FrequencyRowDict = {x: None for x in FREQUENCY_FIELDS}
+        updated: dict[str, str] = {}
         for idx in range(6):
             locus: HLA_LOCUS = loci[int(idx / 2)]
             column_name: str = FREQUENCY_FIELDS[idx]
@@ -219,6 +222,15 @@ def update_old_frequencies(
                     deprecated_alleles_seen[(locus, row[idx])] += 1
             updated[column_name] = new_name_str
 
-        updated_frequencies.append(updated)
+        updated_frequencies.append(
+            FrequencyRowDict(
+                a_first=updated["a_first"],
+                a_second=updated["a_second"],
+                b_first=updated["b_first"],
+                b_second=updated["b_second"],
+                c_first=updated["c_first"],
+                c_second=updated["c_second"],
+            )
+        )
 
     return updated_frequencies, unmapped_alleles, deprecated_alleles_seen

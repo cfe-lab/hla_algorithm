@@ -1,6 +1,7 @@
 ignore:
   - .git/*
   - .venv/*
+  - src/easyhla/default_data/hla_standards.yaml
 
 extends: default
 

@@ -6,7 +6,7 @@ import dataclasses
 import logging
 import os
 from datetime import datetime
-from typing import Final, Optional, TypedDict
+from typing import Final, Literal, Optional, TypedDict, cast
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
@@ -36,38 +36,15 @@ DEFAULT_INPUT_DIR: Final[str] = os.path.join(
 )
 
 # Database connection parameters:
-HLA_DB_USER: Final[str] = os.environ.get("HLA_DB_USER")
-HLA_DB_PASSWORD: Final[str] = os.environ.get("HLA_DB_PASSWORD")
+HLA_DB_USER: Final[Optional[str]] = os.environ.get("HLA_DB_USER")
+HLA_DB_PASSWORD: Final[Optional[str]] = os.environ.get("HLA_DB_PASSWORD")
 HLA_DB_HOST: Final[str] = os.environ.get("HLA_DB_HOST", "192.168.67.7")
-HLA_DB_PORT: Final[int] = os.environ.get("HLA_DB_PORT", 1521)
+HLA_DB_PORT: Final[int] = int(os.environ.get("HLA_DB_PORT", 1521))
 HLA_DB_SERVICE_NAME: Final[str] = os.environ.get("HLA_DB_SERVICE_NAME", "cfe")
 
-HLA_ORACLE_LIB_PATH: Final[str] = os.environ.get("HLA_ORACLE_LIB_PATH")
-
-# These are the "configuration files" that the algorithm uses; these are or may
-# be updated, in which case you specify the path to the new version in the
-# environment.
-HLA_STANDARDS: Final[str] = os.environ.get("HLA_STANDARDS")
-HLA_FREQUENCIES: Final[str] = os.environ.get("HLA_FREQUENCIES")
-
-
-def prepare_interpretation_for_serialization(
-    interpretation: HLAInterpretation,
-    locus: HLA_LOCUS,
-    processing_datetime: datetime,
-) -> HLASequenceA | HLASequenceB | HLASequenceC:
-    """
-    Prepare an HLA interpretation for output.
-    """
-    if locus == "A":
-        return HLASequenceA.build_from_interpretation(
-            interpretation, processing_datetime
-        )
-    elif locus == "B":
-        return HLASequenceB.build_from_interpretation(
-            interpretation, processing_datetime
-        )
-    return HLASequenceC.build_from_interpretation(interpretation, processing_datetime)
+HLA_ORACLE_LIB_PATH: Final[str] = os.environ.get(
+    "HLA_ORACLE_LIB_PATH", "/opt/oracle/instant_client"
+)
 
 
 class SequencesByLocus(TypedDict):
@@ -91,10 +68,10 @@ def interpret_sequences(
 
 def clinical_hla_driver(
     input_dir: str,
+    hla_a_results: str,
+    hla_b_results: str,
+    hla_c_results: str,
     db_engine: Optional[Engine] = None,
-    hla_a_results: Optional[str] = None,
-    hla_b_results: Optional[str] = None,
-    hla_c_results: Optional[str] = None,
     standards_path: Optional[str] = None,
     frequencies_path: Optional[str] = None,
 ) -> None:
@@ -105,7 +82,8 @@ def clinical_hla_driver(
         "C": [],
     }
     for locus in ("B", "C"):
-        sequences[locus] = read_bc_sequences(input_dir, locus, logger)
+        b_or_c: Literal["B", "C"] = cast(Literal["B", "C"], locus)
+        sequences[b_or_c] = read_bc_sequences(input_dir, b_or_c, logger)
 
     # Perform interpretations:
     interpretations: dict[HLA_LOCUS, list[HLAInterpretation]] = {
@@ -116,7 +94,9 @@ def clinical_hla_driver(
     processing_datetime: datetime = datetime.now()
     easyhla: EasyHLA = EasyHLA.use_config(standards_path, frequencies_path)
     for locus in ("A", "B", "C"):
-        interpretations[locus] = interpret_sequences(easyhla, sequences[locus])
+        interpretations[cast(HLA_LOCUS, locus)] = interpret_sequences(
+            easyhla, sequences[cast(HLA_LOCUS, locus)]
+        )
 
     # Prepare the interpretations for output:
     seqs_for_db: SequencesByLocus = {
@@ -124,17 +104,20 @@ def clinical_hla_driver(
         "B": [],
         "C": [],
     }
-    for locus in ("A", "B", "C"):
-        # Each locus has a slightly different schema in the database, so we
-        # customize for each one.
-        for interp in interpretations[locus]:
-            seqs_for_db[locus].append(
-                prepare_interpretation_for_serialization(
-                    interp,
-                    locus,
-                    processing_datetime,
-                )
-            )
+    # This next bit looks repetitive but mypy didn't like my solution for doing
+    # this in a loop (because each one is a different type).
+    for interp in interpretations["A"]:
+        seqs_for_db["A"].append(
+            HLASequenceA.build_from_interpretation(interp, processing_datetime)
+        )
+    for interp in interpretations["B"]:
+        seqs_for_db["B"].append(
+            HLASequenceB.build_from_interpretation(interp, processing_datetime)
+        )
+    for interp in interpretations["C"]:
+        seqs_for_db["C"].append(
+            HLASequenceC.build_from_interpretation(interp, processing_datetime)
+        )
 
     # First, write to the output files:
     output_files: dict[HLA_LOCUS, str] = {
@@ -148,19 +131,23 @@ def clinical_hla_driver(
         "C": HLASequenceC.CSV_HEADER,
     }
     for locus in ("A", "B", "C"):
-        if len(seqs_for_db[locus]) > 0:
-            with open(output_files[locus], "w") as f:
+        if len(seqs_for_db[cast(HLA_LOCUS, locus)]) > 0:
+            with open(output_files[cast(HLA_LOCUS, locus)], "w") as f:
                 result_csv: csv.DictWriter = csv.DictWriter(
-                    f, fieldnames=csv_headers[locus], extrasaction="ignore"
+                    f,
+                    fieldnames=csv_headers[cast(HLA_LOCUS, locus)],
+                    extrasaction="ignore",
                 )
                 result_csv.writeheader()
-                result_csv.writerows(dataclasses.asdict(x) for x in seqs_for_db[locus])
+                result_csv.writerows(
+                    dataclasses.asdict(x) for x in seqs_for_db[cast(HLA_LOCUS, locus)]
+                )
 
     # Finally, write to the DB.
     if db_engine is not None:
         with Session(db_engine) as session:
             for locus in ("A", "B", "C"):
-                session.add_all(seqs_for_db[locus])
+                session.add_all(seqs_for_db[cast(HLA_LOCUS, locus)])
             session.commit()
 
 
@@ -246,10 +233,10 @@ def main():
 
     clinical_hla_driver(
         args.input_dir,
-        db_engine,
         args.hla_a_results,
         args.hla_b_results,
         args.hla_c_results,
+        db_engine,
         args.hla_standards,
         args.hla_frequencies,
     )

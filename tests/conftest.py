@@ -1,6 +1,7 @@
 from typing import Tuple
 
 from easyhla.easyhla import EasyHLA
+from easyhla.utils import bin2nuc, nuc2bin
 
 
 def make_comparison(easyhla: EasyHLA, ref_seq: str, test_seq: str) -> str:
@@ -16,7 +17,7 @@ def make_comparison(easyhla: EasyHLA, ref_seq: str, test_seq: str) -> str:
     :return: A sequence where mismatches are replaced with '_'
     :rtype: str
     """
-    ref, test = easyhla.nuc2bin(ref_seq.strip()), easyhla.nuc2bin(test_seq.strip())
+    ref, test = nuc2bin(ref_seq.strip()), nuc2bin(test_seq.strip())
     masked_seq = []
 
     for i in range(max(len(ref), len(test))):
@@ -30,8 +31,8 @@ def make_comparison(easyhla: EasyHLA, ref_seq: str, test_seq: str) -> str:
             side_is_short = "test"
         elif len(ref) < len(test):
             side_is_short = "ref"
-        return easyhla.bin2nuc(masked_seq) + f" [{side_is_short} is short]"  # type: ignore
-    return easyhla.bin2nuc(masked_seq)  # type: ignore
+        return bin2nuc(masked_seq) + f" [{side_is_short} is short]"  # type: ignore
+    return bin2nuc(masked_seq)  # type: ignore
 
 
 def compare_ref_vs_test(

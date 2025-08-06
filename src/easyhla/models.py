@@ -1,7 +1,7 @@
 import re
 from collections.abc import Iterable
 from operator import itemgetter
-from typing import ClassVar, Final, Optional, Self
+from typing import Final, Optional, Self
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict
@@ -134,8 +134,10 @@ class HLAProteinPair(BaseModel):
         )
         return me_tuple < other_tuple
 
-    UNMAPPED: ClassVar[Final[str]] = "unmapped"
-    DEPRECATED: ClassVar[Final[str]] = "deprecated"
+    # Note: originally these were annotated as ClassVar[Final[str]] but this
+    # isn't supported in versions of Python prior to 3.13.
+    UNMAPPED: Final[str] = "unmapped"
+    DEPRECATED: Final[str] = "deprecated"
 
     class NonAlleleException(Exception):
         def __init__(

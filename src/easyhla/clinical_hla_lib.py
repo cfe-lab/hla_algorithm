@@ -76,7 +76,7 @@ class HLADBBase(MappedAsDataclass, DeclarativeBase):
             "alleles_all": ap.stringify(),
             "ambiguous": str(ap.is_ambiguous()),
             "homozygous": str(ap.is_homozygous()),
-            "mismatch_count": interpretation.lowest_mismatch_count(),
+            "mismatch_count": mismatch_count,
             "mismatches": mismatches_str,
             "enterdate": processing_datetime,
         }
@@ -94,7 +94,7 @@ class HLASequenceA(HLADBBase):
     alleles_all: Mapped[Optional[str]] = mapped_column(String)
     ambiguous: Mapped[Optional[str]] = mapped_column(String)
     homozygous: Mapped[Optional[str]] = mapped_column(String)
-    mismatch_count: Mapped[Optional[str]] = mapped_column(Integer)
+    mismatch_count: Mapped[Optional[int]] = mapped_column(Integer)
     mismatches: Mapped[Optional[str]] = mapped_column(String)
     seq: Mapped[Optional[str]] = mapped_column(String)
     enterdate: Mapped[Optional[datetime]] = mapped_column(DateTime)
@@ -140,7 +140,7 @@ class HLASequenceB(HLADBBase):
     alleles_all: Mapped[Optional[str]] = mapped_column(String)
     ambiguous: Mapped[Optional[str]] = mapped_column(String)
     homozygous: Mapped[Optional[str]] = mapped_column(String)
-    mismatch_count: Mapped[Optional[str]] = mapped_column(Integer)
+    mismatch_count: Mapped[Optional[int]] = mapped_column(Integer)
     mismatches: Mapped[Optional[str]] = mapped_column(String)
     b5701: Mapped[Optional[str]] = mapped_column(String)
     b5701_dist: Mapped[Optional[int]] = mapped_column(Integer)
@@ -201,7 +201,7 @@ class HLASequenceC(HLADBBase):
     alleles_all: Mapped[Optional[str]] = mapped_column(String)
     ambiguous: Mapped[Optional[str]] = mapped_column(String)
     homozygous: Mapped[Optional[str]] = mapped_column(String)
-    mismatch_count: Mapped[Optional[str]] = mapped_column(Integer)
+    mismatch_count: Mapped[Optional[int]] = mapped_column(Integer)
     mismatches: Mapped[Optional[str]] = mapped_column(String)
     seqa: Mapped[Optional[str]] = mapped_column(String)
     seqb: Mapped[Optional[str]] = mapped_column(String)
