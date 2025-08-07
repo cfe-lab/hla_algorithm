@@ -3,7 +3,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass
 from io import TextIOBase
-from typing import Final, Optional, Self, TypedDict, cast
+from typing import Final, Optional, TypedDict, cast
 
 from .easyhla import EasyHLA
 from .models import HLAProteinPair
@@ -25,7 +25,7 @@ class OldName:
     field_2: str
 
     @classmethod
-    def from_string(cls, old_name_str: str) -> Self:
+    def from_string(cls, old_name_str: str) -> "OldName":
         """
         Build an instance directly from an entry in the nomenclature mapping.
 
@@ -46,7 +46,9 @@ class OldName:
         return cls(locus, field_1, field_2)
 
     @classmethod
-    def from_old_frequency_format(cls, locus: HLA_LOCUS, four_digit_code: str) -> Self:
+    def from_old_frequency_format(
+        cls, locus: HLA_LOCUS, four_digit_code: str
+    ) -> "OldName":
         """
         Build an instance from an entry in the old frequency file format.
 
@@ -71,7 +73,7 @@ class NewName:
     field_2: str
 
     @classmethod
-    def from_string(cls, new_name_str: str) -> Self:
+    def from_string(cls, new_name_str: str) -> "NewName":
         """
         Build an instance directly from an entry in the nomenclature mapping.
 

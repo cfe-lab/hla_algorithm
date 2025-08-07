@@ -4,7 +4,7 @@ import re
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from datetime import datetime
-from typing import Final, Literal, Optional, Self, cast
+from typing import Final, Literal, Optional, cast
 
 import numpy as np
 from Bio.SeqIO import SeqRecord
@@ -549,7 +549,7 @@ class StoredHLAStandards(BaseModel):
     checksum: Optional[str] = None
 
     @model_validator(mode="after")
-    def compute_compare_checksum(self) -> Self:
+    def compute_compare_checksum(self) -> "StoredHLAStandards":
         checksum: str = compute_stored_standard_checksum(
             self.tag,
             self.commit_hash,
