@@ -2,7 +2,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from .__about__ import __version__
+from ._version import __version__
 from .models import (
     AllelePairs,
     HLACombinedStandard,
