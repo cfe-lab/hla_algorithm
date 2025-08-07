@@ -4,7 +4,7 @@ import re
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from datetime import datetime
-from typing import Final, Literal, Optional, Self
+from typing import Final, Literal, Optional, cast
 
 import numpy as np
 from Bio.SeqIO import SeqRecord
@@ -272,21 +272,21 @@ def pad_short(
     exon3_std_bin: np.ndarray = np.array(std_bin[-EXON3_LENGTH:])
     if exon == "exon2":
         left_pad, right_pad = calc_padding(
-            exon2_std_bin,
+            cast(Sequence[int], exon2_std_bin),
             seq_bin,
         )
     elif exon == "exon3":
         left_pad, right_pad = calc_padding(
-            exon3_std_bin,
+            cast(Sequence[int], exon3_std_bin),
             seq_bin,
         )
     else:  # i.e. this is a full sequence possibly with intron
         left_pad, _ = calc_padding(
-            exon2_std_bin,
+            cast(Sequence[int], exon2_std_bin),
             seq_bin[: int(EXON2_LENGTH / 2)],
         )
         _, right_pad = calc_padding(
-            exon3_std_bin,
+            cast(Sequence[int], exon3_std_bin),
             seq_bin[-int(EXON3_LENGTH / 2) :],
         )
     return np.concatenate(
@@ -300,7 +300,7 @@ def pad_short(
 
 def get_acceptable_match(
     sequence: str, reference: str, mismatch_threshold: int = 20
-) -> tuple[int, Optional[str]]:
+) -> tuple[int, str]:
     """
     Get an "acceptable match" between the sequence and reference.
 
@@ -316,7 +316,7 @@ def get_acceptable_match(
         raise ValueError("sequence must be at least as long as the reference")
 
     score: int = len(reference)
-    best_match: Optional[str] = None
+    best_match: str = sequence[0 : len(reference)]
 
     ref_np: np.ndarray = np.array(list(reference))
     for shift in range(len(sequence) - len(reference) + 1):
@@ -389,8 +389,12 @@ def collate_standards(
     checked to see if it has acceptable matches for both exon2 and exon3.
     """
     output_status_updates: bool = False
+    actual_report_interval: int = 1000
+    actual_logger: logging.Logger
     if logger is not None and report_interval is not None and report_interval > 0:
         output_status_updates = True
+        actual_report_interval = cast(int, report_interval)
+        actual_logger = cast(logging.Logger, logger)
 
     standards: dict[HLA_LOCUS, list[HLARawStandard]] = {
         "A": [],
@@ -398,23 +402,23 @@ def collate_standards(
         "C": [],
     }
     for idx, allele_sr in enumerate(allele_srs, start=1):
-        if output_status_updates and idx % report_interval == 0:
-            logger.info(f"Processing sequence {idx} of {len(allele_srs)}....")
+        if output_status_updates and idx % actual_report_interval == 0:
+            actual_logger.info(f"Processing sequence {idx} of {len(allele_srs)}....")
 
         # The FASTA headers look like:
         # >HLA:HLA00001 A*01:01:01:01 1098 bp
         allele_name: str = allele_sr.description.split(" ")[1]
-        locus: HLA_LOCUS = allele_name[0]
-
-        if locus not in ("A", "B", "C"):
+        raw_locus: str = allele_name[0]
+        if raw_locus not in ("A", "B", "C"):
             continue
+        locus: HLA_LOCUS = cast(HLA_LOCUS, raw_locus)
 
-        exon2_match: tuple[int, Optional[str]] = get_acceptable_match(
+        exon2_match: tuple[int, str] = get_acceptable_match(
             str(allele_sr.seq),
             exon_references[locus]["exon2"],
             mismatch_threshold=acceptable_match_search_threshold,
         )
-        exon3_match: tuple[int, Optional[str]] = get_acceptable_match(
+        exon3_match: tuple[int, str] = get_acceptable_match(
             str(allele_sr.seq),
             exon_references[locus]["exon3"],
             mismatch_threshold=acceptable_match_search_threshold,
@@ -431,7 +435,7 @@ def collate_standards(
                 )
             )
         elif logger is not None:
-            logger.info(
+            actual_logger.info(
                 f'Rejecting "{allele_name}": {exon2_match[0]} exon2 mismatches,'
                 f" {exon3_match[0]} exon3 mismatches."
             )
@@ -447,7 +451,10 @@ class GroupedAllele(BaseModel):
     exon3: str
     alleles: list[str]
 
-    @computed_field
+    # Due to this issue:
+    # https://github.com/python/mypy/issues/1362
+    # we need the special mypy instruction here.
+    @computed_field  # type: ignore[misc]
     @property
     def name(self) -> str:
         """
@@ -542,7 +549,7 @@ class StoredHLAStandards(BaseModel):
     checksum: Optional[str] = None
 
     @model_validator(mode="after")
-    def compute_compare_checksum(self) -> Self:
+    def compute_compare_checksum(self) -> "StoredHLAStandards":
         checksum: str = compute_stored_standard_checksum(
             self.tag,
             self.commit_hash,

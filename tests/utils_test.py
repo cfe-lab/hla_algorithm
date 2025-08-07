@@ -1,7 +1,8 @@
 import hashlib
 from collections.abc import Iterable, Sequence
 from datetime import datetime
-from typing import Optional
+from typing import Optional, cast
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -458,8 +459,8 @@ def test_check_length_hla_type_a(
     else:
         with pytest.raises(BadLengthException) as e:
             check_length("A", seq=sequence, name=name)
-            assert e.expected_length == expected_length
-            assert e.actual_length == sequence_length
+            assert e.value.expected_length == expected_length
+            assert e.value.actual_length == sequence_length
 
 
 CHECK_LENGTH_HLA_BC_TEST_CASES = [
@@ -797,8 +798,8 @@ def test_check_length_hla_type_b_and_c(
         else:
             with pytest.raises(BadLengthException) as e:
                 check_length(locus, seq=sequence, name=name)
-                assert e.expected_length == expected_length
-                assert e.actual_length == sequence_length
+                assert e.value.expected_length == expected_length
+                assert e.value.actual_length == sequence_length
 
 
 @pytest.mark.parametrize(
@@ -837,7 +838,9 @@ def test_calc_padding(
 ):
     std = np.array(standard)
     seq = np.array(sequence)
-    left_pad, right_pad = calc_padding(std, seq)
+    left_pad, right_pad = calc_padding(
+        cast(Sequence[int], std), cast(Sequence[int], seq)
+    )
     assert left_pad == exp_left_pad
     assert right_pad == exp_right_pad
 
@@ -985,7 +988,7 @@ def test_pad_short(
             "",
             20,
             0,
-            None,
+            "",
             id="empty_sequence_and_reference",
         ),
         pytest.param(
@@ -1601,7 +1604,7 @@ EXON_REFERENCES: dict[HLA_LOCUS, dict[EXON_NAME, str]] = {
     ],
 )
 def test_collate_standards(
-    srs: Iterable[SeqRecord],
+    srs: Sequence[SeqRecord],
     exon_references: dict[HLA_LOCUS, dict[EXON_NAME, str]],
     overall_mismatch_threshold: int,
     acceptable_match_search_threshold: int,
@@ -1613,7 +1616,7 @@ def test_collate_standards(
     expected_logging_calls: list[str],
     mocker: MockerFixture,
 ):
-    mock_logger: Optional[mocker.MagicMock] = None
+    mock_logger: Optional[MagicMock] = None
     if use_logging:
         mock_logger = mocker.MagicMock()
     result: dict[HLA_LOCUS, list[HLARawStandard]] = collate_standards(
@@ -1642,13 +1645,14 @@ def test_collate_standards(
         assert result[locus] == expected_results[locus]
 
     if use_logging:
+        actual_mock_logger: MagicMock = cast(MagicMock, mock_logger)
         if len(expected_logging_calls) > 0:
-            mock_logger.info.assert_has_calls(
+            actual_mock_logger.info.assert_has_calls(
                 [mocker.call(x) for x in expected_logging_calls],
                 any_order=False,
             )
         else:
-            mock_logger.assert_not_called()
+            actual_mock_logger.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -1806,29 +1810,28 @@ def test_grouped_allele_get_group_name(
 def test_group_identical_alleles(
     raw_allele_infos: list[tuple[str, str, str]],
     use_logging: bool,
-    expected_result: dict[str, GroupedAllele],
+    expected_result: list[GroupedAllele],
     expected_logging_calls: list[str],
     mocker: MockerFixture,
 ):
-    mock_logger: Optional[mocker.MagicMock] = None
+    mock_logger: Optional[MagicMock] = None
     if use_logging:
         mock_logger = mocker.MagicMock()
     allele_infos: list[HLARawStandard] = [
         HLARawStandard(allele=x[0], exon2=x[1], exon3=x[2]) for x in raw_allele_infos
     ]
-    result: dict[str, GroupedAllele] = group_identical_alleles(
-        allele_infos, mock_logger
-    )
+    result: list[GroupedAllele] = group_identical_alleles(allele_infos, mock_logger)
     assert result == expected_result
 
     if use_logging:
+        actual_mock_logger: MagicMock = cast(MagicMock, mock_logger)
         if len(expected_logging_calls) > 0:
-            mock_logger.info.assert_has_calls(
+            actual_mock_logger.info.assert_has_calls(
                 [mocker.call(x) for x in expected_logging_calls],
                 any_order=False,
             )
         else:
-            mock_logger.assert_not_called()
+            actual_mock_logger.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -2068,17 +2071,15 @@ def test_compute_stored_standard_checksum(
 
 
 def test_stored_hla_standards_error_case():
-    stored_stds: StoredHLAStandards = StoredHLAStandards(
-        tag="0.1.0-dummy-test",
-        commit_hash="foobar",
-        last_updated=datetime(2025, 6, 3, 10, 10, 0),
-        standards={"A": [], "B": [], "C": []},
-    )
-
     # The checksum should be
     # 221f472fd6986869e33e329d480bc3eca8f3fe6b801e35e2affbff7883735b33
     # (checked manually):
-    stored_stds.checksum = "beeftank"
     with pytest.raises(ValueError) as e:
-        stored_stds.compute_compare_checksum()
+        StoredHLAStandards(
+            tag="0.1.0-dummy-test",
+            commit_hash="foobar",
+            last_updated=datetime(2025, 6, 3, 10, 10, 0),
+            standards={"A": [], "B": [], "C": []},
+            checksum="beeftank",
+        )
         assert "Checksum mismatch" in str(e.value)

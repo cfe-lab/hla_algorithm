@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "uv-dynamic-versioning"]
 build-backend = "hatchling.build"
 
 [project]
@@ -33,6 +33,9 @@ dependencies = [
   "pyyaml>=6.0.2",
   "requests>=2.32.3",
   "typer>=0.15.2",
+  "types-pyyaml>=6.0.12.20250516",
+  "types-requests>=2.32.4.20250611",
+  "uv-dynamic-versioning>=0.8.2",
 ]
 
 [dependency-groups]
@@ -54,9 +57,9 @@ dev = [
 ]
 
 [project.urls]
-Documentation = "https://github.com/unknown/easyhla#readme"
-Issues = "https://github.com/unknown/easyhla/issues"
-Source = "https://github.com/unknown/easyhla"
+Documentation = "https://github.com/cfe-lab/pyeasyhla/blob/main/README.md"
+Issues = "https://github.com/cfe-lab/pyeasyhla/issues"
+Source = "https://github.com/cfe-lab/pyeasyhla"
 
 [project.scripts]
 clinical_hla = "easyhla.clinical_hla:main"
@@ -72,18 +75,27 @@ database = [
 ]
 
 [tool.hatch.version]
-path = "src/easyhla/__about__.py"
+source = "uv-dynamic-versioning"
 
 [tool.hatch.build]
 include = [
-  "src/easyhla/*.py",
-  "src/easyhla/default_data/*.csv",
-  "src/easyhla/default_data/hla_nuc.fasta.mtime",
+  "src/easyhla/__about__.py",
+  "src/easyhla/__init__.py",
+  "src/easyhla/__main__.py",
+  "src/easyhla/easyhla.py",
+  "src/easyhla/interpret_from_json_lib.py",
+  "src/easyhla/interpret_from_json.py",
+  "src/easyhla/models.py",
+  "src/easyhla/py.typed",
+  "src/easyhla/update_alleles.py",
+  "src/easyhla/update_frequency_file_lib.py",
+  "src/easyhla/update_frequency_file.py",
+  "src/easyhla/utils.py",
+  "src/easyhla/default_data/hla_standards.yaml",
+  "src/easyhla/default_data/hla_frequencies.csv",
 ]
 exclude = [
-  "tools",
-  "tests/output",
-  "tests/input",
+  "tests",
 ]
 skip-excluded-dirs = true
 directory = "output"
@@ -91,8 +103,19 @@ directory = "output"
 [tool.hatch.build.targets.wheel]
 packages = ["src/easyhla"]
 
+[tool.hatch.build.hooks.version]
+path = "src/easyhla/_version.py"
+template = '''
+__version__ = "{version}"
+'''
+
 [tool.uv]
 package = true
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "semver"
+fallback-version = "0.0.0"
 
 [tool.pytest.ini_options]
 pythonpath = "src"
@@ -147,3 +170,4 @@ match = "src/**/*.py"
 [tool.mypy]
 plugins = ["numpy.typing.mypy_plugin"]
 ignore_missing_imports = true
+exclude = ["scripts/"]

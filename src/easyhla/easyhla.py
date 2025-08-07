@@ -4,7 +4,7 @@ from collections.abc import Generator, Iterable, Sequence
 from datetime import datetime
 from io import TextIOBase
 from operator import attrgetter
-from typing import Final, Optional, TypedDict
+from typing import Final, Optional, TypedDict, cast
 
 import numpy as np
 import yaml
@@ -127,7 +127,7 @@ class EasyHLA:
         }
 
     @staticmethod
-    def load_default_hla_standards() -> dict[str, HLAStandard]:
+    def load_default_hla_standards() -> LoadedStandards:
         """
         Load HLA Standards from reference file.
 
@@ -258,7 +258,7 @@ class EasyHLA:
         # Keep track of matches we've already found:
         combos: dict[tuple[int, ...], int] = {}
 
-        current_rejection_threshold: int = float("inf")
+        current_rejection_threshold: int | float = float("inf")
         for std_ai, std_a in enumerate(matching_stds):
             if std_a.mismatch > current_rejection_threshold:
                 continue
@@ -269,8 +269,8 @@ class EasyHLA:
                 # "Mush" the two standards together to produce something
                 # that looks like what you get when you sequence HLA.
                 std_bin = np.array(std_b.sequence) | np.array(std_a.sequence)
-                allele_pair: tuple[str, str] = tuple(
-                    sorted((std_a.allele, std_b.allele))
+                allele_pair: tuple[str, str] = cast(
+                    tuple[str, str], tuple(sorted((std_a.allele, std_b.allele)))
                 )
 
                 # There could be more than one combined standard with the
@@ -284,7 +284,7 @@ class EasyHLA:
                 else:
                     seq_mask = np.full_like(std_bin, fill_value=15)
                     # Note that seq is implicitly cast to a NumPy array:
-                    mismatches: int = np.count_nonzero((std_bin ^ seq) & seq_mask != 0)
+                    mismatches = np.count_nonzero((std_bin ^ seq) & seq_mask != 0)
                     combos[combined_std_bin] = mismatches  # cache this value
 
                 if mismatches > current_rejection_threshold:
@@ -330,7 +330,7 @@ class EasyHLA:
 
         combos: dict[tuple[int, ...], tuple[int, list[tuple[str, str]]]] = {}
 
-        fewest_mismatches: int = float("inf")
+        fewest_mismatches: int | float = float("inf")
         for (
             combined_std_bin,
             mismatches,
@@ -346,7 +346,7 @@ class EasyHLA:
         # criteria.
         result: dict[HLACombinedStandard, int] = {}
 
-        cutoff: int = max(fewest_mismatches, mismatch_threshold)
+        cutoff: int | float = max(fewest_mismatches, mismatch_threshold)
         for combined_std_bin, mismatch_count_and_pair_list in combos.items():
             mismatch_count: int
             pair_list: list[tuple[str, str]]

@@ -1,6 +1,7 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Final
+from typing import Final, Literal
+from unittest.mock import MagicMock
 
 import pytest
 from pytest_mock import MockerFixture
@@ -508,14 +509,14 @@ def test_sanitize_sequences_bad_length(
 ):
     with pytest.raises(BadLengthException) as e:
         sanitize_sequence(raw_contents, locus, sample_name)
-        assert e.expected_length == expected_length_str
-        assert e.actual_length == actual_length
+        assert e.value.expected_length == expected_length_str
+        assert e.value.actual_length == actual_length
 
 
 def test_sanitize_sequences_invalid_character():
     raw_contents: str = "A" * 100 + "_" + "C" * 150
     sample_name: str = "E12345_exon3_short"
-    with pytest.raises(InvalidBaseException) as e:
+    with pytest.raises(InvalidBaseException):
         sanitize_sequence(raw_contents, "C", sample_name)
 
 
@@ -704,7 +705,7 @@ def test_read_a_sequences(
         dummy_path: Path = tmp_path / filename
         dummy_path.write_text(file_contents)
 
-    mock_logger: mocker.MagicMock = mocker.MagicMock()
+    mock_logger: MagicMock = mocker.MagicMock()
 
     result: list[HLASequence] = read_a_sequences(str(tmp_path), mock_logger)
 
@@ -878,7 +879,7 @@ def test_read_a_sequences(
 )
 def test_identify_bc_sequences(
     filenames: list[str],
-    locus: HLA_LOCUS,
+    locus: Literal["B", "C"],
     expected_result: dict[str, dict[EXON_NAME, str]],
     expected_logger_calls: list[str],
     tmp_path: Path,
@@ -888,7 +889,7 @@ def test_identify_bc_sequences(
         dummy_path: Path = tmp_path / filename
         dummy_path.write_text("ACGT")
 
-    mock_logger: mocker.MagicMock = mocker.MagicMock()
+    mock_logger: MagicMock = mocker.MagicMock()
 
     result: dict[str, dict[EXON_NAME, str]] = identify_bc_sequence_files(
         str(tmp_path), locus, mock_logger
@@ -1032,7 +1033,7 @@ def test_identify_bc_sequences(
 )
 def test_read_bc_sequences(
     raw_sequences: dict[str, str],
-    locus: HLA_LOCUS,
+    locus: Literal["B", "C"],
     expected_sequences: list[HLASequence],
     expected_logger_calls: list[str],
     tmp_path: Path,
@@ -1042,7 +1043,7 @@ def test_read_bc_sequences(
         dummy_path: Path = tmp_path / filename
         dummy_path.write_text(file_contents)
 
-    mock_logger: mocker.MagicMock = mocker.MagicMock()
+    mock_logger: MagicMock = mocker.MagicMock()
 
     result: list[HLASequence] = read_bc_sequences(str(tmp_path), locus, mock_logger)
 

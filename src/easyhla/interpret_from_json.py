@@ -38,10 +38,7 @@ def main():
             hla_input.hla_std_path,
             hla_input.hla_freq_path,
         )
-        interp: HLAInterpretation = easyhla.interpret(
-            hla_input.hla_sequence(),
-            hla_input.locus,
-        )
+        interp: HLAInterpretation = easyhla.interpret(hla_input.hla_sequence())
         print(HLAResult.build_from_interpretation(interp).model_dump_json())
 
 

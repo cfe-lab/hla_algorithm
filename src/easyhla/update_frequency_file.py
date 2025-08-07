@@ -49,8 +49,8 @@ def main():
     with args.name_mapping:
         old_to_new: dict[OldName, NewName]
         deprecated: list[str]
-        deprecated_maps_to_other: list[tuple[str, str]]
-        mapping_overrides_deprecated: list[tuple[str, str]]
+        deprecated_maps_to_other: list[tuple[str, NewName]]
+        mapping_overrides_deprecated: list[tuple[str, NewName]]
         (
             old_to_new,
             deprecated,

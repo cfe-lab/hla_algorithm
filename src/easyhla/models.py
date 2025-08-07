@@ -1,7 +1,7 @@
 import re
 from collections.abc import Iterable
 from operator import itemgetter
-from typing import ClassVar, Final, Optional, Self
+from typing import Final, Optional
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict
@@ -61,7 +61,7 @@ class HLAStandard(BaseModel):
         return np.array(self.sequence)
 
     @classmethod
-    def from_raw_standard(cls, raw_standard: HLARawStandard) -> Self:
+    def from_raw_standard(cls, raw_standard: HLARawStandard) -> "HLAStandard":
         return cls(
             allele=raw_standard.allele,
             two=nuc2bin(raw_standard.exon2),
@@ -134,8 +134,10 @@ class HLAProteinPair(BaseModel):
         )
         return me_tuple < other_tuple
 
-    UNMAPPED: ClassVar[Final[str]] = "unmapped"
-    DEPRECATED: ClassVar[Final[str]] = "deprecated"
+    # Note: originally these were annotated as ClassVar[Final[str]] but this
+    # isn't supported in versions of Python prior to 3.13.
+    UNMAPPED: Final[str] = "unmapped"
+    DEPRECATED: Final[str] = "deprecated"
 
     class NonAlleleException(Exception):
         def __init__(
@@ -153,7 +155,7 @@ class HLAProteinPair(BaseModel):
         @classmethod
         def from_frequency_entry(
             cls, raw_first_allele: str, raw_second_allele: str
-        ) -> Optional[Self]:
+        ) -> Optional["HLAProteinPair.NonAlleleException"]:
             first_unmapped: bool = False
             first_deprecated: bool = False
             second_unmapped: bool = False
@@ -182,7 +184,7 @@ class HLAProteinPair(BaseModel):
         cls,
         raw_first_allele: str,
         raw_second_allele: str,
-    ) -> Self:
+    ) -> "HLAProteinPair":
         any_problems: Optional[HLAProteinPair.NonAlleleException] = (
             HLAProteinPair.NonAlleleException.from_frequency_entry(
                 raw_first_allele, raw_second_allele

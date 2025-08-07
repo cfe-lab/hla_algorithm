@@ -1,9 +1,10 @@
 import os
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from datetime import datetime
 from io import StringIO
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
+from unittest.mock import MagicMock, _Call
 
 import numpy as np
 import pytest
@@ -110,7 +111,7 @@ def easyhla():
                 HLA_STANDARDS[locus]
             )
         }
-        for locus in ("A", "B", "C")
+        for locus in cast(tuple[HLA_LOCUS, HLA_LOCUS, HLA_LOCUS], ("A", "B", "C"))
     }
     dummy_loaded_standards: LoadedStandards = {
         "tag": "v0.1.0-dummy-test",
@@ -508,9 +509,9 @@ def easyhla():
     ],
 )
 def test_combine_standards_stepper(
-    sequence: Iterable[int],
+    sequence: Sequence[int],
     matching_standards: list[HLAStandardMatch],
-    thresholds: list[Optional[int]],
+    thresholds: list[int],
     exp_result: list[tuple[tuple[int, ...], int, tuple[str, str]]],
 ):
     for threshold in thresholds:
@@ -1135,7 +1136,7 @@ def test_get_mismatches_good_cases(
 ):
     for locus in locuses:
         result: list[HLAMismatch] = EasyHLA.get_mismatches(
-            tuple(std_bin), np.array(seq_bin), locus
+            tuple(std_bin), cast(Sequence[int], np.array(seq_bin)), locus
         )
         assert result == expected_result
 
@@ -1176,7 +1177,11 @@ def test_get_mismatches_errors(
 ):
     for locus in ["A", "B", "C"]:
         with pytest.raises(ValueError) as excinfo:
-            EasyHLA.get_mismatches(tuple(std_bin), np.array(seq_bin), locus)
+            EasyHLA.get_mismatches(
+                tuple(std_bin),
+                cast(Sequence[int], np.array(seq_bin)),
+                cast(HLA_LOCUS, locus),
+            )
         assert expected_error in str(excinfo.value)
 
 
@@ -1429,11 +1434,11 @@ def test_interpret_good_cases(
     easyhla.hla_standards = standards
 
     # Spy on the internals to make sure they're called correctly.
-    get_matching_standards_spy: mocker.MagicMock = mocker.spy(
+    get_matching_standards_spy: MagicMock = mocker.spy(
         easyhla, "get_matching_standards"
     )
-    combine_standards_spy: mocker.MagicMock = mocker.spy(easyhla, "combine_standards")
-    get_mismatches_spy: mocker.MagicMock = mocker.spy(easyhla, "get_mismatches")
+    combine_standards_spy: MagicMock = mocker.spy(easyhla, "combine_standards")
+    get_mismatches_spy: MagicMock = mocker.spy(easyhla, "get_mismatches")
 
     result: HLAInterpretation = easyhla.interpret(sequence, threshold=threshold)
     assert result == expected_interpretation
@@ -1442,7 +1447,7 @@ def test_interpret_good_cases(
     # and the comparison fails; we have to manually convert the value to a list
     # to be able to compare them.
     get_matching_standards_spy.assert_called_once()
-    gms_call_args: mocker.call = get_matching_standards_spy.call_args
+    gms_call_args: _Call = get_matching_standards_spy.call_args
     assert len(gms_call_args.args) == 2
     assert len(gms_call_args.kwargs) == 0
     assert gms_call_args.args[0] == sequence.sequence_for_interpretation
@@ -1518,11 +1523,11 @@ def test_interpret_error_cases(
         easyhla.hla_standards[locus] = {std.allele: std for std in raw_standards[locus]}
 
     # Spy on the internals to make sure they're called correctly.
-    get_matching_standards_spy: mocker.MagicMock = mocker.spy(
+    get_matching_standards_spy: MagicMock = mocker.spy(
         easyhla, "get_matching_standards"
     )
-    combine_standards_spy: mocker.MagicMock = mocker.spy(easyhla, "combine_standards")
-    get_mismatches_spy: mocker.MagicMock = mocker.spy(easyhla, "get_mismatches")
+    combine_standards_spy: MagicMock = mocker.spy(easyhla, "combine_standards")
+    get_mismatches_spy: MagicMock = mocker.spy(easyhla, "get_mismatches")
 
     with pytest.raises(EasyHLA.NoMatchingStandards):
         easyhla.interpret(sequence, threshold=threshold)
@@ -1531,7 +1536,7 @@ def test_interpret_error_cases(
     # and the comparison fails; we have to manually convert the value to a list
     # to be able to compare them.
     get_matching_standards_spy.assert_called_once()
-    gms_call_args: mocker.call = get_matching_standards_spy.call_args
+    gms_call_args: _Call = get_matching_standards_spy.call_args
     assert len(gms_call_args.args) == 2
     assert len(gms_call_args.kwargs) == 0
     assert gms_call_args.args[0] == sequence.sequence_for_interpretation
@@ -1746,10 +1751,10 @@ def test_read_hla_standards(
     # Also try reading it from a file.
     p = tmp_path / "hla_standards.yaml"
     p.write_text(standards_file_str)
-    dirname_return_mock: mocker.MagicMock = mocker.MagicMock()
+    dirname_return_mock: MagicMock = mocker.MagicMock()
     mocker.patch.object(os.path, "dirname", return_value=dirname_return_mock)
     mocker.patch.object(os.path, "join", return_value=str(p))
-    load_result: list[HLAStandard] = EasyHLA.load_default_hla_standards()
+    load_result: LoadedStandards = EasyHLA.load_default_hla_standards()
     assert load_result == expected_result
 
 
@@ -2081,10 +2086,12 @@ def test_read_hla_frequencies(
     # Now try loading these from a file.
     p = tmp_path / "hla_frequencies.csv"
     p.write_text(frequencies_str)
-    dirname_return_mock: mocker.MagicMock = mocker.MagicMock()
+    dirname_return_mock: MagicMock = mocker.MagicMock()
     mocker.patch.object(os.path, "dirname", return_value=dirname_return_mock)
     mocker.patch.object(os.path, "join", return_value=str(p))
-    load_result: dict[HLAProteinPair, int] = EasyHLA.load_default_hla_frequencies()
+    load_result: dict[HLA_LOCUS, dict[HLAProteinPair, int]] = (
+        EasyHLA.load_default_hla_frequencies()
+    )
     assert load_result == expected_results
 
 
@@ -2100,7 +2107,7 @@ def fake_loaded_standards(mocker: MockerFixture) -> LoadedStandards:
 def test_init_no_defaults(
     fake_loaded_standards: LoadedStandards, mocker: MockerFixture
 ):
-    fake_frequencies: mocker.MagicMock = mocker.MagicMock()
+    fake_frequencies: MagicMock = mocker.MagicMock()
 
     easyhla: EasyHLA = EasyHLA(fake_loaded_standards, fake_frequencies)
     assert easyhla.tag == fake_loaded_standards["tag"]
@@ -2112,12 +2119,12 @@ def test_init_no_defaults(
 def test_init_all_defaults(
     fake_loaded_standards: LoadedStandards, mocker: MockerFixture
 ):
-    fake_frequencies: mocker.MagicMock = mocker.MagicMock()
+    fake_frequencies: MagicMock = mocker.MagicMock()
 
-    mocker.MagicMock = mocker.patch.object(
+    _: MagicMock = mocker.patch.object(
         EasyHLA, "load_default_hla_standards", return_value=fake_loaded_standards
     )
-    mocker.MagicMock = mocker.patch.object(
+    __: MagicMock = mocker.patch.object(
         EasyHLA, "load_default_hla_frequencies", return_value=fake_frequencies
     )
 
@@ -2152,7 +2159,9 @@ def test_use_config_no_defaults(
     freq_path: Path = tmp_path / "hla_frequencies.csv"
     freq_path.write_text(fake_frequencies_str)
 
-    easyhla: EasyHLA = EasyHLA.use_config(standards_path, freq_path)
+    easyhla: EasyHLA = EasyHLA.use_config(
+        os.fspath(standards_path), os.fspath(freq_path)
+    )
     assert easyhla.tag == fake_stored_standards.tag
     assert easyhla.last_updated == fake_stored_standards.last_updated
     assert easyhla.hla_standards == READ_HLA_STANDARDS_TYPICAL_CASE_OUTPUT
@@ -2344,7 +2353,9 @@ def test_get_matching_standards(
     exp_result: list[HLAStandardMatch],
 ):
     result: list[HLAStandardMatch] = EasyHLA.get_matching_standards(
-        seq=sequence, hla_stds=hla_stds, mismatch_threshold=mismatch_threshold
+        seq=cast(Sequence[int], sequence),
+        hla_stds=hla_stds,
+        mismatch_threshold=mismatch_threshold,
     )
     print(result)
     assert result == exp_result

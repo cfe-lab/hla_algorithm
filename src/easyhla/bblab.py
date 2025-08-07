@@ -5,8 +5,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
 
-import Bio
 import typer
+from Bio.Seq import MutableSeq, Seq
+from Bio.SeqIO import parse
 
 from .bblab_lib import (
     EXON_AND_OTHER_EXON,
@@ -14,8 +15,9 @@ from .bblab_lib import (
     HLAMismatchRow,
     pair_exons,
 )
-from .easyhla import DATE_FORMAT, EXON_NAME, EasyHLA
+from .easyhla import DATE_FORMAT, EasyHLA
 from .models import HLAInterpretation, HLASequence
+from .utils import EXON_NAME
 
 logger = logging.Logger(__name__, logging.ERROR)
 
@@ -49,21 +51,21 @@ def log_and_print(
 
 
 def report_unmatched_sequences(
-    unmatched: dict[EXON_NAME, dict[str, Bio.SeqIO.SeqRecord]],
+    unmatched: dict[EXON_NAME, dict[str, Seq | MutableSeq | None]],
     to_stdout: bool = False,
 ) -> None:
     """
     Report exon sequences that did not have a matching exon.
 
     :param unmatched: unmatched exon sequences, grouped by which exon they represent
-    :type unmatched: dict[EXON_NAME, dict[str, Bio.SeqIO.SeqRecord]]
+    :type unmatched: dict[EXON_NAME, dict[str, Seq]]
     :param to_stdout: ..., defaults to None
     :type to_stdout: Optional[bool], optional
     """
     for exon, other_exon in EXON_AND_OTHER_EXON:
-        for entry in unmatched[exon]:
+        for sequence_id in unmatched[exon].keys():
             log_and_print(
-                f"No matching {other_exon} for {entry.description}",
+                f"No matching {other_exon} for {sequence_id}",
                 to_stdout=to_stdout,
             )
 
@@ -79,6 +81,8 @@ def process_from_file_to_files(
 ):
     if threshold and threshold < 0:
         raise RuntimeError("Threshold must be >=0 or None!")
+    elif threshold is None:
+        threshold = 0
 
     rows: list[HLAInterpretationRow] = []
     mismatch_rows: list[HLAMismatchRow] = []
@@ -93,13 +97,13 @@ def process_from_file_to_files(
     )
 
     matched_sequences: list[HLASequence]
-    unmatched: dict[EXON_NAME, dict[str, Bio.SeqIO.SeqRecord]]
+    unmatched: dict[EXON_NAME, dict[str, Seq | MutableSeq | None]]
 
     with open(filename, "r", encoding="utf-8") as f:
         matched_sequences, unmatched = pair_exons(
-            Bio.SeqIO.parse(f, "fasta"),
+            parse(f, "fasta"),
             locus.value,
-            list(hla_alg.standards.values())[0],
+            list(hla_alg.hla_standards[locus.value].values())[0],
         )
 
     for hla_sequence in matched_sequences:
@@ -133,10 +137,10 @@ def process_from_file_to_files(
         row: HLAInterpretationRow = HLAInterpretationRow.summary_row(result)
         rows.append(row)
 
-        mismatch_rows.extend(result.mismatch_rows())
+        mismatch_rows.extend(HLAMismatchRow.mismatch_rows(result))
 
         npats += 1
-        nseqs += hla_sequence.num_seqs
+        nseqs += hla_sequence.num_sequences_used
 
     report_unmatched_sequences(unmatched, to_stdout=to_stdout)
 
@@ -171,11 +175,11 @@ def process_from_file_to_files(
             ),
         )
         mismatch_csv.writeheader()
-        mismatch_csv.writerows([dict[row] for row in mismatch_rows])
+        mismatch_csv.writerows([dict(row) for row in mismatch_rows])
 
     log_and_print(
         f"{npats} patients, {nseqs} sequences processed.",
-        log_level=logger.INFO,
+        log_level=logging.INFO,
         to_stdout=to_stdout,
     )
 

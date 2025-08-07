@@ -295,8 +295,8 @@ def test_parse_nomenclature(
         result: tuple[
             dict[OldName, NewName],
             list[str],
-            list[tuple[str, str]],
-            list[tuple[str, str]],
+            list[tuple[str, NewName]],
+            list[tuple[str, NewName]],
         ] = parse_nomenclature(fake_text_input)
 
         assert result[0] == expected_remapping
