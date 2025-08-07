@@ -4,7 +4,7 @@ from easyhla.easyhla import EasyHLA
 from easyhla.utils import bin2nuc, nuc2bin
 
 
-def make_comparison(easyhla: EasyHLA, ref_seq: str, test_seq: str) -> str:
+def make_comparison(ref_seq: str, test_seq: str) -> str:
     """
     Compares two sequences for differences
 
@@ -75,7 +75,7 @@ def compare_ref_vs_test(
                     "INTRON",
                     "EXON3",
                 ]:
-                    comparison = make_comparison(easyhla, _ref, _test)
+                    comparison = make_comparison(_ref, _test)
                     if "_" in comparison:
                         print(
                             ">>>",

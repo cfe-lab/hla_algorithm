@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "uv-dynamic-versioning"]
 build-backend = "hatchling.build"
 
 [project]
@@ -35,6 +35,7 @@ dependencies = [
   "typer>=0.15.2",
   "types-pyyaml>=6.0.12.20250516",
   "types-requests>=2.32.4.20250611",
+  "uv-dynamic-versioning>=0.8.2",
 ]
 
 [dependency-groups]
@@ -74,7 +75,7 @@ database = [
 ]
 
 [tool.hatch.version]
-path = "src/easyhla/__about__.py"
+source = "uv-dynamic-versioning"
 
 [tool.hatch.build]
 include = [
@@ -102,8 +103,19 @@ directory = "output"
 [tool.hatch.build.targets.wheel]
 packages = ["src/easyhla"]
 
+[tool.hatch.build.hooks.version]
+path = "src/easyhla/_version.py"
+template = '''
+__version__ = "{version}"
+'''
+
 [tool.uv]
 package = true
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "semver"
+fallback-version = "0.0.0"
 
 [tool.pytest.ini_options]
 pythonpath = "src"
