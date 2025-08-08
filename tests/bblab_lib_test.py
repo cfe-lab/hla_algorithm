@@ -19,8 +19,12 @@ from easyhla.models import (
 )
 from easyhla.utils import EXON_NAME, HLA_LOCUS, HLARawStandard, nuc2bin
 
-from .clinical_hla_lib_test import DUMMY_FREQUENCIES, dummy_hla_sequence, dummy_matches
 from .easyhla_test import HLA_STANDARDS
+from .interpret_from_json_lib_test import (
+    DUMMY_FREQUENCIES,
+    dummy_hla_sequence,
+    dummy_matches,
+)
 
 
 @pytest.mark.parametrize(

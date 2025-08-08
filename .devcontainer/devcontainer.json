@@ -20,8 +20,6 @@
 	"containerEnv": {
 		"WORKON_HOME": "${containerWorkspaceFolder}/.venv",
 		"PYTHONPATH": "${containerWorkspaceFolder}",
-		"ORACLE_HOME": "/opt/oracle/instantclient",
-		"LD_LIBRARY_PATH": "/opt/oracle/instantclient"
 	},
 	"onCreateCommand": {
 		"update apt": [
@@ -43,11 +41,6 @@
 			"openssh-client",
 			"libaio-dev",
 			"unzip"
-		],
-		"install Instant Client": [
-			"/usr/bin/env",
-			"bash",
-			"${containerWorkspaceFolder}/.devcontainer/install_instant_client.bash"
 		],
 		"install Ruby": [
 			"/usr/bin/apt",

@@ -29,20 +29,17 @@ dependencies = [
   "numpy>=2.2.3",
   "pydantic>=2.10.6",
   "pydantic-numpy>=8.0.1",
-  "pytz>=2025.1",
   "pyyaml>=6.0.2",
   "requests>=2.32.3",
   "typer>=0.15.2",
   "types-pyyaml>=6.0.12.20250516",
   "types-requests>=2.32.4.20250611",
-  "uv-dynamic-versioning>=0.8.2",
 ]
 
 [dependency-groups]
 dev = [
   "mypy>=1.15.0",
   "mypy-extensions>=1.0.0",
-  "oracledb>=3.1.0",
   "pandas>=2.2.3",
   "pandas-stubs>=2.2.3.241126",
   "pre-commit>=4.1.0",
@@ -52,8 +49,7 @@ dev = [
   "pytest-mock>=3.14.0",
   "pytest-xdist>=3.6.1",
   "ruff>=0.9.9",
-  "sqlalchemy>=2.0.40",
-  "types-pytz>=2025.1.0.20250204",
+  "uv-dynamic-versioning>=0.8.2",
 ]
 
 [project.urls]
@@ -62,24 +58,17 @@ Issues = "https://github.com/cfe-lab/pyeasyhla/issues"
 Source = "https://github.com/cfe-lab/pyeasyhla"
 
 [project.scripts]
-clinical_hla = "easyhla.clinical_hla:main"
 interpret_from_json = "easyhla.interpret_from_json:main"
 bblab = "easyhla.bblab:main"
 update_alleles = "easyhla.update_alleles:main"
 update_frequency_file = "easyhla.update_frequency_file:main"
-
-[project.optional-dependencies]
-database = [
-    "oracledb>=3.1.0",
-    "sqlalchemy>=2.0.40",
-]
 
 [tool.hatch.version]
 source = "uv-dynamic-versioning"
 
 [tool.hatch.build]
 include = [
-  "src/easyhla/__about__.py",
+  "src/easyhla/_version.py",
   "src/easyhla/__init__.py",
   "src/easyhla/__main__.py",
   "src/easyhla/easyhla.py",
@@ -133,11 +122,10 @@ parallel = true
 source = ["src"]
 omit = [
   "src/easyhla/__init__.py",
-  "src/easyhla/__about__.py",
+  "src/easyhla/_version.py",
   "src/easyhla/__main__.py",
   "tests/__init__.py",
   "src/easyhla/bblab.py",
-  "src/easyhla/clinical_hla.py",
   "src/easyhla/interpret_from_json.py",
   "src/easyhla/update_alleles.py",
   "src/easyhla/update_frequency_file.py",
