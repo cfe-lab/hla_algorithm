@@ -89,7 +89,7 @@ class HLAResult(BaseModel):
     mismatches: list[str] = Field(default_factory=list)
     ambiguous: bool = False
     homozygous: bool = False
-    type: HLA_LOCUS = "B"
+    locus: HLA_LOCUS = "B"
     alg_version: str = __version__
     b5701: bool = False
     dist_b5701: Optional[int] = None
@@ -123,7 +123,7 @@ class HLAResult(BaseModel):
             mismatches=[str(x) for x in match_details.mismatches],
             ambiguous=aps.is_ambiguous(),
             homozygous=aps.is_homozygous(),
-            type=interp.locus,
+            locus=interp.locus,
             b5701=interp.is_b5701(),
             dist_b5701=interp.distance_from_b7501(),
         )

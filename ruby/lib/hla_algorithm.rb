@@ -56,8 +56,8 @@ class HLAAlgorithm
       "seq1" => seqs[0],
       "seq2" => seqs[1],
       "locus" => locus,
-      "hla_std_path" => File.expand_path(@hla_std_path),
-      "hla_freq_path" => File.expand_path(@hla_freq_path)
+      "hla_std_path" => nil,
+      "hla_freq_path" => nil
     }
 
     if (!@hla_std_path.nil?)
