@@ -10,7 +10,7 @@ from Bio.Seq import Seq
 from Bio.SeqIO import SeqRecord
 from pytest_mock import MockerFixture
 
-from easyhla.utils import (
+from hla_algorithm.utils import (
     EXON2_LENGTH,
     EXON3_LENGTH,
     EXON_NAME,

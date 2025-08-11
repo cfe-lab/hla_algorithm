@@ -3,8 +3,8 @@ from io import StringIO
 
 import pytest
 
-from easyhla.models import HLAProteinPair
-from easyhla.update_frequency_file_lib import (
+from hla_algorithm.models import HLAProteinPair
+from hla_algorithm.update_frequency_file_lib import (
     FrequencyRowDict,
     NewName,
     OldName,
@@ -12,7 +12,7 @@ from easyhla.update_frequency_file_lib import (
     parse_nomenclature,
     update_old_frequencies,
 )
-from easyhla.utils import HLA_LOCUS
+from hla_algorithm.utils import HLA_LOCUS
 
 
 @pytest.mark.parametrize(

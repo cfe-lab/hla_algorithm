@@ -1,5 +1,5 @@
 old.frequencies <- read.csv(
-    "src/easyhla/default_data/hla_frequencies.csv",
+    "src/hla_algorithm/default_data/hla_frequencies.csv",
     header=FALSE,
     col.names=c("a1", "a2", "b1", "b2", "c1", "c2"),
     colClasses="character",

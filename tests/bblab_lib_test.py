@@ -2,13 +2,13 @@ import pytest
 from Bio.Seq import MutableSeq, Seq
 from Bio.SeqIO import SeqRecord
 
-from easyhla.bblab_lib import (
+from hla_algorithm.bblab_lib import (
     HLAInterpretationRow,
     HLAMismatchRow,
     pair_exons,
     pair_exons_helper,
 )
-from easyhla.models import (
+from hla_algorithm.models import (
     HLACombinedStandard,
     HLAInterpretation,
     HLAMatchDetails,
@@ -17,9 +17,9 @@ from easyhla.models import (
     HLASequence,
     HLAStandard,
 )
-from easyhla.utils import EXON_NAME, HLA_LOCUS, HLARawStandard, nuc2bin
+from hla_algorithm.utils import EXON_NAME, HLA_LOCUS, HLARawStandard, nuc2bin
 
-from .easyhla_test import HLA_STANDARDS
+from .hla_algorithm_test import HLA_STANDARDS
 from .interpret_from_json_lib_test import (
     DUMMY_FREQUENCIES,
     dummy_hla_sequence,

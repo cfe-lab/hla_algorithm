@@ -2,8 +2,8 @@ from typing import Final, Optional
 
 import pytest
 
-from easyhla.interpret_from_json_lib import HLAInput, HLAResult
-from easyhla.models import (
+from hla_algorithm.interpret_from_json_lib import HLAInput, HLAResult
+from hla_algorithm.models import (
     HLACombinedStandard,
     HLAInterpretation,
     HLAMatchDetails,
@@ -12,7 +12,7 @@ from easyhla.models import (
     HLASequence,
     HLAStandard,
 )
-from easyhla.utils import HLA_LOCUS
+from hla_algorithm.utils import HLA_LOCUS
 
 
 def dummy_hla_sequence(locus: HLA_LOCUS) -> HLASequence:

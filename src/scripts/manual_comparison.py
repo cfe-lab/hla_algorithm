@@ -10,7 +10,7 @@ from itertools import zip_longest
 
 import typer
 
-from easyhla.easyhla import EasyHLA
+from hla_algorithm.hla_algorithm import HLAAlgorithm
 from tests.conftest import make_comparison
 
 
@@ -48,7 +48,7 @@ def main(
     ref_output_file = reference_file
     output_file = test_file
 
-    easyhla = EasyHLA("A")
+    hla_algorithm: HLAAlgorithm = HLAAlgorithm("A")
 
     _skip_preamble = (
         skip_preamble or skip_preamble_ref,
@@ -79,7 +79,7 @@ def main(
                 "INTRON",
                 "EXON3",
             ]:
-                comparison = make_comparison(easyhla, _ref, _test)
+                comparison = make_comparison(hla_algorithm, _ref, _test)
                 if "_" in comparison:
                     print(
                         ">>>",

@@ -19,28 +19,29 @@
 	"updateRemoteUserUID": true,
 	"containerEnv": {
 		"WORKON_HOME": "${containerWorkspaceFolder}/.venv",
-		"PYTHONPATH": "${containerWorkspaceFolder}",
+		"PYTHONPATH": "${containerWorkspaceFolder}"
 	},
 	"onCreateCommand": {
 		"update apt": [
 			"/usr/bin/apt",
 			"update"
-		],
-		"sync venv/install if missing": [
-			"/usr/local/bin/uv",
-			"sync",
-			"--frozen"
 		]
+		// "sync venv/install if missing": [
+		// 	"/usr/local/bin/uv",
+		// 	"sync",
+		// 	"--frozen"
+		// ]
 	},
 	"postCreateCommand": {
-		"install ssh client": [
+		"install apt packages": [
 			"/usr/bin/apt",
 			"install",
 			"--no-install-recommends",
 			"-y",
 			"openssh-client",
 			"libaio-dev",
-			"unzip"
+			"unzip",
+			"yamllint"
 		],
 		"install Ruby": [
 			"/usr/bin/apt",

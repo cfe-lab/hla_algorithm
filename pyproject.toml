@@ -3,7 +3,7 @@ requires = ["hatchling", "uv-dynamic-versioning"]
 build-backend = "hatchling.build"
 
 [project]
-name = "easyhla"
+name = "hla_algorithm"
 description = ''
 readme = "README.md"
 requires-python = ">=3.10"
@@ -53,35 +53,35 @@ dev = [
 ]
 
 [project.urls]
-Documentation = "https://github.com/cfe-lab/pyeasyhla/blob/main/README.md"
-Issues = "https://github.com/cfe-lab/pyeasyhla/issues"
-Source = "https://github.com/cfe-lab/pyeasyhla"
+Documentation = "https://github.com/cfe-lab/hla_algorithm/blob/main/README.md"
+Issues = "https://github.com/cfe-lab/hla_algorithm/issues"
+Source = "https://github.com/cfe-lab/hla_algorithm"
 
 [project.scripts]
-interpret_from_json = "easyhla.interpret_from_json:main"
-bblab = "easyhla.bblab:main"
-update_alleles = "easyhla.update_alleles:main"
-update_frequency_file = "easyhla.update_frequency_file:main"
+interpret_from_json = "hla_algorithm.interpret_from_json:main"
+bblab = "hla_algorithm.bblab:main"
+update_alleles = "hla_algorithm.update_alleles:main"
+update_frequency_file = "hla_algorithm.update_frequency_file:main"
 
 [tool.hatch.version]
 source = "uv-dynamic-versioning"
 
 [tool.hatch.build]
 include = [
-  "src/easyhla/_version.py",
-  "src/easyhla/__init__.py",
-  "src/easyhla/__main__.py",
-  "src/easyhla/easyhla.py",
-  "src/easyhla/interpret_from_json_lib.py",
-  "src/easyhla/interpret_from_json.py",
-  "src/easyhla/models.py",
-  "src/easyhla/py.typed",
-  "src/easyhla/update_alleles.py",
-  "src/easyhla/update_frequency_file_lib.py",
-  "src/easyhla/update_frequency_file.py",
-  "src/easyhla/utils.py",
-  "src/easyhla/default_data/hla_standards.yaml",
-  "src/easyhla/default_data/hla_frequencies.csv",
+  "src/hla_algorithm/_version.py",
+  "src/hla_algorithm/__init__.py",
+  "src/hla_algorithm/__main__.py",
+  "src/hla_algorithm/hla_algorithm.py",
+  "src/hla_algorithm/interpret_from_json_lib.py",
+  "src/hla_algorithm/interpret_from_json.py",
+  "src/hla_algorithm/models.py",
+  "src/hla_algorithm/py.typed",
+  "src/hla_algorithm/update_alleles.py",
+  "src/hla_algorithm/update_frequency_file_lib.py",
+  "src/hla_algorithm/update_frequency_file.py",
+  "src/hla_algorithm/utils.py",
+  "src/hla_algorithm/default_data/hla_standards.yaml",
+  "src/hla_algorithm/default_data/hla_frequencies.csv",
 ]
 exclude = [
   "tests",
@@ -90,10 +90,10 @@ skip-excluded-dirs = true
 directory = "output"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/easyhla"]
+packages = ["src/hla_algorithm"]
 
 [tool.hatch.build.hooks.version]
-path = "src/easyhla/_version.py"
+path = "src/hla_algorithm/_version.py"
 template = '''
 __version__ = "{version}"
 '''
@@ -121,14 +121,14 @@ branch = true
 parallel = true
 source = ["src"]
 omit = [
-  "src/easyhla/__init__.py",
-  "src/easyhla/_version.py",
-  "src/easyhla/__main__.py",
+  "src/hla_algorithm/__init__.py",
+  "src/hla_algorithm/_version.py",
+  "src/hla_algorithm/__main__.py",
   "tests/__init__.py",
-  "src/easyhla/bblab.py",
-  "src/easyhla/interpret_from_json.py",
-  "src/easyhla/update_alleles.py",
-  "src/easyhla/update_frequency_file.py",
+  "src/hla_algorithm/bblab.py",
+  "src/hla_algorithm/interpret_from_json.py",
+  "src/hla_algorithm/update_alleles.py",
+  "src/hla_algorithm/update_frequency_file.py",
   "src/scripts/*.py",
 ]
 

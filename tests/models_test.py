@@ -3,7 +3,7 @@ from typing import Optional
 import numpy as np
 import pytest
 
-from easyhla.models import (
+from hla_algorithm.models import (
     AllelePairs,
     HLACombinedStandard,
     HLAInterpretation,

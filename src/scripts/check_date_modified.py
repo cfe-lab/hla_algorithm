@@ -23,7 +23,7 @@ from typing import List, Tuple
 
 import typer
 
-from easyhla.easyhla import DATE_FORMAT
+from hla_algorithm.hla_algorithm import DATE_FORMAT
 
 app = typer.Typer()
 
@@ -34,7 +34,7 @@ def _list_files() -> List[Tuple[str, int]]:
     date as an ISO timestamp.
     """
     file_mtime: List[Tuple[str, int]] = []
-    dir = os.path.join(os.path.dirname(__file__), "../src/easyhla/")
+    dir = os.path.join(os.path.dirname(__file__), "../src/hla_algorithm/")
     for file_name in os.listdir(dir):
         if file_name.endswith(".csv"):
             file_mtime.append(
@@ -63,7 +63,7 @@ def get_latest_mtime():
 
 
 def _get_mtime_file() -> str:
-    return os.path.join(os.path.dirname(__file__), "../src/easyhla/hla_nuc.fasta.mtime")
+    return os.path.join(os.path.dirname(__file__), "../src/hla_algorithm/hla_nuc.fasta.mtime")
 
 
 @app.command()
