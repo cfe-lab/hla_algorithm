@@ -59,7 +59,6 @@ Source = "https://github.com/cfe-lab/hla_algorithm"
 
 [project.scripts]
 interpret_from_json = "hla_algorithm.interpret_from_json:main"
-bblab = "hla_algorithm.bblab:main"
 update_alleles = "hla_algorithm.update_alleles:main"
 update_frequency_file = "hla_algorithm.update_frequency_file:main"
 
@@ -125,7 +124,6 @@ omit = [
   "src/hla_algorithm/_version.py",
   "src/hla_algorithm/__main__.py",
   "tests/__init__.py",
-  "src/hla_algorithm/bblab.py",
   "src/hla_algorithm/interpret_from_json.py",
   "src/hla_algorithm/update_alleles.py",
   "src/hla_algorithm/update_frequency_file.py",
