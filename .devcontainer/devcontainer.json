@@ -19,35 +19,29 @@
 	"updateRemoteUserUID": true,
 	"containerEnv": {
 		"WORKON_HOME": "${containerWorkspaceFolder}/.venv",
-		"PYTHONPATH": "${containerWorkspaceFolder}",
-		"ORACLE_HOME": "/opt/oracle/instantclient",
-		"LD_LIBRARY_PATH": "/opt/oracle/instantclient"
+		"PYTHONPATH": "${containerWorkspaceFolder}"
 	},
 	"onCreateCommand": {
 		"update apt": [
 			"/usr/bin/apt",
 			"update"
-		],
-		"sync venv/install if missing": [
-			"/usr/local/bin/uv",
-			"sync",
-			"--frozen"
 		]
+		// "sync venv/install if missing": [
+		// 	"/usr/local/bin/uv",
+		// 	"sync",
+		// 	"--frozen"
+		// ]
 	},
 	"postCreateCommand": {
-		"install ssh client": [
+		"install apt packages": [
 			"/usr/bin/apt",
 			"install",
 			"--no-install-recommends",
 			"-y",
 			"openssh-client",
 			"libaio-dev",
-			"unzip"
-		],
-		"install Instant Client": [
-			"/usr/bin/env",
-			"bash",
-			"${containerWorkspaceFolder}/.devcontainer/install_instant_client.bash"
+			"unzip",
+			"yamllint"
 		],
 		"install Ruby": [
 			"/usr/bin/apt",

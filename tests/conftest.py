@@ -1,15 +1,15 @@
 from typing import Tuple
 
-from easyhla.easyhla import EasyHLA
-from easyhla.utils import bin2nuc, nuc2bin
+from hla_algorithm.hla_algorithm import HLAAlgorithm
+from hla_algorithm.utils import bin2nuc, nuc2bin
 
 
 def make_comparison(ref_seq: str, test_seq: str) -> str:
     """
     Compares two sequences for differences
 
-    :param easyhla: EasyHLA object
-    :type easyhla: EasyHLA
+    :param hla_algorithm: HLAAlgorithm object
+    :type hla_algorithm: HLAAlgorithm
     :param ref_seq: ...
     :type ref_seq: str
     :param test_seq: ...
@@ -36,7 +36,7 @@ def make_comparison(ref_seq: str, test_seq: str) -> str:
 
 
 def compare_ref_vs_test(
-    easyhla: EasyHLA,
+    hla_algorithm: HLAAlgorithm,
     reference_output_file: str,
     output_file: str,
     skip_preamble: Tuple[bool, bool] = (True, True),
@@ -47,8 +47,8 @@ def compare_ref_vs_test(
     Checks for length, content, and order between each element in a row for all
     rows.
 
-    :param easyhla: ...
-    :type easyhla: EasyHLA
+    :param hla_algorithm: ...
+    :type hla_algorithm: HLAAlgorithm
     :param reference_output_file: ...
     :type reference_output_file: str
     :param output_file: ...
