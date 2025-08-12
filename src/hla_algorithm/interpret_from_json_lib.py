@@ -91,12 +91,15 @@ class HLAResult(BaseModel):
     homozygous: bool = False
     locus: HLA_LOCUS = "B"
     alg_version: str = __version__
+    alleles_version: str = ""
     b5701: bool = False
     dist_b5701: Optional[int] = None
     errors: list[str] = Field(default_factory=list)
 
     @classmethod
-    def build_from_interpretation(cls, interp: HLAInterpretation) -> "HLAResult":
+    def build_from_interpretation(
+        cls, interp: HLAInterpretation, alleles_version: str
+    ) -> "HLAResult":
         aps: AllelePairs = interp.best_matching_allele_pairs()
 
         # Pick one of the combined standards represented by what goes into
@@ -124,6 +127,7 @@ class HLAResult(BaseModel):
             ambiguous=aps.is_ambiguous(),
             homozygous=aps.is_homozygous(),
             locus=interp.locus,
+            alleles_version=alleles_version,
             b5701=interp.is_b5701(),
             dist_b5701=interp.distance_from_b7501(),
         )

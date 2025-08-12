@@ -39,7 +39,9 @@ def main():
             hla_input.hla_freq_path,
         )
         interp: HLAInterpretation = hla_alg.interpret(hla_input.hla_sequence())
-        print(HLAResult.build_from_interpretation(interp).model_dump_json())
+        print(
+            HLAResult.build_from_interpretation(interp, hla_alg.tag).model_dump_json()
+        )
 
 
 if __name__ == "__main__":

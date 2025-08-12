@@ -346,13 +346,17 @@ def test_hla_input_hla_sequence_locus_bc():
 
 
 @pytest.mark.parametrize(
-    "hla_sequence, matches, frequencies, b5701_standards, expected_result",
+    (
+        "hla_sequence, matches, frequencies, b5701_standards, alleles_version, "
+        "expected_result"
+    ),
     [
         pytest.param(
             dummy_hla_sequence("A"),
             dummy_matches("A"),
             DUMMY_FREQUENCIES,
             None,
+            "v0.0.0-testing",
             HLAResult(
                 seqs=["CCACAGGCT"],
                 alleles_all=[
@@ -367,6 +371,7 @@ def test_hla_input_hla_sequence_locus_bc():
                 ambiguous=True,
                 homozygous=False,
                 locus="A",
+                alleles_version="v0.0.0-testing",
                 b5701=False,
                 dist_b5701=None,
             ),
@@ -377,6 +382,7 @@ def test_hla_input_hla_sequence_locus_bc():
             MATCHES_FOR_B5701_CASES,
             FREQUENCIES_FOR_B5701_CASES,
             B5701_CASE_STANDARDS,
+            "v0.0.0-testing",
             HLAResult(
                 seqs=["CCAC", "AGGCT"],
                 alleles_all=[
@@ -391,6 +397,7 @@ def test_hla_input_hla_sequence_locus_bc():
                 ambiguous=False,
                 homozygous=True,
                 locus="B",
+                alleles_version="v0.0.0-testing",
                 b5701=True,
                 dist_b5701=1,
             ),
@@ -401,6 +408,7 @@ def test_hla_input_hla_sequence_locus_bc():
             dummy_matches("C"),
             DUMMY_FREQUENCIES,
             None,
+            "v0.0.0-testing",
             HLAResult(
                 seqs=["CCAC", "AGGCT"],
                 alleles_all=[
@@ -415,6 +423,7 @@ def test_hla_input_hla_sequence_locus_bc():
                 ambiguous=True,
                 homozygous=False,
                 locus="C",
+                alleles_version="v0.0.0-testing",
                 b5701=False,
                 dist_b5701=None,
             ),
@@ -427,6 +436,7 @@ def test_hla_result_build_from_interpretation(
     matches: dict[HLACombinedStandard, HLAMatchDetails],
     frequencies: dict[HLAProteinPair, int],
     b5701_standards: Optional[list[HLAStandard]],
+    alleles_version: str,
     expected_result: HLAResult,
 ):
     interp: HLAInterpretation = HLAInterpretation(
@@ -435,5 +445,5 @@ def test_hla_result_build_from_interpretation(
         allele_frequencies=frequencies,
         b5701_standards=b5701_standards,
     )
-    result: HLAResult = HLAResult.build_from_interpretation(interp)
+    result: HLAResult = HLAResult.build_from_interpretation(interp, alleles_version)
     assert result == expected_result
