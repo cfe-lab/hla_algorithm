@@ -282,9 +282,8 @@ class HLAAlgorithm:
                     mismatches = combos[combined_std_bin]
 
                 else:
-                    seq_mask = np.full_like(std_bin, fill_value=15)
                     # Note that seq is implicitly cast to a NumPy array:
-                    mismatches = np.count_nonzero((std_bin ^ seq) & seq_mask != 0)
+                    mismatches = np.count_nonzero(std_bin ^ seq != 0)
                     combos[combined_std_bin] = mismatches  # cache this value
 
                 if mismatches > current_rejection_threshold:
@@ -335,7 +334,9 @@ class HLAAlgorithm:
             combined_std_bin,
             mismatches,
             allele_pair,
-        ) in HLAAlgorithm.combine_standards_stepper(matching_stds, seq, mismatch_threshold):
+        ) in HLAAlgorithm.combine_standards_stepper(
+            matching_stds, seq, mismatch_threshold
+        ):
             if combined_std_bin not in combos:
                 combos[combined_std_bin] = (mismatches, [])
             combos[combined_std_bin][1].append(allele_pair)
@@ -404,8 +405,8 @@ class HLAAlgorithm:
             mislist.append(
                 HLAMismatch(
                     index=dex,
-                    observed_base=BIN2NUC[sequence_bin[index]],
-                    expected_base=BIN2NUC[correct_base_bin],
+                    sequence_base=BIN2NUC[sequence_bin[index]],
+                    standard_base=BIN2NUC[correct_base_bin],
                 )
             )
 
@@ -459,14 +460,13 @@ class HLAAlgorithm:
             hla_sequence=hla_sequence,
             matches={
                 combined_std: HLAMatchDetails(
-                    mismatch_count=mismatch_count,
                     mismatches=self.get_mismatches(
                         combined_std.standard_bin,
                         seq,
                         locus,
                     ),
                 )
-                for combined_std, mismatch_count in all_combos.items()
+                for combined_std in all_combos
             },
             allele_frequencies=self.hla_frequencies[locus],
             b5701_standards=b5701_standards,

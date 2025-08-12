@@ -81,6 +81,22 @@ class HLAInput(BaseModel):
         )
 
 
+class HLAMatchAdaptor(BaseModel):
+    """
+    An "adaptor" for HLAMatchDetails for inclusion in an HLAResult.
+    """
+
+    mismatch_count: int
+    mismatches: list[str]
+
+    @classmethod
+    def from_match_details(cls, match: HLAMatchDetails) -> "HLAMatchAdaptor":
+        return cls(
+            mismatch_count=match.mismatch_count,
+            mismatches=[str(x) for x in match.mismatches],
+        )
+
+
 class HLAResult(BaseModel):
     seqs: list[str] = Field(default_factory=list)
     alleles_all: list[str] = Field(default_factory=list)
@@ -95,6 +111,7 @@ class HLAResult(BaseModel):
     b5701: bool = False
     dist_b5701: Optional[int] = None
     errors: list[str] = Field(default_factory=list)
+    all_mismatches: dict[str, HLAMatchAdaptor] = Field(default_factory=dict)
 
     @classmethod
     def build_from_interpretation(
@@ -130,4 +147,8 @@ class HLAResult(BaseModel):
             alleles_version=alleles_version,
             b5701=interp.is_b5701(),
             dist_b5701=interp.distance_from_b7501(),
+            all_mismatches={
+                cs.get_allele_pair_str(): HLAMatchAdaptor.from_match_details(match)
+                for cs, match in interp.matches.items()
+            },
         )

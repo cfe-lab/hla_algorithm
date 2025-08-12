@@ -35,9 +35,11 @@ class HLAResult
     @homozygous = raw_result["homozygous"]
     @locus = raw_result["locus"]
     @alg_version = raw_result["alg_version"]
+    @alleles_version = raw_result["alleles_version"]
     @b5701 = raw_result["b5701"]
     @dist_b5701 = raw_result["dist_b5701"]
     @errors = raw_result["errors"]
+    @all_mismatches = raw_result["all_mismatches"]
   end
 end
 

@@ -1024,84 +1024,84 @@ def test_combine_standards(
             [1, 2, 4, 8],
             [4, 2, 4, 8],
             ["A", "B", "C"],
-            [HLAMismatch(index=1, observed_base="G", expected_base="A")],
+            [HLAMismatch(index=1, sequence_base="G", standard_base="A")],
             id="mismatch_at_beginning",
         ),
         pytest.param(
             [1, 2, 4, 8],
             [1, 2, 4, 1],
             ["A", "B", "C"],
-            [HLAMismatch(index=4, observed_base="A", expected_base="T")],
+            [HLAMismatch(index=4, sequence_base="A", standard_base="T")],
             id="mismatch_at_end",
         ),
         pytest.param(
             [1, 2, 4, 8],
             [1, 4, 4, 8],
             ["A", "B", "C"],
-            [HLAMismatch(index=2, observed_base="G", expected_base="C")],
+            [HLAMismatch(index=2, sequence_base="G", standard_base="C")],
             id="mismatch_in_middle",
         ),
         pytest.param(
             [1, 2, 4, 8],
             [5, 2, 4, 8],
             ["A", "B", "C"],
-            [HLAMismatch(index=1, observed_base="R", expected_base="A")],
+            [HLAMismatch(index=1, sequence_base="R", standard_base="A")],
             id="mixture_seq_to_unambiguous_std_mismatch",
         ),
         pytest.param(
             [1, 2, 11, 8],
             [1, 2, 4, 8],
             ["A", "B", "C"],
-            [HLAMismatch(index=3, observed_base="G", expected_base="H")],
+            [HLAMismatch(index=3, sequence_base="G", standard_base="H")],
             id="unambiguous_seq_to_mixture_std_mismatch",
         ),
         pytest.param(
             [1, 2, 4, 3],
             [1, 2, 4, 5],
             ["A", "B", "C"],
-            [HLAMismatch(index=4, observed_base="R", expected_base="M")],
+            [HLAMismatch(index=4, sequence_base="R", standard_base="M")],
             id="mixture_seq_to_mixture_std_mismatch",
         ),
         pytest.param(
             [1] * 270 + [4] * 276,
             [1] * 200 + [4] + [1] * 69 + [4] * 276,
             ["A", "B", "C"],
-            [HLAMismatch(index=201, observed_base="G", expected_base="A")],
+            [HLAMismatch(index=201, sequence_base="G", standard_base="A")],
             id="indexing_not_modified_before_position_270",
         ),
         pytest.param(
             [1] * 269 + [3] + [4] * 276,
             [1] * 270 + [4] * 276,
             ["A", "B", "C"],
-            [HLAMismatch(index=270, observed_base="A", expected_base="M")],
+            [HLAMismatch(index=270, sequence_base="A", standard_base="M")],
             id="indexing_not_modified_at_position_270",
         ),
         pytest.param(
             [1] * 270 + [4] * 276,
             [1] * 270 + [14] + [4] * 275,
             ["A"],
-            [HLAMismatch(index=512, observed_base="B", expected_base="G")],
+            [HLAMismatch(index=512, sequence_base="B", standard_base="G")],
             id="locus_a_indexing_modified_at_position_271",
         ),
         pytest.param(
             [1] * 270 + [14] + [4] * 275,
             [1] * 270 + [4] * 276,
             ["B", "C"],
-            [HLAMismatch(index=271, observed_base="G", expected_base="B")],
+            [HLAMismatch(index=271, sequence_base="G", standard_base="B")],
             id="locus_b_c_indexing_not_modified_at_position_271",
         ),
         pytest.param(
             [1] * 270 + [4] * 276,
             [1] * 270 + [4] * 100 + [11] + [4] * 175,
             ["A"],
-            [HLAMismatch(index=612, observed_base="H", expected_base="G")],
+            [HLAMismatch(index=612, sequence_base="H", standard_base="G")],
             id="locus_a_indexing_modified_after_position_270",
         ),
         pytest.param(
             [1] * 270 + [4] * 100 + [11] + [4] * 175,
             [1] * 270 + [4] * 276,
             ["B", "C"],
-            [HLAMismatch(index=371, observed_base="G", expected_base="H")],
+            [HLAMismatch(index=371, sequence_base="G", standard_base="H")],
             id="locus_b_c_indexing_not_modified_after_position_270",
         ),
         pytest.param(
@@ -1109,9 +1109,9 @@ def test_combine_standards(
             [1] * 270 + [4] * 100 + [4] * 50 + [11] + [4] * 125,
             ["A"],
             [
-                HLAMismatch(index=171, observed_base="A", expected_base="M"),
-                HLAMismatch(index=512, observed_base="G", expected_base="H"),
-                HLAMismatch(index=662, observed_base="H", expected_base="A"),
+                HLAMismatch(index=171, sequence_base="A", standard_base="M"),
+                HLAMismatch(index=512, sequence_base="G", standard_base="H"),
+                HLAMismatch(index=662, sequence_base="H", standard_base="A"),
             ],
             id="locus_b_c_several_mismatches",
         ),
@@ -1120,9 +1120,9 @@ def test_combine_standards(
             [1] * 270 + [4] * 100 + [4] * 50 + [11] + [4] * 125,
             ["B", "C"],
             [
-                HLAMismatch(index=171, observed_base="A", expected_base="M"),
-                HLAMismatch(index=271, observed_base="G", expected_base="H"),
-                HLAMismatch(index=421, observed_base="H", expected_base="A"),
+                HLAMismatch(index=171, sequence_base="A", standard_base="M"),
+                HLAMismatch(index=271, sequence_base="G", standard_base="H"),
+                HLAMismatch(index=421, sequence_base="H", standard_base="A"),
             ],
             id="locus_b_c_several_mismatches",
         ),
@@ -1232,59 +1232,54 @@ def test_get_mismatches_errors(
                     HLACombinedStandard(
                         standard_bin=(1, 2, 4, 8),
                         possible_allele_pairs=(("std_allmatch", "std_allmatch"),),
-                    ): HLAMatchDetails(mismatch_count=0, mismatches=[]),
+                    ): HLAMatchDetails(mismatches=[]),
                     HLACombinedStandard(
                         standard_bin=(1, 2, 4, 12),
                         possible_allele_pairs=(("std_1mismatch", "std_allmatch"),),
                     ): HLAMatchDetails(
-                        mismatch_count=1,
                         mismatches=[
-                            HLAMismatch(index=4, expected_base="K", observed_base="T"),
+                            HLAMismatch(index=4, standard_base="K", sequence_base="T"),
                         ],
                     ),
                     HLACombinedStandard(
                         standard_bin=(1, 2, 4, 4),
                         possible_allele_pairs=(("std_1mismatch", "std_1mismatch"),),
                     ): HLAMatchDetails(
-                        mismatch_count=1,
                         mismatches=[
-                            HLAMismatch(index=4, expected_base="G", observed_base="T"),
+                            HLAMismatch(index=4, standard_base="G", sequence_base="T"),
                         ],
                     ),
                     HLACombinedStandard(
                         standard_bin=(9, 6, 6, 9),
                         possible_allele_pairs=(("std_allmatch", "std_allmismatch"),),
                     ): HLAMatchDetails(
-                        mismatch_count=4,
                         mismatches=[
-                            HLAMismatch(index=1, expected_base="W", observed_base="A"),
-                            HLAMismatch(index=2, expected_base="S", observed_base="C"),
-                            HLAMismatch(index=3, expected_base="S", observed_base="G"),
-                            HLAMismatch(index=4, expected_base="W", observed_base="T"),
+                            HLAMismatch(index=1, standard_base="W", sequence_base="A"),
+                            HLAMismatch(index=2, standard_base="S", sequence_base="C"),
+                            HLAMismatch(index=3, standard_base="S", sequence_base="G"),
+                            HLAMismatch(index=4, standard_base="W", sequence_base="T"),
                         ],
                     ),
                     HLACombinedStandard(
                         standard_bin=(9, 6, 6, 5),
                         possible_allele_pairs=(("std_1mismatch", "std_allmismatch"),),
                     ): HLAMatchDetails(
-                        mismatch_count=4,
                         mismatches=[
-                            HLAMismatch(index=1, expected_base="W", observed_base="A"),
-                            HLAMismatch(index=2, expected_base="S", observed_base="C"),
-                            HLAMismatch(index=3, expected_base="S", observed_base="G"),
-                            HLAMismatch(index=4, expected_base="R", observed_base="T"),
+                            HLAMismatch(index=1, standard_base="W", sequence_base="A"),
+                            HLAMismatch(index=2, standard_base="S", sequence_base="C"),
+                            HLAMismatch(index=3, standard_base="S", sequence_base="G"),
+                            HLAMismatch(index=4, standard_base="R", sequence_base="T"),
                         ],
                     ),
                     HLACombinedStandard(
                         standard_bin=(8, 4, 2, 1),
                         possible_allele_pairs=(("std_allmismatch", "std_allmismatch"),),
                     ): HLAMatchDetails(
-                        mismatch_count=4,
                         mismatches=[
-                            HLAMismatch(index=1, expected_base="T", observed_base="A"),
-                            HLAMismatch(index=2, expected_base="G", observed_base="C"),
-                            HLAMismatch(index=3, expected_base="C", observed_base="G"),
-                            HLAMismatch(index=4, expected_base="A", observed_base="T"),
+                            HLAMismatch(index=1, standard_base="T", sequence_base="A"),
+                            HLAMismatch(index=2, standard_base="G", sequence_base="C"),
+                            HLAMismatch(index=3, standard_base="C", sequence_base="G"),
+                            HLAMismatch(index=4, standard_base="A", sequence_base="T"),
                         ],
                     ),
                 },
@@ -1336,59 +1331,54 @@ def test_get_mismatches_errors(
                     HLACombinedStandard(
                         standard_bin=(1, 2, 4, 8),
                         possible_allele_pairs=(("B*57:01:01G", "B*57:01:01G"),),
-                    ): HLAMatchDetails(mismatch_count=0, mismatches=[]),
+                    ): HLAMatchDetails(mismatches=[]),
                     HLACombinedStandard(
                         standard_bin=(1, 2, 4, 12),
                         possible_allele_pairs=(("B*57:01:01G", "B*57:01:02"),),
                     ): HLAMatchDetails(
-                        mismatch_count=1,
                         mismatches=[
-                            HLAMismatch(index=4, expected_base="K", observed_base="T"),
+                            HLAMismatch(index=4, standard_base="K", sequence_base="T"),
                         ],
                     ),
                     HLACombinedStandard(
                         standard_bin=(1, 2, 4, 4),
                         possible_allele_pairs=(("B*57:01:02", "B*57:01:02"),),
                     ): HLAMatchDetails(
-                        mismatch_count=1,
                         mismatches=[
-                            HLAMismatch(index=4, expected_base="G", observed_base="T"),
+                            HLAMismatch(index=4, standard_base="G", sequence_base="T"),
                         ],
                     ),
                     HLACombinedStandard(
                         standard_bin=(9, 6, 6, 9),
                         possible_allele_pairs=(("B*57:01:01G", "B*57:01:03"),),
                     ): HLAMatchDetails(
-                        mismatch_count=4,
                         mismatches=[
-                            HLAMismatch(index=1, expected_base="W", observed_base="A"),
-                            HLAMismatch(index=2, expected_base="S", observed_base="C"),
-                            HLAMismatch(index=3, expected_base="S", observed_base="G"),
-                            HLAMismatch(index=4, expected_base="W", observed_base="T"),
+                            HLAMismatch(index=1, standard_base="W", sequence_base="A"),
+                            HLAMismatch(index=2, standard_base="S", sequence_base="C"),
+                            HLAMismatch(index=3, standard_base="S", sequence_base="G"),
+                            HLAMismatch(index=4, standard_base="W", sequence_base="T"),
                         ],
                     ),
                     HLACombinedStandard(
                         standard_bin=(9, 6, 6, 5),
                         possible_allele_pairs=(("B*57:01:02", "B*57:01:03"),),
                     ): HLAMatchDetails(
-                        mismatch_count=4,
                         mismatches=[
-                            HLAMismatch(index=1, expected_base="W", observed_base="A"),
-                            HLAMismatch(index=2, expected_base="S", observed_base="C"),
-                            HLAMismatch(index=3, expected_base="S", observed_base="G"),
-                            HLAMismatch(index=4, expected_base="R", observed_base="T"),
+                            HLAMismatch(index=1, standard_base="W", sequence_base="A"),
+                            HLAMismatch(index=2, standard_base="S", sequence_base="C"),
+                            HLAMismatch(index=3, standard_base="S", sequence_base="G"),
+                            HLAMismatch(index=4, standard_base="R", sequence_base="T"),
                         ],
                     ),
                     HLACombinedStandard(
                         standard_bin=(8, 4, 2, 1),
                         possible_allele_pairs=(("B*57:01:03", "B*57:01:03"),),
                     ): HLAMatchDetails(
-                        mismatch_count=4,
                         mismatches=[
-                            HLAMismatch(index=1, expected_base="T", observed_base="A"),
-                            HLAMismatch(index=2, expected_base="G", observed_base="C"),
-                            HLAMismatch(index=3, expected_base="C", observed_base="G"),
-                            HLAMismatch(index=4, expected_base="A", observed_base="T"),
+                            HLAMismatch(index=1, standard_base="T", sequence_base="A"),
+                            HLAMismatch(index=2, standard_base="G", sequence_base="C"),
+                            HLAMismatch(index=3, standard_base="C", sequence_base="G"),
+                            HLAMismatch(index=4, standard_base="A", sequence_base="T"),
                         ],
                     ),
                 },
@@ -1520,7 +1510,9 @@ def test_interpret_error_cases(
 ):
     # Replace the standards with the ones in the test.
     for locus in ("A", "B", "C"):
-        hla_algorithm.hla_standards[locus] = {std.allele: std for std in raw_standards[locus]}
+        hla_algorithm.hla_standards[locus] = {
+            std.allele: std for std in raw_standards[locus]
+        }
 
     # Spy on the internals to make sure they're called correctly.
     get_matching_standards_spy: MagicMock = mocker.spy(
@@ -2078,8 +2070,8 @@ def test_read_hla_frequencies(
         "B": expected_locus_b,
         "C": expected_locus_c,
     }
-    result: dict[HLA_LOCUS, dict[HLAProteinPair, int]] = HLAAlgorithm.read_hla_frequencies(
-        StringIO(frequencies_str)
+    result: dict[HLA_LOCUS, dict[HLAProteinPair, int]] = (
+        HLAAlgorithm.read_hla_frequencies(StringIO(frequencies_str))
     )
     assert result == expected_results
 

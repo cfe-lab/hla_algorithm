@@ -148,7 +148,7 @@ class TestHLACombinedStandard:
 
 class TestHLAMismatch:
     @pytest.mark.parametrize(
-        "index, observed_base, expected_base, expected_str",
+        "index, sequence_base, standard_base, expected_str",
         [
             (55, "A", "C", "55:A->C"),
             (199, "C", "R", "199:C->R"),
@@ -158,16 +158,42 @@ class TestHLAMismatch:
     def test_string(
         self,
         index: int,
-        observed_base: str,
-        expected_base: str,
+        sequence_base: str,
+        standard_base: str,
         expected_str: str,
     ):
         mismatch: HLAMismatch = HLAMismatch(
             index=index,
-            observed_base=observed_base,
-            expected_base=expected_base,
+            sequence_base=sequence_base,
+            standard_base=standard_base,
         )
         assert str(mismatch) == expected_str
+
+
+@pytest.mark.parametrize(
+    "raw_mismatches, expected_result",
+    [
+        pytest.param([], 0, id="no_mismatches"),
+        pytest.param(
+            [HLAMismatch(index=100, sequence_base="A", standard_base="T")],
+            1,
+            id="one_mismatches",
+        ),
+        pytest.param(
+            [
+                HLAMismatch(index=100, sequence_base="A", standard_base="T"),
+                HLAMismatch(index=150, sequence_base="R", standard_base="W"),
+                HLAMismatch(index=150, sequence_base="C", standard_base="Y"),
+            ],
+            3,
+            id="several_mismatches",
+        ),
+    ],
+)
+def test_hla_match_details_mismatch_count(
+    raw_mismatches: list[HLAMismatch], expected_result: int
+):
+    assert HLAMatchDetails(mismatches=raw_mismatches).mismatch_count == expected_result
 
 
 class TestHLAProteinPair:
@@ -1482,7 +1508,19 @@ class TestHLAInterpretation:
                     HLACombinedStandard(
                         standard_bin=(1, 4, 9, 4),
                         possible_allele_pairs=(("A*01:01:01", "A*02:02:02"),),
-                    ): HLAMatchDetails(mismatch_count=5, mismatches=[]),
+                    ): HLAMatchDetails(
+                        mismatches=[
+                            HLAMismatch(index=15, sequence_base="A", standard_base="R"),
+                            HLAMismatch(index=17, sequence_base="A", standard_base="R"),
+                            HLAMismatch(index=88, sequence_base="G", standard_base="C"),
+                            HLAMismatch(
+                                index=111, sequence_base="G", standard_base="T"
+                            ),
+                            HLAMismatch(
+                                index=205, sequence_base="R", standard_base="Y"
+                            ),
+                        ]
+                    ),
                 },
                 {
                     HLAProteinPair(
@@ -1519,11 +1557,30 @@ class TestHLAInterpretation:
                     HLACombinedStandard(
                         standard_bin=(1, 4, 9, 4),
                         possible_allele_pairs=(("A*01:01:01", "A*02:02:02"),),
-                    ): HLAMatchDetails(mismatch_count=5, mismatches=[]),
+                    ): HLAMatchDetails(
+                        mismatches=[
+                            HLAMismatch(index=15, sequence_base="A", standard_base="R"),
+                            HLAMismatch(index=17, sequence_base="A", standard_base="R"),
+                            HLAMismatch(index=88, sequence_base="G", standard_base="C"),
+                            HLAMismatch(
+                                index=111, sequence_base="G", standard_base="T"
+                            ),
+                            HLAMismatch(
+                                index=205, sequence_base="R", standard_base="Y"
+                            ),
+                        ],
+                    ),
                     HLACombinedStandard(
                         standard_bin=(1, 4, 9, 2),
                         possible_allele_pairs=(("A*10:01:01", "A*20:02:02"),),
-                    ): HLAMatchDetails(mismatch_count=2, mismatches=[]),
+                    ): HLAMatchDetails(
+                        mismatches=[
+                            HLAMismatch(index=22, sequence_base="R", standard_base="C"),
+                            HLAMismatch(
+                                index=222, sequence_base="A", standard_base="R"
+                            ),
+                        ],
+                    ),
                 },
                 {
                     HLAProteinPair(
@@ -1560,19 +1617,39 @@ class TestHLAInterpretation:
                     HLACombinedStandard(
                         standard_bin=(1, 4, 9, 4),
                         possible_allele_pairs=(("A*01:01:01", "A*02:02:02"),),
-                    ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
+                    ): HLAMatchDetails(
+                        mismatches=[
+                            HLAMismatch(index=55, sequence_base="A", standard_base="G")
+                        ],
+                    ),
                     HLACombinedStandard(
                         standard_bin=(1, 4, 9, 2),
                         possible_allele_pairs=(("A*10:01:01", "A*20:02:03"),),
-                    ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
+                    ): HLAMatchDetails(
+                        mismatches=[
+                            HLAMismatch(index=48, sequence_base="R", standard_base="C")
+                        ],
+                    ),
                     HLACombinedStandard(
                         standard_bin=(2, 4, 9, 2),
                         possible_allele_pairs=(("A*10:01:10", "A*20:22:20"),),
-                    ): HLAMatchDetails(mismatch_count=3, mismatches=[]),
+                    ): HLAMatchDetails(
+                        mismatches=[
+                            HLAMismatch(index=45, sequence_base="T", standard_base="C"),
+                            HLAMismatch(index=57, sequence_base="R", standard_base="Y"),
+                            HLAMismatch(
+                                index=122, sequence_base="R", standard_base="G"
+                            ),
+                        ],
+                    ),
                     HLACombinedStandard(
                         standard_bin=(2, 4, 10, 2),
                         possible_allele_pairs=(("A*10:01:10", "A*22:22:22"),),
-                    ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
+                    ): HLAMatchDetails(
+                        mismatches=[
+                            HLAMismatch(index=100, sequence_base="A", standard_base="T")
+                        ]
+                    ),
                 },
                 {
                     HLAProteinPair(
@@ -1621,22 +1698,42 @@ class TestHLAInterpretation:
                     HLACombinedStandard(
                         standard_bin=(1, 4, 9, 4),
                         possible_allele_pairs=(("A*01:01:01", "A*02:02:02"),),
-                    ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
+                    ): HLAMatchDetails(
+                        mismatches=[
+                            HLAMismatch(index=55, sequence_base="A", standard_base="G")
+                        ]
+                    ),
                     HLACombinedStandard(
                         standard_bin=(1, 4, 9, 2),
                         possible_allele_pairs=(("A*10:01:15", "A*20:02:03"),),
-                    ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
+                    ): HLAMatchDetails(
+                        mismatches=[
+                            HLAMismatch(index=48, sequence_base="R", standard_base="C")
+                        ]
+                    ),
                     HLACombinedStandard(
                         standard_bin=(2, 4, 9, 2),
                         possible_allele_pairs=(("A*10:01:10", "A*20:22:20"),),
-                    ): HLAMatchDetails(mismatch_count=3, mismatches=[]),
+                    ): HLAMatchDetails(
+                        mismatches=[
+                            HLAMismatch(index=45, sequence_base="T", standard_base="C"),
+                            HLAMismatch(index=57, sequence_base="R", standard_base="Y"),
+                            HLAMismatch(
+                                index=122, sequence_base="R", standard_base="G"
+                            ),
+                        ],
+                    ),
                     HLACombinedStandard(
                         standard_bin=(2, 4, 10, 2),
                         possible_allele_pairs=(
                             ("A*10:01:10", "A*20:01"),
                             ("A*10:01:10", "A*22:22:22"),
                         ),
-                    ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
+                    ): HLAMatchDetails(
+                        mismatches=[
+                            HLAMismatch(index=100, sequence_base="A", standard_base="T")
+                        ]
+                    ),
                 },
                 {
                     HLAProteinPair(
@@ -1819,21 +1916,21 @@ class TestHLAInterpretation:
                     HLACombinedStandard(
                         standard_bin=(1, 4, 9, 4),
                         possible_allele_pairs=(("B*01:01:01", "B*02:02:02"),),
-                    ): HLAMatchDetails(mismatch_count=5, mismatches=[]),
+                    ): HLAMatchDetails(mismatches=[]),
                     HLACombinedStandard(
                         standard_bin=(1, 2, 9, 4),
                         possible_allele_pairs=(
                             ("B*01:03:22", "B*02:07:05"),
                             ("B*01:03:25", "B*02:07:05"),
                         ),
-                    ): HLAMatchDetails(mismatch_count=5, mismatches=[]),
+                    ): HLAMatchDetails(mismatches=[]),
                     HLACombinedStandard(
                         standard_bin=(1, 2, 9, 4),
                         possible_allele_pairs=(
                             ("B*21:55:07:33N", "B*21:55:07:33N"),
                             ("B*21:55:07:33N", "B*21:55:42"),
                         ),
-                    ): HLAMatchDetails(mismatch_count=5, mismatches=[]),
+                    ): HLAMatchDetails(mismatches=[]),
                 },
                 False,
                 id="typical_case_not_b5701",
@@ -1846,21 +1943,21 @@ class TestHLAInterpretation:
                             ("B*22:33:44", "B*56:02:51"),
                             ("B*57:01:04", "B*57:01:03"),
                         ),
-                    ): HLAMatchDetails(mismatch_count=5, mismatches=[]),
+                    ): HLAMatchDetails(mismatches=[]),
                     HLACombinedStandard(
                         standard_bin=(1, 2, 9, 4),
                         possible_allele_pairs=(
                             ("B*02:03:25", "B*02:03:27"),
                             ("B*13:31:13", "B*13:31:13"),
                         ),
-                    ): HLAMatchDetails(mismatch_count=5, mismatches=[]),
+                    ): HLAMatchDetails(mismatches=[]),
                     HLACombinedStandard(
                         standard_bin=(1, 2, 9, 4),
                         possible_allele_pairs=(
                             ("B*22:55:07:33N", "B*21:55:33"),
                             ("B*22:55:07:33N", "B*21:55:42"),
                         ),
-                    ): HLAMatchDetails(mismatch_count=5, mismatches=[]),
+                    ): HLAMatchDetails(mismatches=[]),
                 },
                 True,
                 id="typical_case_is_b5701",
