@@ -38,9 +38,13 @@ def main():
             hla_input.hla_std_path,
             hla_input.hla_freq_path,
         )
-        interp: HLAInterpretation = hla_alg.interpret(hla_input.hla_sequence())
+        interp: HLAInterpretation = hla_alg.interpret(
+            hla_input.hla_sequence(), hla_input.threshold
+        )
         print(
-            HLAResult.build_from_interpretation(interp, hla_alg.tag).model_dump_json()
+            HLAResult.build_from_interpretation(
+                interp, hla_alg.tag, hla_alg.last_updated
+            ).model_dump_json()
         )
 
 

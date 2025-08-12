@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -24,6 +25,7 @@ class HLAInput(BaseModel):
     seq1: str
     seq2: Optional[str]
     locus: HLA_LOCUS
+    threshold: Optional[int] = None
     hla_std_path: Optional[str] = None
     hla_freq_path: Optional[str] = None
 
@@ -108,6 +110,7 @@ class HLAResult(BaseModel):
     locus: HLA_LOCUS = "B"
     alg_version: str = __version__
     alleles_version: str = ""
+    alleles_last_updated: datetime = Field(default_factory=datetime.now)
     b5701: bool = False
     dist_b5701: Optional[int] = None
     errors: list[str] = Field(default_factory=list)
@@ -115,7 +118,10 @@ class HLAResult(BaseModel):
 
     @classmethod
     def build_from_interpretation(
-        cls, interp: HLAInterpretation, alleles_version: str
+        cls,
+        interp: HLAInterpretation,
+        alleles_version: str,
+        alleles_last_updated: datetime,
     ) -> "HLAResult":
         aps: AllelePairs = interp.best_matching_allele_pairs()
 
@@ -145,6 +151,7 @@ class HLAResult(BaseModel):
             homozygous=aps.is_homozygous(),
             locus=interp.locus,
             alleles_version=alleles_version,
+            alleles_last_updated=alleles_last_updated,
             b5701=interp.is_b5701(),
             dist_b5701=interp.distance_from_b7501(),
             all_mismatches={
