@@ -4,7 +4,7 @@ from datetime import datetime
 from io import StringIO
 from pathlib import Path
 from typing import Optional, cast
-from unittest.mock import MagicMock, _Call
+from unittest.mock import MagicMock, _Call, patch
 
 import numpy as np
 import pytest
@@ -1630,6 +1630,12 @@ READ_HLA_STANDARDS_TYPICAL_CASE_OUTPUT: dict[HLA_LOCUS, dict[str, HLAStandard]] 
 }
 
 
+def test_path_join_shim():
+    expected_result: str = "/foo/bar/baz"
+    result: str = HLAAlgorithm._path_join_shim("/foo/bar", "baz")
+    assert expected_result == result
+
+
 @pytest.mark.parametrize(
     "raw_standards, raw_expected_result",
     [
@@ -1743,9 +1749,7 @@ def test_read_hla_standards(
     # Also try reading it from a file.
     p = tmp_path / "hla_standards.yaml"
     p.write_text(standards_file_str)
-    dirname_return_mock: MagicMock = mocker.MagicMock()
-    mocker.patch.object(os.path, "dirname", return_value=dirname_return_mock)
-    mocker.patch.object(os.path, "join", return_value=str(p))
+    mocker.patch.object(HLAAlgorithm, "_path_join_shim", return_value=str(p))
     load_result: LoadedStandards = HLAAlgorithm.load_default_hla_standards()
     assert load_result == expected_result
 
@@ -2078,9 +2082,7 @@ def test_read_hla_frequencies(
     # Now try loading these from a file.
     p = tmp_path / "hla_frequencies.csv"
     p.write_text(frequencies_str)
-    dirname_return_mock: MagicMock = mocker.MagicMock()
-    mocker.patch.object(os.path, "dirname", return_value=dirname_return_mock)
-    mocker.patch.object(os.path, "join", return_value=str(p))
+    mocker.patch.object(HLAAlgorithm, "_path_join_shim", return_value=str(p))
     load_result: dict[HLA_LOCUS, dict[HLAProteinPair, int]] = (
         HLAAlgorithm.load_default_hla_frequencies()
     )
@@ -2176,10 +2178,13 @@ def test_use_config_all_defaults(
     freq_path.write_text(fake_frequencies_str)
 
     mocker.patch.object(
-        os.path, "join", side_effect=[str(standards_path), str(freq_path)]
+        HLAAlgorithm,
+        "_path_join_shim",
+        side_effect=[os.fspath(standards_path), os.fspath(freq_path)],
     )
 
     hla_algorithm: HLAAlgorithm = HLAAlgorithm.use_config()
+
     assert hla_algorithm.tag == fake_stored_standards.tag
     assert hla_algorithm.last_updated == fake_stored_standards.last_updated
     assert hla_algorithm.hla_standards == READ_HLA_STANDARDS_TYPICAL_CASE_OUTPUT

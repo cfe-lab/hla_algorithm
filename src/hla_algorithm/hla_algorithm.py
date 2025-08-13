@@ -134,7 +134,7 @@ class HLAAlgorithm:
         :return: List of known HLA standards
         :rtype: list[HLAStandard]
         """
-        standards_filename: str = os.path.join(
+        standards_filename: str = HLAAlgorithm._path_join_shim(
             os.path.dirname(__file__),
             "default_data",
             "hla_standards.yaml",
@@ -193,6 +193,13 @@ class HLAAlgorithm:
         return hla_freqs
 
     @staticmethod
+    def _path_join_shim(*args) -> str:
+        """
+        A shim for os.path.join which allows us to mock out the method easily in testing.
+        """
+        return os.path.join(*args)
+
+    @staticmethod
     def load_default_hla_frequencies() -> dict[HLA_LOCUS, dict[HLAProteinPair, int]]:
         """
         Load HLA frequencies from the default reference file.
@@ -201,7 +208,7 @@ class HLAAlgorithm:
         :rtype: dict[HLA_LOCUS, dict[HLAProteinPair, int]]
         """
         hla_freqs: dict[HLA_LOCUS, dict[HLAProteinPair, int]]
-        default_frequencies_filename: str = os.path.join(
+        default_frequencies_filename: str = HLAAlgorithm._path_join_shim(
             os.path.dirname(__file__),
             "default_data",
             "hla_frequencies.csv",
