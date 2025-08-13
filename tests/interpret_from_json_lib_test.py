@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Final, Optional
 
 import pytest
@@ -389,7 +390,7 @@ def test_hla_match_adaptor_from_match_details(
 @pytest.mark.parametrize(
     (
         "hla_sequence, matches, frequencies, b5701_standards, alleles_version, "
-        "expected_result"
+        "alleles_last_updated, expected_result"
     ),
     [
         pytest.param(
@@ -398,6 +399,7 @@ def test_hla_match_adaptor_from_match_details(
             DUMMY_FREQUENCIES,
             None,
             "v0.0.0-testing",
+            datetime(2025, 8, 12, 17, 0, 0),
             HLAResult(
                 seqs=["CCACAGGCT"],
                 alleles_all=[
@@ -413,6 +415,7 @@ def test_hla_match_adaptor_from_match_details(
                 homozygous=False,
                 locus="A",
                 alleles_version="v0.0.0-testing",
+                alleles_last_updated=datetime(2025, 8, 12, 17, 0, 0),
                 b5701=False,
                 dist_b5701=None,
                 all_mismatches={
@@ -442,6 +445,7 @@ def test_hla_match_adaptor_from_match_details(
             FREQUENCIES_FOR_B5701_CASES,
             B5701_CASE_STANDARDS,
             "v0.0.0-testing",
+            datetime(2025, 8, 12, 17, 0, 0),
             HLAResult(
                 seqs=["CCAC", "AGGCT"],
                 alleles_all=[
@@ -457,6 +461,7 @@ def test_hla_match_adaptor_from_match_details(
                 homozygous=True,
                 locus="B",
                 alleles_version="v0.0.0-testing",
+                alleles_last_updated=datetime(2025, 8, 12, 17, 0, 0),
                 b5701=True,
                 dist_b5701=1,
                 all_mismatches={
@@ -486,6 +491,7 @@ def test_hla_match_adaptor_from_match_details(
             DUMMY_FREQUENCIES,
             None,
             "v0.0.0-testing",
+            datetime(2025, 8, 12, 17, 0, 0),
             HLAResult(
                 seqs=["CCAC", "AGGCT"],
                 alleles_all=[
@@ -501,6 +507,7 @@ def test_hla_match_adaptor_from_match_details(
                 homozygous=False,
                 locus="C",
                 alleles_version="v0.0.0-testing",
+                alleles_last_updated=datetime(2025, 8, 12, 17, 0, 0),
                 b5701=False,
                 dist_b5701=None,
                 all_mismatches={
@@ -532,6 +539,7 @@ def test_hla_result_build_from_interpretation(
     frequencies: dict[HLAProteinPair, int],
     b5701_standards: Optional[list[HLAStandard]],
     alleles_version: str,
+    alleles_last_updated: datetime,
     expected_result: HLAResult,
 ):
     interp: HLAInterpretation = HLAInterpretation(
@@ -540,5 +548,7 @@ def test_hla_result_build_from_interpretation(
         allele_frequencies=frequencies,
         b5701_standards=b5701_standards,
     )
-    result: HLAResult = HLAResult.build_from_interpretation(interp, alleles_version)
+    result: HLAResult = HLAResult.build_from_interpretation(
+        interp, alleles_version, alleles_last_updated
+    )
     assert result == expected_result
