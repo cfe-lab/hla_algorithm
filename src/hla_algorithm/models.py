@@ -98,16 +98,19 @@ class HLACombinedStandard(BaseModel):
 
 class HLAMismatch(BaseModel):
     index: int
-    observed_base: str
-    expected_base: str
+    sequence_base: str
+    standard_base: str
 
     def __str__(self):
-        return f"{self.index}:{self.observed_base}->{self.expected_base}"
+        return f"{self.index}:{self.sequence_base}->{self.standard_base}"
 
 
 class HLAMatchDetails(BaseModel):
-    mismatch_count: int
     mismatches: list[HLAMismatch]
+
+    @property
+    def mismatch_count(self) -> int:
+        return len(self.mismatches)
 
 
 class HLAProteinPair(BaseModel):

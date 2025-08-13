@@ -1,8 +1,9 @@
+from datetime import datetime
 from typing import Final, Optional
 
 import pytest
 
-from hla_algorithm.interpret_from_json_lib import HLAInput, HLAResult
+from hla_algorithm.interpret_from_json_lib import HLAInput, HLAMatchAdaptor, HLAResult
 from hla_algorithm.models import (
     HLACombinedStandard,
     HLAInterpretation,
@@ -31,15 +32,31 @@ def dummy_matches(locus: HLA_LOCUS) -> dict[HLACombinedStandard, HLAMatchDetails
         HLACombinedStandard(
             standard_bin=(1, 4, 9, 4),
             possible_allele_pairs=((f"{locus}*01:01:01", f"{locus}*02:02:02"),),
-        ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
+        ): HLAMatchDetails(
+            mismatches=[
+                HLAMismatch(index=55, sequence_base="A", standard_base="G"),
+                HLAMismatch(index=62, sequence_base="A", standard_base="R"),
+            ]
+        ),
         HLACombinedStandard(
             standard_bin=(1, 4, 9, 2),
             possible_allele_pairs=((f"{locus}*10:01:15", f"{locus}*20:02:03"),),
-        ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
+        ): HLAMatchDetails(
+            mismatches=[
+                HLAMismatch(index=45, sequence_base="T", standard_base="C"),
+                HLAMismatch(index=48, sequence_base="R", standard_base="C"),
+            ]
+        ),
         HLACombinedStandard(
             standard_bin=(2, 4, 9, 2),
             possible_allele_pairs=((f"{locus}*10:01:10", f"{locus}*20:22:20"),),
-        ): HLAMatchDetails(mismatch_count=3, mismatches=[]),
+        ): HLAMatchDetails(
+            mismatches=[
+                HLAMismatch(index=45, sequence_base="T", standard_base="C"),
+                HLAMismatch(index=57, sequence_base="R", standard_base="Y"),
+                HLAMismatch(index=122, sequence_base="R", standard_base="G"),
+            ]
+        ),
         HLACombinedStandard(
             standard_bin=(2, 4, 10, 2),
             possible_allele_pairs=(
@@ -47,23 +64,11 @@ def dummy_matches(locus: HLA_LOCUS) -> dict[HLACombinedStandard, HLAMatchDetails
                 (f"{locus}*10:01:10", f"{locus}*111:22:22"),
             ),
         ): HLAMatchDetails(
-            mismatch_count=1,
             mismatches=[
-                HLAMismatch(index=100, observed_base="A", expected_base="T"),
-                HLAMismatch(index=150, observed_base="T", expected_base="G"),
-            ],
+                HLAMismatch(index=100, sequence_base="A", standard_base="T"),
+                HLAMismatch(index=150, sequence_base="T", standard_base="G"),
+            ]
         ),
-    }
-
-
-def dummy_matches_no_mismatches(
-    locus: HLA_LOCUS,
-) -> dict[HLACombinedStandard, HLAMatchDetails]:
-    return {
-        HLACombinedStandard(
-            standard_bin=(2, 2, 1, 2, 1, 4, 4, 2, 8),
-            possible_allele_pairs=((f"{locus}*01:01:01", f"{locus}*02:02:02"),),
-        ): HLAMatchDetails(mismatch_count=0, mismatches=[]),
     }
 
 
@@ -87,17 +92,24 @@ MATCHES_FOR_B5701_CASES: dict[HLACombinedStandard, HLAMatchDetails] = {
         standard_bin=(1, 4, 9, 4),
         possible_allele_pairs=(("B*57:01:01", "B*57:01:01"),),
     ): HLAMatchDetails(
-        mismatch_count=1,
-        mismatches=[HLAMismatch(index=3, observed_base="A", expected_base="W")],
+        mismatches=[HLAMismatch(index=3, sequence_base="A", standard_base="W")]
     ),
     HLACombinedStandard(
         standard_bin=(1, 4, 9, 2),
         possible_allele_pairs=(("B*57:01:15", "B*57:01:03"),),
-    ): HLAMatchDetails(mismatch_count=1, mismatches=[]),
+    ): HLAMatchDetails(
+        mismatches=[HLAMismatch(index=7, sequence_base="R", standard_base="W")]
+    ),
     HLACombinedStandard(
         standard_bin=(2, 4, 9, 2),
         possible_allele_pairs=(("B*57:02:33", "B*56:04:22"),),
-    ): HLAMatchDetails(mismatch_count=3, mismatches=[]),
+    ): HLAMatchDetails(
+        mismatches=[
+            HLAMismatch(index=33, sequence_base="A", standard_base="C"),
+            HLAMismatch(index=36, sequence_base="A", standard_base="G"),
+            HLAMismatch(index=122, sequence_base="C", standard_base="R"),
+        ]
+    ),
     HLACombinedStandard(
         standard_bin=(2, 4, 10, 2),
         possible_allele_pairs=(
@@ -105,11 +117,7 @@ MATCHES_FOR_B5701_CASES: dict[HLACombinedStandard, HLAMatchDetails] = {
             ("B*57:04:10", "B*57:01:22"),
         ),
     ): HLAMatchDetails(
-        mismatch_count=1,
-        mismatches=[
-            HLAMismatch(index=100, observed_base="A", expected_base="T"),
-            HLAMismatch(index=150, observed_base="T", expected_base="G"),
-        ],
+        mismatches=[HLAMismatch(index=100, sequence_base="A", standard_base="T")],
     ),
 }
 
@@ -346,13 +354,52 @@ def test_hla_input_hla_sequence_locus_bc():
 
 
 @pytest.mark.parametrize(
-    "hla_sequence, matches, frequencies, b5701_standards, expected_result",
+    "raw_mismatches,raw_expected_result",
+    [
+        pytest.param([], [], id="no_mismatches"),
+        pytest.param(
+            [HLAMismatch(index=100, sequence_base="A", standard_base="T")],
+            ["100:A->T"],
+            id="single_mismatch",
+        ),
+        pytest.param(
+            [
+                HLAMismatch(index=100, sequence_base="A", standard_base="T"),
+                HLAMismatch(index=150, sequence_base="T", standard_base="G"),
+                HLAMismatch(index=157, sequence_base="C", standard_base="R"),
+            ],
+            ["100:A->T", "150:T->G", "157:C->R"],
+            id="multiple_mismatches",
+        ),
+    ],
+)
+def test_hla_match_adaptor_from_match_details(
+    raw_mismatches: list[HLAMismatch],
+    raw_expected_result: list[str],
+):
+    match_details: HLAMatchDetails = HLAMatchDetails(
+        mismatch_count=len(raw_mismatches), mismatches=raw_mismatches
+    )
+    expected_result: HLAMatchAdaptor = HLAMatchAdaptor(
+        mismatch_count=len(raw_expected_result), mismatches=raw_expected_result
+    )
+    result: HLAMatchAdaptor = HLAMatchAdaptor.from_match_details(match_details)
+    assert result == expected_result
+
+
+@pytest.mark.parametrize(
+    (
+        "hla_sequence, matches, frequencies, b5701_standards, alleles_version, "
+        "alleles_last_updated, expected_result"
+    ),
     [
         pytest.param(
             dummy_hla_sequence("A"),
             dummy_matches("A"),
             DUMMY_FREQUENCIES,
             None,
+            "v0.0.0-testing",
+            datetime(2025, 8, 12, 17, 0, 0),
             HLAResult(
                 seqs=["CCACAGGCT"],
                 alleles_all=[
@@ -367,8 +414,28 @@ def test_hla_input_hla_sequence_locus_bc():
                 ambiguous=True,
                 homozygous=False,
                 locus="A",
+                alleles_version="v0.0.0-testing",
+                alleles_last_updated=datetime(2025, 8, 12, 17, 0, 0),
                 b5701=False,
                 dist_b5701=None,
+                all_mismatches={
+                    "A*01:01:01 - A*02:02:02": HLAMatchAdaptor(
+                        mismatch_count=2,
+                        mismatches=["55:A->G", "62:A->R"],
+                    ),
+                    "A*10:01:15 - A*20:02:03": HLAMatchAdaptor(
+                        mismatch_count=2,
+                        mismatches=["45:T->C", "48:R->C"],
+                    ),
+                    "A*10:01:10 - A*20:22:20": HLAMatchAdaptor(
+                        mismatch_count=3,
+                        mismatches=["45:T->C", "57:R->Y", "122:R->G"],
+                    ),
+                    "A*10:01:10 - A*20:01|A*10:01:10 - A*111:22:22": HLAMatchAdaptor(
+                        mismatch_count=2,
+                        mismatches=["100:A->T", "150:T->G"],
+                    ),
+                },
             ),
             id="a_typical_case",
         ),
@@ -377,6 +444,8 @@ def test_hla_input_hla_sequence_locus_bc():
             MATCHES_FOR_B5701_CASES,
             FREQUENCIES_FOR_B5701_CASES,
             B5701_CASE_STANDARDS,
+            "v0.0.0-testing",
+            datetime(2025, 8, 12, 17, 0, 0),
             HLAResult(
                 seqs=["CCAC", "AGGCT"],
                 alleles_all=[
@@ -391,8 +460,28 @@ def test_hla_input_hla_sequence_locus_bc():
                 ambiguous=False,
                 homozygous=True,
                 locus="B",
+                alleles_version="v0.0.0-testing",
+                alleles_last_updated=datetime(2025, 8, 12, 17, 0, 0),
                 b5701=True,
                 dist_b5701=1,
+                all_mismatches={
+                    "B*57:01:01 - B*57:01:01": HLAMatchAdaptor(
+                        mismatch_count=1,
+                        mismatches=["3:A->W"],
+                    ),
+                    "B*57:01:15 - B*57:01:03": HLAMatchAdaptor(
+                        mismatch_count=1,
+                        mismatches=["7:R->W"],
+                    ),
+                    "B*57:02:33 - B*56:04:22": HLAMatchAdaptor(
+                        mismatch_count=3,
+                        mismatches=["33:A->C", "36:A->G", "122:C->R"],
+                    ),
+                    "B*57:02:10 - B*57:01:01:03N|B*57:04:10 - B*57:01:22": HLAMatchAdaptor(
+                        mismatch_count=1,
+                        mismatches=["100:A->T"],
+                    ),
+                },
             ),
             id="b_typical_case",
         ),
@@ -401,6 +490,8 @@ def test_hla_input_hla_sequence_locus_bc():
             dummy_matches("C"),
             DUMMY_FREQUENCIES,
             None,
+            "v0.0.0-testing",
+            datetime(2025, 8, 12, 17, 0, 0),
             HLAResult(
                 seqs=["CCAC", "AGGCT"],
                 alleles_all=[
@@ -415,8 +506,28 @@ def test_hla_input_hla_sequence_locus_bc():
                 ambiguous=True,
                 homozygous=False,
                 locus="C",
+                alleles_version="v0.0.0-testing",
+                alleles_last_updated=datetime(2025, 8, 12, 17, 0, 0),
                 b5701=False,
                 dist_b5701=None,
+                all_mismatches={
+                    "C*01:01:01 - C*02:02:02": HLAMatchAdaptor(
+                        mismatch_count=2,
+                        mismatches=["55:A->G", "62:A->R"],
+                    ),
+                    "C*10:01:15 - C*20:02:03": HLAMatchAdaptor(
+                        mismatch_count=2,
+                        mismatches=["45:T->C", "48:R->C"],
+                    ),
+                    "C*10:01:10 - C*20:22:20": HLAMatchAdaptor(
+                        mismatch_count=3,
+                        mismatches=["45:T->C", "57:R->Y", "122:R->G"],
+                    ),
+                    "C*10:01:10 - C*20:01|C*10:01:10 - C*111:22:22": HLAMatchAdaptor(
+                        mismatch_count=2,
+                        mismatches=["100:A->T", "150:T->G"],
+                    ),
+                },
             ),
             id="c_typical_case",
         ),
@@ -427,6 +538,8 @@ def test_hla_result_build_from_interpretation(
     matches: dict[HLACombinedStandard, HLAMatchDetails],
     frequencies: dict[HLAProteinPair, int],
     b5701_standards: Optional[list[HLAStandard]],
+    alleles_version: str,
+    alleles_last_updated: datetime,
     expected_result: HLAResult,
 ):
     interp: HLAInterpretation = HLAInterpretation(
@@ -435,5 +548,7 @@ def test_hla_result_build_from_interpretation(
         allele_frequencies=frequencies,
         b5701_standards=b5701_standards,
     )
-    result: HLAResult = HLAResult.build_from_interpretation(interp)
+    result: HLAResult = HLAResult.build_from_interpretation(
+        interp, alleles_version, alleles_last_updated
+    )
     assert result == expected_result

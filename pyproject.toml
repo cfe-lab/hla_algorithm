@@ -102,7 +102,7 @@ package = true
 
 [tool.uv-dynamic-versioning]
 vcs = "git"
-style = "semver"
+style = "pep440"
 fallback-version = "0.0.0"
 
 [tool.pytest.ini_options]

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -24,6 +25,7 @@ class HLAInput(BaseModel):
     seq1: str
     seq2: Optional[str]
     locus: HLA_LOCUS
+    threshold: Optional[int] = None
     hla_std_path: Optional[str] = None
     hla_freq_path: Optional[str] = None
 
@@ -81,6 +83,22 @@ class HLAInput(BaseModel):
         )
 
 
+class HLAMatchAdaptor(BaseModel):
+    """
+    An "adaptor" for HLAMatchDetails for inclusion in an HLAResult.
+    """
+
+    mismatch_count: int
+    mismatches: list[str]
+
+    @classmethod
+    def from_match_details(cls, match: HLAMatchDetails) -> "HLAMatchAdaptor":
+        return cls(
+            mismatch_count=match.mismatch_count,
+            mismatches=[str(x) for x in match.mismatches],
+        )
+
+
 class HLAResult(BaseModel):
     seqs: list[str] = Field(default_factory=list)
     alleles_all: list[str] = Field(default_factory=list)
@@ -91,12 +109,20 @@ class HLAResult(BaseModel):
     homozygous: bool = False
     locus: HLA_LOCUS = "B"
     alg_version: str = __version__
+    alleles_version: str = ""
+    alleles_last_updated: datetime = Field(default_factory=datetime.now)
     b5701: bool = False
     dist_b5701: Optional[int] = None
     errors: list[str] = Field(default_factory=list)
+    all_mismatches: dict[str, HLAMatchAdaptor] = Field(default_factory=dict)
 
     @classmethod
-    def build_from_interpretation(cls, interp: HLAInterpretation) -> "HLAResult":
+    def build_from_interpretation(
+        cls,
+        interp: HLAInterpretation,
+        alleles_version: str,
+        alleles_last_updated: datetime,
+    ) -> "HLAResult":
         aps: AllelePairs = interp.best_matching_allele_pairs()
 
         # Pick one of the combined standards represented by what goes into
@@ -124,6 +150,12 @@ class HLAResult(BaseModel):
             ambiguous=aps.is_ambiguous(),
             homozygous=aps.is_homozygous(),
             locus=interp.locus,
+            alleles_version=alleles_version,
+            alleles_last_updated=alleles_last_updated,
             b5701=interp.is_b5701(),
             dist_b5701=interp.distance_from_b7501(),
+            all_mismatches={
+                cs.get_allele_pair_str(): HLAMatchAdaptor.from_match_details(match)
+                for cs, match in interp.matches.items()
+            },
         )
