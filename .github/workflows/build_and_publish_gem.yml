@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      HLA_ALGORITHM_VERSION: ${{ github.ref_name }}
+      RELEASE_NAME: ${{ github.ref_name }}
       BUILD_PATH: ${{ github.workspace }}/ruby
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -25,6 +25,7 @@ jobs:
     - name: Build the Ruby package
       run: |
         cd $BUILD_PATH
+        export HLA_ALGORITHM_VERSION=$( echo $RELEASE_NAME | sed 's/^[vV]//' )
         gem build ${BUILD_PATH}/hla_algorithm.gemspec
 
     - name: Publish gem to GitHub Packages
@@ -38,4 +39,4 @@ jobs:
         OWNER: ${{ github.repository_owner }}
 
     - name: Add gem as a release asset
-      run: gh release upload $HLA_ALGORITHM_VERSION ${BUILD_PATH}/*.gem
+      run: gh release upload $RELEASE_NAME ${BUILD_PATH}/*.gem
