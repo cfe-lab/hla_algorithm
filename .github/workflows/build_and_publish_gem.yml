@@ -14,29 +14,31 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-    - name: Install Ruby
-      run: |
-        sudo apt update
-        sudo apt install -y ruby
+      - name: Install Ruby
+        run: |
+          sudo apt update
+          sudo apt install -y ruby
 
-    - name: Checkout code from repo
-      uses: actions/checkout@v4
+      - name: Checkout code from repo
+        uses: actions/checkout@v4
 
-    - name: Build the Ruby package
-      run: |
-        cd $BUILD_PATH
-        export HLA_ALGORITHM_VERSION=$( echo $RELEASE_NAME | sed 's/^[vV]//' )
-        gem build ${BUILD_PATH}/hla_algorithm.gemspec
+      - name: Build the Ruby package
+        run: |
+          cd $BUILD_PATH
+          export HLA_ALGORITHM_VERSION=$( echo $RELEASE_NAME | sed 's/^[vV]//' )
+          gem build ${BUILD_PATH}/hla_algorithm.gemspec
 
-    - name: Publish gem to GitHub Packages
-      run: |
-        mkdir -p $HOME/.gem
-        touch $HOME/.gem/credentials
-        chmod 0600 $HOME/.gem/credentials
-        printf -- "---\n:github: Bearer ${GH_TOKEN}\n" > $HOME/.gem/credentials
-        gem push --KEY github --host https://rubygems.pkg.github.com/${OWNER} ${BUILD_PATH}/*.gem
-      env:
-        OWNER: ${{ github.repository_owner }}
+      - name: Publish gem to GitHub Packages
+        run: |
+          mkdir -p $HOME/.gem
+          touch $HOME/.gem/credentials
+          chmod 0600 $HOME/.gem/credentials
+          printf -- \
+            "---\n:github: Bearer ${GH_TOKEN}\n" > $HOME/.gem/credentials
+          gem push --KEY github --host \
+            https://rubygems.pkg.github.com/${OWNER} ${BUILD_PATH}/*.gem
+        env:
+          OWNER: ${{ github.repository_owner }}
 
-    - name: Add gem as a release asset
-      run: gh release upload $RELEASE_NAME ${BUILD_PATH}/*.gem
+      - name: Add gem as a release asset
+        run: gh release upload $RELEASE_NAME ${BUILD_PATH}/*.gem
