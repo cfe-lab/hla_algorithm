@@ -377,9 +377,7 @@ def test_hla_match_adaptor_from_match_details(
     raw_mismatches: list[HLAMismatch],
     raw_expected_result: list[str],
 ):
-    match_details: HLAMatchDetails = HLAMatchDetails(
-        mismatch_count=len(raw_mismatches), mismatches=raw_mismatches
-    )
+    match_details: HLAMatchDetails = HLAMatchDetails(mismatches=raw_mismatches)
     expected_result: HLAMatchAdaptor = HLAMatchAdaptor(
         mismatch_count=len(raw_expected_result), mismatches=raw_expected_result
     )
