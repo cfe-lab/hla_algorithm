@@ -4,7 +4,7 @@ from datetime import datetime
 from io import StringIO
 from pathlib import Path
 from typing import Optional, cast
-from unittest.mock import MagicMock, _Call, patch
+from unittest.mock import MagicMock, _Call
 
 import numpy as np
 import pytest
