@@ -131,89 +131,89 @@ def hla_algorithm():
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_allmatch",
+                    allele="A*07:08:09G",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
                 ),
             ],
             [0, 1, 5],
-            [((1, 2, 4, 8), 0, ("std_allmatch", "std_allmatch"))],
+            [((1, 2, 4, 8), 0, ("A*07:08:09G", "A*07:08:09G"))],
             id="one_combo_all_matches",
         ),
         pytest.param(
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std1",
+                    allele="B*57:01:02",
                     two=(1, 2),
                     three=(4, 4),
                     mismatch=1,
                 )
             ],
             [0, 1, 2, 5],
-            [((1, 2, 4, 4), 1, ("std1", "std1"))],
+            [((1, 2, 4, 4), 1, ("B*57:01:02", "B*57:01:02"))],
             id="one_combo_retained_regardless_of_threshold",
         ),
         pytest.param(
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_allmismatch",
+                    allele="A*11:01:01:01",
                     two=(8, 4),
                     three=(2, 1),
                     mismatch=4,
                 )
             ],
             [0, 1, 3, 4, 5, 10],
-            [((8, 4, 2, 1), 4, ("std_allmismatch", "std_allmismatch"))],
+            [((8, 4, 2, 1), 4, ("A*11:01:01:01", "A*11:01:01:01"))],
             id="only_combo_retained_regardless_of_threshold_more_mismatches",
         ),
         pytest.param(
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_twomatch",
+                    allele="A*55:01",
                     two=(1, 4),
                     three=(2, 8),
                     mismatch=2,
                 ),
             ],
             [0, 1, 2, 3, 5],
-            [((1, 4, 2, 8), 2, ("std_twomatch", "std_twomatch"))],
+            [((1, 4, 2, 8), 2, ("A*55:01", "A*55:01"))],
             id="one_combo_two_mismatches",
         ),
         pytest.param(
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_allmatch",
+                    allele="A*07:08:09G",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
-                    allele="std_onemismatch",
+                    allele="A*30:08:01",
                     two=(1, 4),
                     three=(4, 8),
                     mismatch=1,
                 ),
             ],
             [0],
-            [((1, 2, 4, 8), 0, ("std_allmatch", "std_allmatch"))],
+            [((1, 2, 4, 8), 0, ("A*07:08:09G", "A*07:08:09G"))],
             id="combo_with_mismatch_above_threshold",
         ),
         pytest.param(
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_onemismatch",
+                    allele="A*30:08:01",
                     two=(1, 4),
                     three=(4, 8),
                     mismatch=1,
                 ),
                 HLAStandardMatch(
-                    allele="std_allmatch",
+                    allele="A*07:08:09G",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
@@ -224,17 +224,17 @@ def hla_algorithm():
                 (
                     (1, 4, 4, 8),
                     1,
-                    ("std_onemismatch", "std_onemismatch"),
+                    ("A*30:08:01", "A*30:08:01"),
                 ),
                 (
                     (1, 6, 4, 8),
                     1,
-                    ("std_allmatch", "std_onemismatch"),
+                    ("A*07:08:09G", "A*30:08:01"),
                 ),
                 (
                     (1, 2, 4, 8),
                     0,
-                    ("std_allmatch", "std_allmatch"),
+                    ("A*07:08:09G", "A*07:08:09G"),
                 ),
             ],
             id="combo_with_mismatch_above_threshold_previous_bests_reported",
@@ -243,13 +243,49 @@ def hla_algorithm():
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_allmatch",
+                    allele="A*30:100:01",
+                    two=(1, 4),
+                    three=(4, 8),
+                    mismatch=1,
+                ),
+                HLAStandardMatch(
+                    allele="A*30:21:09G",
+                    two=(1, 2),
+                    three=(4, 8),
+                    mismatch=0,
+                ),
+            ],
+            [0],
+            [
+                (
+                    (1, 4, 4, 8),
+                    1,
+                    ("A*30:100:01", "A*30:100:01"),
+                ),
+                (
+                    (1, 6, 4, 8),
+                    1,
+                    ("A*30:21:09G", "A*30:100:01"),
+                ),
+                (
+                    (1, 2, 4, 8),
+                    0,
+                    ("A*30:21:09G", "A*30:21:09G"),
+                ),
+            ],
+            id="combo_with_mismatch_above_threshold_previous_bests_reported_pairs_sorted_by_coordinate",
+        ),
+        pytest.param(
+            (1, 2, 4, 8),
+            [
+                HLAStandardMatch(
+                    allele="A*07:08:09G",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
-                    allele="std_onemismatch",
+                    allele="A*30:08:01",
                     two=(1, 4),
                     three=(4, 8),
                     mismatch=1,
@@ -260,17 +296,17 @@ def hla_algorithm():
                 (
                     (1, 2, 4, 8),
                     0,
-                    ("std_allmatch", "std_allmatch"),
+                    ("A*07:08:09G", "A*07:08:09G"),
                 ),
                 (
                     (1, 6, 4, 8),
                     1,
-                    ("std_allmatch", "std_onemismatch"),
+                    ("A*07:08:09G", "A*30:08:01"),
                 ),
                 (
                     (1, 4, 4, 8),
                     1,
-                    ("std_onemismatch", "std_onemismatch"),
+                    ("A*30:08:01", "A*30:08:01"),
                 ),
             ],
             id="several_combos_all_below_threshold",
@@ -279,13 +315,13 @@ def hla_algorithm():
             (9, 6, 4, 6),
             [
                 HLAStandardMatch(
-                    allele="std1",
+                    allele="B*57:01:02",
                     two=(1, 2),
                     three=(4, 4),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
-                    allele="std2",
+                    allele="B*58:22:33G",
                     two=(8, 4),
                     three=(4, 8),
                     mismatch=1,
@@ -296,12 +332,12 @@ def hla_algorithm():
                 (
                     (1, 2, 4, 4),
                     3,
-                    ("std1", "std1"),
+                    ("B*57:01:02", "B*57:01:02"),
                 ),
                 (
                     (9, 6, 4, 12),
                     1,
-                    ("std1", "std2"),
+                    ("B*57:01:02", "B*58:22:33G"),
                 ),
             ],
             id="first_above_threshold_second_below_rest_rejected",
@@ -310,13 +346,13 @@ def hla_algorithm():
             (9, 6, 4, 6),
             [
                 HLAStandardMatch(
-                    allele="std1",
+                    allele="B*57:01:02",
                     two=(1, 2),
                     three=(4, 4),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
-                    allele="std2",
+                    allele="B*58:22:33G",
                     two=(8, 4),
                     three=(4, 8),
                     mismatch=1,
@@ -327,17 +363,17 @@ def hla_algorithm():
                 (
                     (1, 2, 4, 4),
                     3,
-                    ("std1", "std1"),
+                    ("B*57:01:02", "B*57:01:02"),
                 ),
                 (
                     (9, 6, 4, 12),
                     1,
-                    ("std1", "std2"),
+                    ("B*57:01:02", "B*58:22:33G"),
                 ),
                 (
                     (8, 4, 4, 8),
                     3,
-                    ("std2", "std2"),
+                    ("B*58:22:33G", "B*58:22:33G"),
                 ),
             ],
             id="all_combos_have_mismatches_below_threshold",
@@ -346,45 +382,45 @@ def hla_algorithm():
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_allmatch",
+                    allele="A*07:08:09G",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
-                    allele="std_1mismatch",
+                    allele="A*04:01:01",
                     two=(1, 2),
                     three=(4, 4),
                     mismatch=1,
                 ),
                 HLAStandardMatch(
-                    allele="std_allmismatch",
+                    allele="A*11:01:01:01",
                     two=(8, 4),
                     three=(2, 1),
                     mismatch=4,
                 ),
             ],
             [0],
-            [((1, 2, 4, 8), 0, ("std_allmatch", "std_allmatch"))],
+            [((1, 2, 4, 8), 0, ("A*07:08:09G", "A*07:08:09G"))],
             id="more_standards_only_first_one_below_threshold",
         ),
         pytest.param(
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_1mismatch",
+                    allele="A*04:01:01",
                     two=(1, 2),
                     three=(4, 4),
                     mismatch=1,
                 ),
                 HLAStandardMatch(
-                    allele="std_allmatch",
+                    allele="A*07:08:09G",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
-                    allele="std_allmismatch",
+                    allele="A*11:01:01:01",
                     two=(8, 4),
                     three=(2, 1),
                     mismatch=4,
@@ -392,9 +428,9 @@ def hla_algorithm():
             ],
             [0],
             [
-                ((1, 2, 4, 4), 1, ("std_1mismatch", "std_1mismatch")),
-                ((1, 2, 4, 12), 1, ("std_1mismatch", "std_allmatch")),
-                ((1, 2, 4, 8), 0, ("std_allmatch", "std_allmatch")),
+                ((1, 2, 4, 4), 1, ("A*04:01:01", "A*04:01:01")),
+                ((1, 2, 4, 12), 1, ("A*04:01:01", "A*07:08:09G")),
+                ((1, 2, 4, 8), 0, ("A*07:08:09G", "A*07:08:09G")),
             ],
             id="more_standards_some_reported_early_late_ones_rejected",
         ),
@@ -402,19 +438,19 @@ def hla_algorithm():
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_allmismatch",
+                    allele="A*11:01:01:01",
                     two=(8, 4),
                     three=(2, 1),
                     mismatch=4,
                 ),
                 HLAStandardMatch(
-                    allele="std_1mismatch",
+                    allele="A*04:01:01",
                     two=(1, 2),
                     three=(4, 4),
                     mismatch=1,
                 ),
                 HLAStandardMatch(
-                    allele="std_allmatch",
+                    allele="A*07:08:09G",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
@@ -422,11 +458,11 @@ def hla_algorithm():
             ],
             [0],
             [
-                ((8, 4, 2, 1), 4, ("std_allmismatch", "std_allmismatch")),
-                ((9, 6, 6, 5), 4, ("std_1mismatch", "std_allmismatch")),
-                ((1, 2, 4, 4), 1, ("std_1mismatch", "std_1mismatch")),
-                ((1, 2, 4, 12), 1, ("std_1mismatch", "std_allmatch")),
-                ((1, 2, 4, 8), 0, ("std_allmatch", "std_allmatch")),
+                ((8, 4, 2, 1), 4, ("A*11:01:01:01", "A*11:01:01:01")),
+                ((9, 6, 6, 5), 4, ("A*04:01:01", "A*11:01:01:01")),
+                ((1, 2, 4, 4), 1, ("A*04:01:01", "A*04:01:01")),
+                ((1, 2, 4, 12), 1, ("A*04:01:01", "A*07:08:09G")),
+                ((1, 2, 4, 8), 0, ("A*07:08:09G", "A*07:08:09G")),
             ],
             id="running_threshold_is_reduced_in_steps",
         ),
@@ -434,19 +470,19 @@ def hla_algorithm():
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_allmatch",
+                    allele="A*07:08:09G",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
-                    allele="std_1mismatch",
+                    allele="A*04:01:01",
                     two=(1, 2),
                     three=(4, 4),
                     mismatch=1,
                 ),
                 HLAStandardMatch(
-                    allele="std_allmismatch",
+                    allele="A*11:01:01:01",
                     two=(8, 4),
                     three=(2, 1),
                     mismatch=4,
@@ -454,12 +490,12 @@ def hla_algorithm():
             ],
             [4, 5, 10],
             [
-                ((1, 2, 4, 8), 0, ("std_allmatch", "std_allmatch")),
-                ((1, 2, 4, 12), 1, ("std_1mismatch", "std_allmatch")),
-                ((1, 2, 4, 4), 1, ("std_1mismatch", "std_1mismatch")),
-                ((9, 6, 6, 9), 4, ("std_allmatch", "std_allmismatch")),
-                ((9, 6, 6, 5), 4, ("std_1mismatch", "std_allmismatch")),
-                ((8, 4, 2, 1), 4, ("std_allmismatch", "std_allmismatch")),
+                ((1, 2, 4, 8), 0, ("A*07:08:09G", "A*07:08:09G")),
+                ((1, 2, 4, 12), 1, ("A*04:01:01", "A*07:08:09G")),
+                ((1, 2, 4, 4), 1, ("A*04:01:01", "A*04:01:01")),
+                ((9, 6, 6, 9), 4, ("A*07:08:09G", "A*11:01:01:01")),
+                ((9, 6, 6, 5), 4, ("A*04:01:01", "A*11:01:01:01")),
+                ((8, 4, 2, 1), 4, ("A*11:01:01:01", "A*11:01:01:01")),
             ],
             id="all_combos_below_threshold",
         ),
@@ -467,25 +503,25 @@ def hla_algorithm():
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std1",
+                    allele="B*57:01:02",
                     two=(2, 2),
                     three=(4, 4),
                     mismatch=2,
                 ),
                 HLAStandardMatch(
-                    allele="std2",
+                    allele="B*58:22:33G",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
-                    allele="std3",
+                    allele="B*62:01",
                     two=(1, 2),
                     three=(4, 4),
                     mismatch=1,
                 ),
                 HLAStandardMatch(
-                    allele="std4",
+                    allele="B*110:01:01:01N",
                     two=(2, 2),
                     three=(4, 8),
                     mismatch=1,
@@ -493,18 +529,61 @@ def hla_algorithm():
             ],
             [2, 3, 10],
             [
-                ((2, 2, 4, 4), 2, ("std1", "std1")),
-                ((3, 2, 4, 12), 2, ("std1", "std2")),
-                ((1, 2, 4, 8), 0, ("std2", "std2")),
-                ((3, 2, 4, 4), 2, ("std1", "std3")),
-                ((1, 2, 4, 12), 1, ("std2", "std3")),
-                ((1, 2, 4, 4), 1, ("std3", "std3")),
-                ((2, 2, 4, 12), 2, ("std1", "std4")),
-                ((3, 2, 4, 8), 1, ("std2", "std4")),
-                ((3, 2, 4, 12), 2, ("std3", "std4")),
-                ((2, 2, 4, 8), 1, ("std4", "std4")),
+                ((2, 2, 4, 4), 2, ("B*57:01:02", "B*57:01:02")),
+                ((3, 2, 4, 12), 2, ("B*57:01:02", "B*58:22:33G")),
+                ((1, 2, 4, 8), 0, ("B*58:22:33G", "B*58:22:33G")),
+                ((3, 2, 4, 4), 2, ("B*57:01:02", "B*62:01")),
+                ((1, 2, 4, 12), 1, ("B*58:22:33G", "B*62:01")),
+                ((1, 2, 4, 4), 1, ("B*62:01", "B*62:01")),
+                ((2, 2, 4, 12), 2, ("B*57:01:02", "B*110:01:01:01N")),
+                ((3, 2, 4, 8), 1, ("B*58:22:33G", "B*110:01:01:01N")),
+                ((3, 2, 4, 12), 2, ("B*62:01", "B*110:01:01:01N")),
+                ((2, 2, 4, 8), 1, ("B*110:01:01:01N", "B*110:01:01:01N")),
             ],
             id="several_standards_produce_same_sequence",
+        ),
+        pytest.param(
+            (1, 2, 4, 8),
+            [
+                HLAStandardMatch(
+                    allele="B*57:01:02",
+                    two=(2, 2),
+                    three=(4, 4),
+                    mismatch=2,
+                ),
+                HLAStandardMatch(
+                    allele="B*220:100:01",
+                    two=(1, 2),
+                    three=(4, 8),
+                    mismatch=0,
+                ),
+                HLAStandardMatch(
+                    allele="B*220:22:02",
+                    two=(1, 2),
+                    three=(4, 4),
+                    mismatch=1,
+                ),
+                HLAStandardMatch(
+                    allele="B*110:01:01:01N",
+                    two=(2, 2),
+                    three=(4, 8),
+                    mismatch=1,
+                ),
+            ],
+            [2, 3, 10],
+            [
+                ((2, 2, 4, 4), 2, ("B*57:01:02", "B*57:01:02")),
+                ((3, 2, 4, 12), 2, ("B*57:01:02", "B*220:100:01")),
+                ((1, 2, 4, 8), 0, ("B*220:100:01", "B*220:100:01")),
+                ((3, 2, 4, 4), 2, ("B*57:01:02", "B*220:22:02")),
+                ((1, 2, 4, 12), 1, ("B*220:22:02", "B*220:100:01")),
+                ((1, 2, 4, 4), 1, ("B*220:22:02", "B*220:22:02")),
+                ((2, 2, 4, 12), 2, ("B*57:01:02", "B*110:01:01:01N")),
+                ((3, 2, 4, 8), 1, ("B*110:01:01:01N", "B*220:100:01")),
+                ((3, 2, 4, 12), 2, ("B*110:01:01:01N", "B*220:22:02")),
+                ((2, 2, 4, 8), 1, ("B*110:01:01:01N", "B*110:01:01:01N")),
+            ],
+            id="several_standards_produce_same_sequence_pairs_sorted_by_coordinate",
         ),
     ],
 )
@@ -532,7 +611,7 @@ def test_combine_standards_stepper(
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_allmatch",
+                    allele="A*07:08:09G",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
@@ -542,7 +621,7 @@ def test_combine_standards_stepper(
             {
                 HLACombinedStandard(
                     standard_bin=(1, 2, 4, 8),
-                    possible_allele_pairs=(("std_allmatch", "std_allmatch"),),
+                    possible_allele_pairs=(("A*07:08:09G", "A*07:08:09G"),),
                 ): 0,
             },
             id="one_combo_all_matches",
@@ -551,7 +630,7 @@ def test_combine_standards_stepper(
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_twomatch",
+                    allele="A*55:01",
                     two=(1, 4),
                     three=(2, 8),
                     mismatch=2,
@@ -561,7 +640,7 @@ def test_combine_standards_stepper(
             {
                 HLACombinedStandard(
                     standard_bin=(1, 4, 2, 8),
-                    possible_allele_pairs=(("std_twomatch", "std_twomatch"),),
+                    possible_allele_pairs=(("A*55:01", "A*55:01"),),
                 ): 2,
             },
             id="one_combo_two_mismatches",
@@ -570,13 +649,13 @@ def test_combine_standards_stepper(
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_allmatch",
+                    allele="A*07:08:09G",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
-                    allele="std_allmatch2",
+                    allele="A*07:08:10",
                     two=(1, 4),
                     three=(4, 8),
                     mismatch=1,
@@ -586,7 +665,7 @@ def test_combine_standards_stepper(
             {
                 HLACombinedStandard(
                     standard_bin=(1, 2, 4, 8),
-                    possible_allele_pairs=(("std_allmatch", "std_allmatch"),),
+                    possible_allele_pairs=(("A*07:08:09G", "A*07:08:09G"),),
                 ): 0,
             },
             id="combo_with_mismatch_above_threshold",
@@ -595,13 +674,13 @@ def test_combine_standards_stepper(
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_allmatch",
+                    allele="A*07:08:09G",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
-                    allele="std_allmatch2",
+                    allele="A*07:08:10",
                     two=(1, 4),
                     three=(4, 8),
                     mismatch=1,
@@ -611,15 +690,15 @@ def test_combine_standards_stepper(
             {
                 HLACombinedStandard(
                     standard_bin=(1, 2, 4, 8),
-                    possible_allele_pairs=(("std_allmatch", "std_allmatch"),),
+                    possible_allele_pairs=(("A*07:08:09G", "A*07:08:09G"),),
                 ): 0,
                 HLACombinedStandard(
                     standard_bin=(1, 6, 4, 8),
-                    possible_allele_pairs=(("std_allmatch", "std_allmatch2"),),
+                    possible_allele_pairs=(("A*07:08:09G", "A*07:08:10"),),
                 ): 1,
                 HLACombinedStandard(
                     standard_bin=(1, 4, 4, 8),
-                    possible_allele_pairs=(("std_allmatch2", "std_allmatch2"),),
+                    possible_allele_pairs=(("A*07:08:10", "A*07:08:10"),),
                 ): 1,
             },
             id="several_combos_all_below_threshold",
@@ -628,13 +707,13 @@ def test_combine_standards_stepper(
             (9, 6, 4, 6),
             [
                 HLAStandardMatch(
-                    allele="std_allmatch",
+                    allele="A*07:08:09G",
                     two=(1, 2),
                     three=(4, 4),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
-                    allele="std_1mismatch2",
+                    allele="A*04:01:02",
                     two=(8, 4),
                     three=(4, 8),
                     mismatch=1,
@@ -644,7 +723,7 @@ def test_combine_standards_stepper(
             {
                 HLACombinedStandard(
                     standard_bin=(9, 6, 4, 12),
-                    possible_allele_pairs=(("std_1mismatch2", "std_allmatch"),),
+                    possible_allele_pairs=(("A*04:01:02", "A*07:08:09G"),),
                 ): 1,
             },
             id="best_match_has_mismatch_others_rejected",
@@ -654,13 +733,13 @@ def test_combine_standards_stepper(
             (9, 6, 4, 6),
             [
                 HLAStandardMatch(
-                    allele="std_allmatch",
+                    allele="A*07:08:09G",
                     two=(1, 2),
                     three=(4, 4),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
-                    allele="std_1mismatch2",
+                    allele="A*04:01:02",
                     two=(8, 4),
                     three=(4, 8),
                     mismatch=1,
@@ -670,15 +749,15 @@ def test_combine_standards_stepper(
             {
                 HLACombinedStandard(
                     standard_bin=(9, 6, 4, 12),
-                    possible_allele_pairs=(("std_1mismatch2", "std_allmatch"),),
+                    possible_allele_pairs=(("A*04:01:02", "A*07:08:09G"),),
                 ): 1,
                 HLACombinedStandard(
                     standard_bin=(1, 2, 4, 4),
-                    possible_allele_pairs=(("std_allmatch", "std_allmatch"),),
+                    possible_allele_pairs=(("A*07:08:09G", "A*07:08:09G"),),
                 ): 3,
                 HLACombinedStandard(
                     standard_bin=(8, 4, 4, 8),
-                    possible_allele_pairs=(("std_1mismatch2", "std_1mismatch2"),),
+                    possible_allele_pairs=(("A*04:01:02", "A*04:01:02"),),
                 ): 3,
             },
             id="all_combos_have_mismatches_below_threshold",
@@ -688,7 +767,7 @@ def test_combine_standards_stepper(
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_1mismatch",
+                    allele="A*04:01:01",
                     two=(1, 2),
                     three=(4, 4),
                     mismatch=1,
@@ -698,7 +777,7 @@ def test_combine_standards_stepper(
             {
                 HLACombinedStandard(
                     standard_bin=(1, 2, 4, 4),
-                    possible_allele_pairs=(("std_1mismatch", "std_1mismatch"),),
+                    possible_allele_pairs=(("A*04:01:01", "A*04:01:01"),),
                 ): 1
             },
             id="one_combo_retained_regardless_of_threshold",
@@ -707,7 +786,7 @@ def test_combine_standards_stepper(
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_allmismatch",
+                    allele="A*11:01:01:01",
                     two=(8, 4),
                     three=(2, 1),
                     mismatch=4,
@@ -717,7 +796,7 @@ def test_combine_standards_stepper(
             {
                 HLACombinedStandard(
                     standard_bin=(8, 4, 2, 1),
-                    possible_allele_pairs=(("std_allmismatch", "std_allmismatch"),),
+                    possible_allele_pairs=(("A*11:01:01:01", "A*11:01:01:01"),),
                 ): 4,
             },
             id="only_combo_retained_regardless_of_threshold_more_mismatches",
@@ -727,19 +806,19 @@ def test_combine_standards_stepper(
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_allmatch",
+                    allele="A*07:08:09G",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
-                    allele="std_1mismatch",
+                    allele="A*04:01:01",
                     two=(1, 2),
                     three=(4, 4),
                     mismatch=1,
                 ),
                 HLAStandardMatch(
-                    allele="std_allmismatch",
+                    allele="A*11:01:01:01",
                     two=(8, 4),
                     three=(2, 1),
                     mismatch=4,
@@ -749,7 +828,7 @@ def test_combine_standards_stepper(
             {
                 HLACombinedStandard(
                     standard_bin=(1, 2, 4, 8),
-                    possible_allele_pairs=(("std_allmatch", "std_allmatch"),),
+                    possible_allele_pairs=(("A*07:08:09G", "A*07:08:09G"),),
                 ): 0,
             },
             id="several_combos_only_one_below_threshold",
@@ -758,19 +837,19 @@ def test_combine_standards_stepper(
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_allmatch",
+                    allele="A*07:08:09G",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
-                    allele="std_1mismatch",
+                    allele="A*04:01:01",
                     two=(1, 2),
                     three=(4, 4),
                     mismatch=1,
                 ),
                 HLAStandardMatch(
-                    allele="std_allmismatch",
+                    allele="A*11:01:01:01",
                     two=(8, 4),
                     three=(2, 1),
                     mismatch=4,
@@ -780,15 +859,15 @@ def test_combine_standards_stepper(
             {
                 HLACombinedStandard(
                     standard_bin=(1, 2, 4, 8),
-                    possible_allele_pairs=(("std_allmatch", "std_allmatch"),),
+                    possible_allele_pairs=(("A*07:08:09G", "A*07:08:09G"),),
                 ): 0,
                 HLACombinedStandard(
                     standard_bin=(1, 2, 4, 12),
-                    possible_allele_pairs=(("std_1mismatch", "std_allmatch"),),
+                    possible_allele_pairs=(("A*04:01:01", "A*07:08:09G"),),
                 ): 1,
                 HLACombinedStandard(
                     standard_bin=(1, 2, 4, 4),
-                    possible_allele_pairs=(("std_1mismatch", "std_1mismatch"),),
+                    possible_allele_pairs=(("A*04:01:01", "A*04:01:01"),),
                 ): 1,
             },
             id="several_combos_only_ones_below_threshold_retained",
@@ -797,19 +876,19 @@ def test_combine_standards_stepper(
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_allmatch",
+                    allele="A*07:08:09G",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
-                    allele="std_1mismatch",
+                    allele="A*04:01:01",
                     two=(1, 2),
                     three=(4, 4),
                     mismatch=1,
                 ),
                 HLAStandardMatch(
-                    allele="std_allmismatch",
+                    allele="A*11:01:01:01",
                     two=(8, 4),
                     three=(2, 1),
                     mismatch=4,
@@ -819,27 +898,27 @@ def test_combine_standards_stepper(
             {
                 HLACombinedStandard(
                     standard_bin=(1, 2, 4, 8),
-                    possible_allele_pairs=(("std_allmatch", "std_allmatch"),),
+                    possible_allele_pairs=(("A*07:08:09G", "A*07:08:09G"),),
                 ): 0,
                 HLACombinedStandard(
                     standard_bin=(1, 2, 4, 12),
-                    possible_allele_pairs=(("std_1mismatch", "std_allmatch"),),
+                    possible_allele_pairs=(("A*04:01:01", "A*07:08:09G"),),
                 ): 1,
                 HLACombinedStandard(
                     standard_bin=(1, 2, 4, 4),
-                    possible_allele_pairs=(("std_1mismatch", "std_1mismatch"),),
+                    possible_allele_pairs=(("A*04:01:01", "A*04:01:01"),),
                 ): 1,
                 HLACombinedStandard(
                     standard_bin=(9, 6, 6, 9),
-                    possible_allele_pairs=(("std_allmatch", "std_allmismatch"),),
+                    possible_allele_pairs=(("A*07:08:09G", "A*11:01:01:01"),),
                 ): 4,
                 HLACombinedStandard(
                     standard_bin=(9, 6, 6, 5),
-                    possible_allele_pairs=(("std_1mismatch", "std_allmismatch"),),
+                    possible_allele_pairs=(("A*04:01:01", "A*11:01:01:01"),),
                 ): 4,
                 HLACombinedStandard(
                     standard_bin=(8, 4, 2, 1),
-                    possible_allele_pairs=(("std_allmismatch", "std_allmismatch"),),
+                    possible_allele_pairs=(("A*11:01:01:01", "A*11:01:01:01"),),
                 ): 4,
             },
             id="several_combos_all_below_threshold_retained",
@@ -848,19 +927,19 @@ def test_combine_standards_stepper(
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_1mismatch",
+                    allele="A*04:01:01",
                     two=(1, 2),
                     three=(4, 4),
                     mismatch=1,
                 ),
                 HLAStandardMatch(
-                    allele="std_allmismatch",
+                    allele="A*11:01:01:01",
                     two=(8, 4),
                     three=(2, 1),
                     mismatch=4,
                 ),
                 HLAStandardMatch(
-                    allele="std_allmatch",
+                    allele="A*07:08:09G",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
@@ -870,7 +949,7 @@ def test_combine_standards_stepper(
             {
                 HLACombinedStandard(
                     standard_bin=(1, 2, 4, 8),
-                    possible_allele_pairs=(("std_allmatch", "std_allmatch"),),
+                    possible_allele_pairs=(("A*07:08:09G", "A*07:08:09G"),),
                 ): 0,
             },
             id="standard_as_second_part_of_combo_worse_than_already_known_combo_skipped_only_best_retained",
@@ -879,19 +958,19 @@ def test_combine_standards_stepper(
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std_1mismatch",
+                    allele="A*04:01:01",
                     two=(1, 2),
                     three=(4, 4),
                     mismatch=1,
                 ),
                 HLAStandardMatch(
-                    allele="std_allmismatch",
+                    allele="A*11:01:01:01",
                     two=(8, 4),
                     three=(2, 1),
                     mismatch=4,
                 ),
                 HLAStandardMatch(
-                    allele="std_allmatch",
+                    allele="A*07:08:09G",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
@@ -901,15 +980,15 @@ def test_combine_standards_stepper(
             {
                 HLACombinedStandard(
                     standard_bin=(1, 2, 4, 8),
-                    possible_allele_pairs=(("std_allmatch", "std_allmatch"),),
+                    possible_allele_pairs=(("A*07:08:09G", "A*07:08:09G"),),
                 ): 0,
                 HLACombinedStandard(
                     standard_bin=(1, 2, 4, 12),
-                    possible_allele_pairs=(("std_1mismatch", "std_allmatch"),),
+                    possible_allele_pairs=(("A*04:01:01", "A*07:08:09G"),),
                 ): 1,
                 HLACombinedStandard(
                     standard_bin=(1, 2, 4, 4),
-                    possible_allele_pairs=(("std_1mismatch", "std_1mismatch"),),
+                    possible_allele_pairs=(("A*04:01:01", "A*04:01:01"),),
                 ): 1,
             },
             id="standard_as_second_part_of_combo_worse_than_already_known_combo_skipped_under_threshold_retained",
@@ -918,25 +997,25 @@ def test_combine_standards_stepper(
             (1, 2, 4, 8),
             [
                 HLAStandardMatch(
-                    allele="std1",
+                    allele="B*57:01:02",
                     two=(2, 2),
                     three=(4, 4),
                     mismatch=2,
                 ),
                 HLAStandardMatch(
-                    allele="std2",
+                    allele="B*58:22:33G",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
-                    allele="std3",
+                    allele="B*62:01",
                     two=(1, 2),
                     three=(4, 4),
                     mismatch=1,
                 ),
                 HLAStandardMatch(
-                    allele="std4",
+                    allele="B*110:01:01:01N",
                     two=(2, 2),
                     three=(4, 8),
                     mismatch=1,
@@ -946,45 +1025,117 @@ def test_combine_standards_stepper(
             {
                 HLACombinedStandard(
                     standard_bin=(1, 2, 4, 8),
-                    possible_allele_pairs=(("std2", "std2"),),
+                    possible_allele_pairs=(("B*58:22:33G", "B*58:22:33G"),),
                 ): 0,
                 HLACombinedStandard(
                     standard_bin=(2, 2, 4, 4),
-                    possible_allele_pairs=(("std1", "std1"),),
+                    possible_allele_pairs=(("B*57:01:02", "B*57:01:02"),),
                 ): 2,
                 HLACombinedStandard(
                     standard_bin=(1, 2, 4, 4),
-                    possible_allele_pairs=(("std3", "std3"),),
+                    possible_allele_pairs=(("B*62:01", "B*62:01"),),
                 ): 1,
                 HLACombinedStandard(
                     standard_bin=(2, 2, 4, 8),
-                    possible_allele_pairs=(("std4", "std4"),),
+                    possible_allele_pairs=(("B*110:01:01:01N", "B*110:01:01:01N"),),
                 ): 1,
                 HLACombinedStandard(
                     standard_bin=(3, 2, 4, 12),
                     possible_allele_pairs=(
-                        ("std1", "std2"),
-                        ("std3", "std4"),
+                        ("B*57:01:02", "B*58:22:33G"),
+                        ("B*62:01", "B*110:01:01:01N"),
                     ),
                 ): 2,
                 HLACombinedStandard(
                     standard_bin=(3, 2, 4, 4),
-                    possible_allele_pairs=(("std1", "std3"),),
+                    possible_allele_pairs=(("B*57:01:02", "B*62:01"),),
                 ): 2,
                 HLACombinedStandard(
                     standard_bin=(2, 2, 4, 12),
-                    possible_allele_pairs=(("std1", "std4"),),
+                    possible_allele_pairs=(("B*57:01:02", "B*110:01:01:01N"),),
                 ): 2,
                 HLACombinedStandard(
                     standard_bin=(1, 2, 4, 12),
-                    possible_allele_pairs=(("std2", "std3"),),
+                    possible_allele_pairs=(("B*58:22:33G", "B*62:01"),),
                 ): 1,
                 HLACombinedStandard(
                     standard_bin=(3, 2, 4, 8),
-                    possible_allele_pairs=(("std2", "std4"),),
+                    possible_allele_pairs=(("B*58:22:33G", "B*110:01:01:01N"),),
                 ): 1,
             },
             id="several_standards_produce_same_sequence",
+        ),
+        pytest.param(
+            (1, 2, 4, 8),
+            [
+                HLAStandardMatch(
+                    allele="B*57:01:02",
+                    two=(2, 2),
+                    three=(4, 4),
+                    mismatch=2,
+                ),
+                HLAStandardMatch(
+                    allele="B*220:100:01",
+                    two=(1, 2),
+                    three=(4, 8),
+                    mismatch=0,
+                ),
+                HLAStandardMatch(
+                    allele="B*220:22:02",
+                    two=(1, 2),
+                    three=(4, 4),
+                    mismatch=1,
+                ),
+                HLAStandardMatch(
+                    allele="B*110:01:01:01N",
+                    two=(2, 2),
+                    three=(4, 8),
+                    mismatch=1,
+                ),
+            ],
+            [2, 3, 10],
+            {
+                HLACombinedStandard(
+                    standard_bin=(1, 2, 4, 8),
+                    possible_allele_pairs=(("B*220:100:01", "B*220:100:01"),),
+                ): 0,
+                HLACombinedStandard(
+                    standard_bin=(2, 2, 4, 4),
+                    possible_allele_pairs=(("B*57:01:02", "B*57:01:02"),),
+                ): 2,
+                HLACombinedStandard(
+                    standard_bin=(1, 2, 4, 4),
+                    possible_allele_pairs=(("B*220:22:02", "B*220:22:02"),),
+                ): 1,
+                HLACombinedStandard(
+                    standard_bin=(2, 2, 4, 8),
+                    possible_allele_pairs=(("B*110:01:01:01N", "B*110:01:01:01N"),),
+                ): 1,
+                HLACombinedStandard(
+                    standard_bin=(3, 2, 4, 12),
+                    possible_allele_pairs=(
+                        ("B*57:01:02", "B*220:100:01"),
+                        ("B*110:01:01:01N", "B*220:22:02"),
+                    ),
+                ): 2,
+                HLACombinedStandard(
+                    standard_bin=(3, 2, 4, 4),
+                    possible_allele_pairs=(("B*57:01:02", "B*220:22:02"),),
+                ): 2,
+                HLACombinedStandard(
+                    standard_bin=(2, 2, 4, 12),
+                    possible_allele_pairs=(("B*57:01:02", "B*110:01:01:01N"),),
+                ): 2,
+                HLACombinedStandard(
+                    standard_bin=(1, 2, 4, 12),
+                    possible_allele_pairs=(("B*220:22:02", "B*220:100:01"),),
+                ): 1,
+                HLACombinedStandard(
+                    standard_bin=(3, 2, 4, 8),
+                    possible_allele_pairs=(("B*110:01:01:01N", "B*220:100:01"),),
+                ): 1,
+            },
+            id="several_standards_produce_same_sequence_pairs_sorted_by_coordinate",
         ),
     ],
 )
@@ -1203,17 +1354,17 @@ def test_get_mismatches_errors(
                 "B": [],
                 "C": [
                     HLAStandard(
-                        allele="std_allmatch",
+                        allele="A*07:08:09G",
                         two=(1, 2),
                         three=(4, 8),
                     ),
                     HLAStandard(
-                        allele="std_1mismatch",
+                        allele="A*04:01:01",
                         two=(1, 2),
                         three=(4, 4),
                     ),
                     HLAStandard(
-                        allele="std_allmismatch",
+                        allele="A*11:01:01:01",
                         two=(8, 4),
                         three=(2, 1),
                     ),
@@ -1231,11 +1382,11 @@ def test_get_mismatches_errors(
                 matches={
                     HLACombinedStandard(
                         standard_bin=(1, 2, 4, 8),
-                        possible_allele_pairs=(("std_allmatch", "std_allmatch"),),
+                        possible_allele_pairs=(("A*07:08:09G", "A*07:08:09G"),),
                     ): HLAMatchDetails(mismatches=[]),
                     HLACombinedStandard(
                         standard_bin=(1, 2, 4, 12),
-                        possible_allele_pairs=(("std_1mismatch", "std_allmatch"),),
+                        possible_allele_pairs=(("A*04:01:01", "A*07:08:09G"),),
                     ): HLAMatchDetails(
                         mismatches=[
                             HLAMismatch(index=4, standard_base="K", sequence_base="T"),
@@ -1243,7 +1394,7 @@ def test_get_mismatches_errors(
                     ),
                     HLACombinedStandard(
                         standard_bin=(1, 2, 4, 4),
-                        possible_allele_pairs=(("std_1mismatch", "std_1mismatch"),),
+                        possible_allele_pairs=(("A*04:01:01", "A*04:01:01"),),
                     ): HLAMatchDetails(
                         mismatches=[
                             HLAMismatch(index=4, standard_base="G", sequence_base="T"),
@@ -1251,7 +1402,7 @@ def test_get_mismatches_errors(
                     ),
                     HLACombinedStandard(
                         standard_bin=(9, 6, 6, 9),
-                        possible_allele_pairs=(("std_allmatch", "std_allmismatch"),),
+                        possible_allele_pairs=(("A*07:08:09G", "A*11:01:01:01"),),
                     ): HLAMatchDetails(
                         mismatches=[
                             HLAMismatch(index=1, standard_base="W", sequence_base="A"),
@@ -1262,7 +1413,7 @@ def test_get_mismatches_errors(
                     ),
                     HLACombinedStandard(
                         standard_bin=(9, 6, 6, 5),
-                        possible_allele_pairs=(("std_1mismatch", "std_allmismatch"),),
+                        possible_allele_pairs=(("A*04:01:01", "A*11:01:01:01"),),
                     ): HLAMatchDetails(
                         mismatches=[
                             HLAMismatch(index=1, standard_base="W", sequence_base="A"),
@@ -1273,7 +1424,7 @@ def test_get_mismatches_errors(
                     ),
                     HLACombinedStandard(
                         standard_bin=(8, 4, 2, 1),
-                        possible_allele_pairs=(("std_allmismatch", "std_allmismatch"),),
+                        possible_allele_pairs=(("A*11:01:01:01", "A*11:01:01:01"),),
                     ): HLAMatchDetails(
                         mismatches=[
                             HLAMismatch(index=1, standard_base="T", sequence_base="A"),
@@ -1481,17 +1632,17 @@ def test_interpret_good_cases(
                 "B": [],
                 "C": [
                     HLAStandard(
-                        allele="std_1",
+                        allele="B*01:01:01",
                         two=(2, 4, 8, 1, 10, 2),
                         three=(8, 1, 5, 7, 11, 1),
                     ),
                     HLAStandard(
-                        allele="std_2",
+                        allele="B*02:02:02",
                         two=(8, 4, 2, 1, 10, 2),
                         three=(4, 8, 10, 11, 4, 1),
                     ),
                     HLAStandard(
-                        allele="std_3",
+                        allele="B*03:03:03",
                         two=(1, 2, 4, 4, 5, 8),
                         three=(8, 8, 5, 8, 11, 4),
                     ),
@@ -2197,11 +2348,11 @@ def test_use_config_all_defaults(
         #
         pytest.param(
             (1, 2, 4, 8),
-            [HLAStandard(allele="std_allmismatch", two=(1, 2), three=(4, 8))],
+            [HLAStandard(allele="A*11:01:01:01", two=(1, 2), three=(4, 8))],
             5,
             [
                 HLAStandardMatch(
-                    allele="std_allmismatch",
+                    allele="A*11:01:01:01",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
@@ -2211,11 +2362,11 @@ def test_use_config_all_defaults(
         ),
         pytest.param(
             (1, 2, 4, 8),
-            [HLAStandard(allele="std_allmismatch", two=(1, 2), three=(4, 4))],
+            [HLAStandard(allele="A*11:01:01:01", two=(1, 2), three=(4, 4))],
             5,
             [
                 HLAStandardMatch(
-                    allele="std_allmismatch",
+                    allele="A*11:01:01:01",
                     two=(1, 2),
                     three=(4, 4),
                     mismatch=1,
@@ -2225,11 +2376,11 @@ def test_use_config_all_defaults(
         ),
         pytest.param(
             (1, 3, 4, 8),
-            [HLAStandard(allele="std_mixturematch", two=(1, 2), three=(4, 8))],
+            [HLAStandard(allele="C*72:01:03", two=(1, 2), three=(4, 8))],
             5,
             [
                 HLAStandardMatch(
-                    allele="std_mixturematch",
+                    allele="C*72:01:03",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
@@ -2239,11 +2390,11 @@ def test_use_config_all_defaults(
         ),
         pytest.param(
             (1, 2, 4, 8),
-            [HLAStandard(allele="std_allmismatch", two=(8, 4), three=(2, 1))],
+            [HLAStandard(allele="A*11:01:01:01", two=(8, 4), three=(2, 1))],
             5,
             [
                 HLAStandardMatch(
-                    allele="std_allmismatch",
+                    allele="A*11:01:01:01",
                     two=(8, 4),
                     three=(2, 1),
                     mismatch=4,
@@ -2255,7 +2406,7 @@ def test_use_config_all_defaults(
             (1, 2, 4, 8, 3, 5, 7, 9),
             [
                 HLAStandard(
-                    allele="std_mismatch_over_threshold",
+                    allele="C*55:01:02",
                     two=(1, 2, 8, 4),
                     three=(4, 8, 8, 1),
                 )
@@ -2267,26 +2418,26 @@ def test_use_config_all_defaults(
         pytest.param(
             (1, 2, 4, 8),
             [
-                HLAStandard(allele="std_allmatch", two=(1, 2), three=(4, 8)),
-                HLAStandard(allele="std_1mismatch", two=(1, 2), three=(4, 4)),
-                HLAStandard(allele="std_allmismatch", two=(8, 4), three=(2, 1)),
+                HLAStandard(allele="A*07:08:09G", two=(1, 2), three=(4, 8)),
+                HLAStandard(allele="A*04:01:01", two=(1, 2), three=(4, 4)),
+                HLAStandard(allele="A*11:01:01:01", two=(8, 4), three=(2, 1)),
             ],
             5,
             [
                 HLAStandardMatch(
-                    allele="std_allmatch",
+                    allele="A*07:08:09G",
                     two=(1, 2),
                     three=(4, 8),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
-                    allele="std_1mismatch",
+                    allele="A*04:01:01",
                     two=(1, 2),
                     three=(4, 4),
                     mismatch=1,
                 ),
                 HLAStandardMatch(
-                    allele="std_allmismatch",
+                    allele="A*11:01:01:01",
                     two=(8, 4),
                     three=(2, 1),
                     mismatch=4,
@@ -2298,22 +2449,22 @@ def test_use_config_all_defaults(
             (1, 3, 4, 8, 2, 5, 4, 1),
             [
                 HLAStandard(
-                    allele="std_mixturematch",
+                    allele="C*72:01:03",
                     two=(1, 2, 4, 8),
                     three=(2, 1, 4, 1),
                 ),
                 HLAStandard(
-                    allele="std_2mismatch",
+                    allele="A*02:02:02",
                     two=(1, 4, 4, 4),
                     three=(2, 4, 4, 1),
                 ),
                 HLAStandard(
-                    allele="std_allmismatch",
+                    allele="A*11:01:01:01",
                     two=(8, 4, 2, 1),
                     three=(1, 8, 8, 8),
                 ),
                 HLAStandard(
-                    allele="std_4mismatch",
+                    allele="A*04:04:04:04",
                     two=(8, 4, 2, 1),
                     three=(2, 1, 4, 1),
                 ),
@@ -2321,19 +2472,19 @@ def test_use_config_all_defaults(
             5,
             [
                 HLAStandardMatch(
-                    allele="std_mixturematch",
+                    allele="C*72:01:03",
                     two=(1, 2, 4, 8),
                     three=(2, 1, 4, 1),
                     mismatch=0,
                 ),
                 HLAStandardMatch(
-                    allele="std_2mismatch",
+                    allele="A*02:02:02",
                     two=(1, 4, 4, 4),
                     three=(2, 4, 4, 1),
                     mismatch=2,
                 ),
                 HLAStandardMatch(
-                    allele="std_4mismatch",
+                    allele="A*04:04:04:04",
                     two=(8, 4, 2, 1),
                     three=(2, 1, 4, 1),
                     mismatch=4,

@@ -1056,7 +1056,7 @@ class TestAllelePairs:
     @pytest.mark.parametrize(
         "combined_standards, exp_alleles",
         [
-            (
+            pytest.param(
                 [
                     HLACombinedStandard(
                         standard_bin=(1, 4, 9, 4),
@@ -1083,19 +1083,20 @@ class TestAllelePairs:
                     ("A*02:01:02", "A*03:01:12"),
                     ("A*02:01:36", "A*03:01:38"),
                     ("A*02:01:52", "A*03:01:03"),
-                    ("A*02:195", "A*03:23:01"),
                     ("A*02:20:01", "A*03:157"),
-                    ("A*02:237", "A*03:05:01"),
                     ("A*02:24:01", "A*03:17:01"),
                     ("A*02:26", "A*03:07"),
-                    ("A*02:338", "A*03:95"),
                     ("A*02:34", "A*03:08"),
                     ("A*02:35:01", "A*03:108"),
                     ("A*02:86", "A*03:123"),
                     ("A*02:90", "A*03:09"),
+                    ("A*02:195", "A*03:23:01"),
+                    ("A*02:237", "A*03:05:01"),
+                    ("A*02:338", "A*03:95"),
                 ],
+                id="single_standard_pairs_need_sorting",
             ),
-            (
+            pytest.param(
                 [
                     HLACombinedStandard(
                         standard_bin=(1, 4, 5, 9),
@@ -1113,8 +1114,45 @@ class TestAllelePairs:
                     ("A*11:19", "A*26:13"),
                     ("A*11:40", "A*66:01G"),
                 ],
+                id="single_standard_pairs_sorted_trivially",
             ),
-            (
+            pytest.param(
+                [
+                    HLACombinedStandard(
+                        standard_bin=(1, 4, 5, 9),
+                        possible_allele_pairs=(
+                            ("A*11:01:01G", "A*26:01:01G"),
+                            ("A*11:01:07", "A*26:01:17"),
+                            ("A*11:190", "A*26:13"),
+                            ("A*11:40", "A*66:101G"),
+                        ),
+                    )
+                ],
+                [
+                    ("A*11:01:01G", "A*26:01:01G"),
+                    ("A*11:01:07", "A*26:01:17"),
+                    ("A*11:40", "A*66:101G"),
+                    ("A*11:190", "A*26:13"),
+                ],
+                id="single_standard_pairs_sorted_with_three_digit_coordinate",
+            ),
+            pytest.param(
+                [
+                    HLACombinedStandard(
+                        standard_bin=(1, 4, 5, 9),
+                        possible_allele_pairs=(
+                            ("A*11:01:01G", "A*100:01:17"),
+                            ("A*11:01:01G", "A*26:01:01G"),
+                        ),
+                    )
+                ],
+                [
+                    ("A*11:01:01G", "A*26:01:01G"),
+                    ("A*11:01:01G", "A*100:01:17"),
+                ],
+                id="single_standard_pairs_sorted_with_three_digit_coordinate_second_element_checked",
+            ),
+            pytest.param(
                 [
                     HLACombinedStandard(
                         standard_bin=(1, 4, 5, 9),
@@ -1143,6 +1181,38 @@ class TestAllelePairs:
                     ("A*24:25:26", "A*27:28:32"),
                     ("A*32:42", "A*113:110:02:13N"),
                 ],
+                id="several_standards_pairs_sorted_without_three_digit_coordinates",
+            ),
+            pytest.param(
+                [
+                    HLACombinedStandard(
+                        standard_bin=(1, 4, 5, 9),
+                        possible_allele_pairs=(
+                            ("A*11:01:01G", "A*26:01:01G"),
+                            ("A*11:01:01G", "A*100:01:17"),
+                            ("A*11:19", "A*26:13"),
+                            ("A*11:40", "A*66:01G"),
+                        ),
+                    ),
+                    HLACombinedStandard(
+                        standard_bin=(1, 4, 5, 9),
+                        possible_allele_pairs=(
+                            ("A*22:33:44:55G", "A*01:02:03"),
+                            ("A*101:25:26", "A*27:28:32"),
+                            ("A*32:42", "A*113:110:02:13N"),
+                        ),
+                    ),
+                ],
+                [
+                    ("A*11:01:01G", "A*26:01:01G"),
+                    ("A*11:01:01G", "A*100:01:17"),
+                    ("A*11:19", "A*26:13"),
+                    ("A*11:40", "A*66:01G"),
+                    ("A*22:33:44:55G", "A*01:02:03"),
+                    ("A*32:42", "A*113:110:02:13N"),
+                    ("A*101:25:26", "A*27:28:32"),
+                ],
+                id="several_standards_pairs_sorted_with_three_digit_coordinates",
             ),
         ],
     )
@@ -1153,92 +1223,6 @@ class TestAllelePairs:
     ):
         result_alleles = AllelePairs.get_allele_pairs(combined_standards)
         assert result_alleles.allele_pairs == exp_alleles
-
-    @pytest.mark.parametrize(
-        "raw_allele_pairs, exp_result",
-        [
-            pytest.param(
-                [],
-                [],
-                id="empty_list",
-            ),
-            pytest.param(
-                [
-                    ("A*11:01:01G", "A*26:01:01G"),
-                ],
-                [
-                    ("A*11:01:01G", "A*26:01:01G"),
-                ],
-                id="single_element",
-            ),
-            pytest.param(
-                [
-                    ("A*11:01:01", "A*26:01:01"),
-                    ("A*12:01:01", "A*26:01:01"),
-                ],
-                [
-                    ("A*11:01:01", "A*26:01:01"),
-                    ("A*12:01:01", "A*26:01:01"),
-                ],
-                id="two_elements_trivial_sort",
-            ),
-            pytest.param(
-                [
-                    ("A*12:01:01", "A*26:01:01"),
-                    ("A*11:01:01", "A*26:01:01"),
-                ],
-                [
-                    ("A*11:01:01", "A*26:01:01"),
-                    ("A*12:01:01", "A*26:01:01"),
-                ],
-                id="two_elements_nontrivial_sort",
-            ),
-            pytest.param(
-                [
-                    ("A*11:01:01G", "A*25:01:01"),
-                    ("A*11:01:01", "A*26:01:01"),
-                ],
-                [
-                    ("A*11:01:01", "A*26:01:01"),
-                    ("A*11:01:01G", "A*25:01:01"),
-                ],
-                id="two_elements_letter_vs_no_letter",
-            ),
-            pytest.param(
-                [
-                    ("A*11:01:01N", "A*25:01:01"),
-                    ("A*11:01:01G", "A*26:01:01"),
-                ],
-                [
-                    ("A*11:01:01G", "A*26:01:01"),
-                    ("A*11:01:01N", "A*25:01:01"),
-                ],
-                id="two_elements_letter_tiebreak",
-            ),
-            pytest.param(
-                [
-                    ("A*11:01:01G", "A*26:01:01N"),
-                    ("A*11:01:01G", "A*26:01:01G"),
-                    ("A*11:01:07", "A*26:01:17"),
-                    ("A*11:40", "A*66:01G"),
-                ],
-                [
-                    ("A*11:01:01G", "A*26:01:01G"),
-                    ("A*11:01:01G", "A*26:01:01N"),
-                    ("A*11:01:07", "A*26:01:17"),
-                    ("A*11:40", "A*66:01G"),
-                ],
-                id="typical_case",
-            ),
-        ],
-    )
-    def test_sort_pairs(
-        self,
-        raw_allele_pairs: list[tuple[str, str]],
-        exp_result: list[tuple[str, str]],
-    ):
-        ap: AllelePairs = AllelePairs(allele_pairs=raw_allele_pairs)
-        assert ap.sort_pairs() == exp_result
 
     @pytest.mark.parametrize(
         "raw_allele_pairs, sorted, max_length, exp_stringification",

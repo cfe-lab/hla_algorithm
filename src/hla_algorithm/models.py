@@ -10,10 +10,10 @@ from .utils import (
     HLA_LOCUS,
     HLARawStandard,
     allele_coordinates,
-    allele_coordinates_sort_key,
     bin2nuc,
     count_forgiving_mismatches,
     nuc2bin,
+    sort_allele_pairs,
 )
 
 
@@ -389,20 +389,6 @@ class AllelePairs(BaseModel):
         clean_allele_pair_str: str = " - ".join(clean_allele)
         return (clean_allele_pair_str, set(unambiguous_aps.allele_pairs))
 
-    def sort_pairs(self) -> list[tuple[str, str]]:
-        """
-        Sort the pairs according to "coordinate order".
-
-        If there's a tie, a last letter is used to attempt to break the tie.
-        """
-        return sorted(
-            self.allele_pairs,
-            key=lambda pair: (
-                allele_coordinates_sort_key(pair[0]),
-                allele_coordinates_sort_key(pair[1]),
-            ),
-        )
-
     def stringify(self, sorted=True, max_length: int = 3900) -> str:
         """
         Produce a final outputtable string.
@@ -415,7 +401,7 @@ class AllelePairs(BaseModel):
         """
         allele_pairs: list[tuple[str, str]] = self.allele_pairs
         if sorted:
-            allele_pairs = self.sort_pairs()
+            allele_pairs = sort_allele_pairs(self.allele_pairs)
         summary_str: str = ";".join([f"{_a[0]} - {_a[1]}" for _a in allele_pairs])
         if len(summary_str) > max_length:
             summary_str = re.sub(
@@ -441,7 +427,7 @@ class AllelePairs(BaseModel):
         all_allele_pairs: list[tuple[str, str]] = []
         for combined_std in combined_standards:
             all_allele_pairs.extend(combined_std.possible_allele_pairs)
-        all_allele_pairs.sort()
+        all_allele_pairs = sort_allele_pairs(all_allele_pairs)
         return cls(allele_pairs=all_allele_pairs)
 
     def contains_allele(self, allele_name: str) -> bool:

@@ -24,6 +24,7 @@ from hla_algorithm.utils import (
     InvalidBaseException,
     StoredHLAStandards,
     allele_coordinates_sort_key,
+    allele_pair_sort_key,
     bin2nuc,
     calc_padding,
     check_bases,
@@ -37,6 +38,7 @@ from hla_algorithm.utils import (
     nuc2bin,
     pad_short,
     prepare_for_checksum,
+    sort_allele_pairs,
 )
 
 
@@ -1091,6 +1093,121 @@ def test_allele_coordinates_sort_key(
     expected_coords: tuple[tuple[int, ...], str],
 ):
     assert allele_coordinates_sort_key(allele) == expected_coords
+
+
+@pytest.mark.parametrize(
+    "allele_pair, expected_sort_key",
+    [
+        pytest.param(
+            ("A*01", "A*01"), ((1,), "", (1,), ""), id="both_single_coordinate"
+        ),
+        pytest.param(
+            ("A*01N", "A*01"),
+            ((1,), "N", (1,), ""),
+            id="single_coords_first_with_suffix",
+        ),
+        pytest.param(
+            ("A*01", "A*01N"),
+            ((1,), "", (1,), "N"),
+            id="single_coords_second_with_suffix",
+        ),
+        pytest.param(
+            ("B*57:02G", "B*57:02:15:02"),
+            ((57, 2), "G", (57, 2, 15, 2), ""),
+            id="typical_case",
+        ),
+    ],
+)
+def test_allele_pair_sort_key(
+    allele_pair: tuple[str, str],
+    expected_sort_key: tuple[tuple[int, ...], str, tuple[int, ...], str],
+):
+    assert allele_pair_sort_key(allele_pair) == expected_sort_key
+
+
+@pytest.mark.parametrize(
+    "allele_pairs, exp_result",
+    [
+        pytest.param(
+            [],
+            [],
+            id="empty_list",
+        ),
+        pytest.param(
+            [
+                ("A*11:01:01G", "A*26:01:01G"),
+            ],
+            [
+                ("A*11:01:01G", "A*26:01:01G"),
+            ],
+            id="single_element",
+        ),
+        pytest.param(
+            [
+                ("A*11:01:01", "A*26:01:01"),
+                ("A*12:01:01", "A*26:01:01"),
+            ],
+            [
+                ("A*11:01:01", "A*26:01:01"),
+                ("A*12:01:01", "A*26:01:01"),
+            ],
+            id="two_elements_trivial_sort",
+        ),
+        pytest.param(
+            [
+                ("A*12:01:01", "A*26:01:01"),
+                ("A*11:01:01", "A*26:01:01"),
+            ],
+            [
+                ("A*11:01:01", "A*26:01:01"),
+                ("A*12:01:01", "A*26:01:01"),
+            ],
+            id="two_elements_nontrivial_sort",
+        ),
+        pytest.param(
+            [
+                ("A*11:01:01G", "A*25:01:01"),
+                ("A*11:01:01", "A*26:01:01"),
+            ],
+            [
+                ("A*11:01:01", "A*26:01:01"),
+                ("A*11:01:01G", "A*25:01:01"),
+            ],
+            id="two_elements_letter_vs_no_letter",
+        ),
+        pytest.param(
+            [
+                ("A*11:01:01N", "A*25:01:01"),
+                ("A*11:01:01G", "A*26:01:01"),
+            ],
+            [
+                ("A*11:01:01G", "A*26:01:01"),
+                ("A*11:01:01N", "A*25:01:01"),
+            ],
+            id="two_elements_letter_tiebreak",
+        ),
+        pytest.param(
+            [
+                ("A*11:01:01G", "A*26:01:01N"),
+                ("A*11:01:01G", "A*26:01:01G"),
+                ("A*11:01:07", "A*26:01:17"),
+                ("A*11:40", "A*66:01G"),
+            ],
+            [
+                ("A*11:01:01G", "A*26:01:01G"),
+                ("A*11:01:01G", "A*26:01:01N"),
+                ("A*11:01:07", "A*26:01:17"),
+                ("A*11:40", "A*66:01G"),
+            ],
+            id="typical_case",
+        ),
+    ],
+)
+def test_sort_allele_pairs(
+    allele_pairs: list[tuple[str, str]],
+    exp_result: list[tuple[str, str]],
+):
+    assert sort_allele_pairs(allele_pairs) == exp_result
 
 
 EXON_REFERENCES: dict[HLA_LOCUS, dict[EXON_NAME, str]] = {
