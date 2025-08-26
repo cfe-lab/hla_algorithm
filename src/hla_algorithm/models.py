@@ -217,11 +217,9 @@ class AllelePairs(BaseModel):
 
     def is_homozygous(self) -> bool:
         """
-        Determine the homozygousness of alleles.
+        Determine the homozygousness of these allele pairs.
 
-        Homozygousity meaning a pair is matching on both sides, ex:
-        `Cw*0722 - Cw*0722`
-
+        A pair is homozygous if both elements match, e.g. C*07:22 - C*07:22.
         If *any* pair of alleles matches, then we declare the whole set to be
         homozygous.
 
