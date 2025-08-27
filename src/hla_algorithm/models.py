@@ -366,30 +366,20 @@ class AllelePairs(BaseModel):
             unambiguous_aps.get_paired_gene_coordinates(digits_only=False)
         )
 
-        print("FOOOOOO")
-        print(unambiguous_aps)
-        print(paired_gene_coordinates)
-
         # Look for the longest common prefix present in all pairs.
         curr_pairs: list[tuple[GeneCoord, GeneCoord]] = [
             (tuple(pair[0]), tuple(pair[1])) for pair in paired_gene_coordinates
         ]
-
-        print(curr_pairs)
 
         longest_prefix: GeneCoord
         second_prefix: Optional[GeneCoord] = None
         remaining_alleles: list[GeneCoord] = []
         for i in [4, 3, 2, 1]:
             curr_pairs = [(pair[0][0:i], pair[1][0:i]) for pair in curr_pairs]
-            print(f"i={i}")
-            print(f"curr_pairs: {curr_pairs}")
 
             common_prefixes: set[GeneCoord] = set(curr_pairs[0])
             for curr_pair in curr_pairs[1:]:
                 common_prefixes = common_prefixes & set(curr_pair)
-
-            print(f"common_prefixes: {common_prefixes}")
 
             if len(common_prefixes) == 0:
                 continue
@@ -417,7 +407,7 @@ class AllelePairs(BaseModel):
             break
 
         if second_prefix is None:
-            for i in range(len(longest_prefix), 1, -1):
+            for i in range(len(longest_prefix), 0, -1):
                 curr_prefixes: set[GeneCoord] = {
                     allele[0:i] for allele in remaining_alleles
                 }
