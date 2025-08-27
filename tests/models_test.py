@@ -1216,12 +1216,12 @@ class TestAllelePairs:
             ),
         ],
     )
-    def test_get_allele_pairs(
+    def test_combine_allele_pairs(
         self,
         combined_standards: list[HLACombinedStandard],
         exp_alleles: list[tuple[str, str]],
     ):
-        result_alleles = AllelePairs.get_allele_pairs(combined_standards)
+        result_alleles = AllelePairs.combine_allele_pairs(combined_standards)
         assert result_alleles.allele_pairs == exp_alleles
 
     @pytest.mark.parametrize(

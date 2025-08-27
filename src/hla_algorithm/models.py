@@ -1,7 +1,7 @@
 import re
 from collections.abc import Iterable
 from operator import itemgetter
-from typing import Final, Optional
+from typing import Final, Optional, cast
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict
@@ -10,6 +10,7 @@ from .utils import (
     HLA_LOCUS,
     HLARawStandard,
     allele_coordinates,
+    allele_coordinates_sort_key,
     bin2nuc,
     count_forgiving_mismatches,
     nuc2bin,
@@ -212,6 +213,9 @@ class HLAProteinPair(BaseModel):
         )
 
 
+GeneCoord = tuple[str, ...]
+
+
 class AllelePairs(BaseModel):
     allele_pairs: list[tuple[str, str]]
 
@@ -340,16 +344,14 @@ class AllelePairs(BaseModel):
 
         The allele pairs are filtered to an unambiguous set (using the specified
         frequencies to determine which ones to retain).  Then, the "best common
-        coordinates" for all the remaining allele allele pairs are used to build
+        coordinates" for all the remaining allele pairs are used to build
         a string representation of the set.
 
         Example: if, after filtering, the allele pairs remaining are:
-        ```
-        [   [A*11:02:01, A*12:01],
-            [A*11:02:02, A*12:02],
-            [A*11:02:03, A*12:03]   ]
-        ```
-        we expect to get `A*11:02 - A*12`.
+        - A*11:02:01 - A*12:01
+        - A*11:02:02 - A*12:02,
+        - A*11:02:03 - A*12:03
+        we expect to get "A*11:02 - A*12".
 
         :return: A string representing the best common allele pair, and the
         unambiguous set this string represents.
@@ -361,31 +363,77 @@ class AllelePairs(BaseModel):
             allele_pairs=self.get_unambiguous_allele_pairs(frequencies)
         )
         paired_gene_coordinates: list[tuple[list[str], list[str]]] = (
-            unambiguous_aps.get_paired_gene_coordinates()
+            unambiguous_aps.get_paired_gene_coordinates(digits_only=False)
         )
 
-        clean_allele: list[str] = []
-        for n in [0, 1]:
-            for i in [4, 3, 2, 1]:
-                all_leading_coordinates = {
-                    ":".join(a[n][0:i]) for a in paired_gene_coordinates
-                }
-                if len(all_leading_coordinates) == 1:
-                    best_common_coords = all_leading_coordinates.pop()
-                    clean_allele.append(
-                        re.sub(
-                            r"[A-Z]$",
-                            "",
-                            best_common_coords,
-                        )
-                    )
-                    if i > 1:
-                        # This branch is unnecessary but it gets us 100% code
-                        # coverage ¯\_(ツ)_/¯
-                        break
+        print("FOOOOOO")
+        print(unambiguous_aps)
+        print(paired_gene_coordinates)
 
-        clean_allele_pair_str: str = " - ".join(clean_allele)
-        return (clean_allele_pair_str, set(unambiguous_aps.allele_pairs))
+        # Look for the longest common prefix present in all pairs.
+        curr_pairs: list[tuple[GeneCoord, GeneCoord]] = [
+            (tuple(pair[0]), tuple(pair[1])) for pair in paired_gene_coordinates
+        ]
+
+        print(curr_pairs)
+
+        longest_prefix: GeneCoord
+        second_prefix: Optional[GeneCoord] = None
+        remaining_alleles: list[GeneCoord] = []
+        for i in [4, 3, 2, 1]:
+            curr_pairs = [(pair[0][0:i], pair[1][0:i]) for pair in curr_pairs]
+            print(f"i={i}")
+            print(f"curr_pairs: {curr_pairs}")
+
+            common_prefixes: set[GeneCoord] = set(curr_pairs[0])
+            for curr_pair in curr_pairs[1:]:
+                common_prefixes = common_prefixes & set(curr_pair)
+
+            print(f"common_prefixes: {common_prefixes}")
+
+            if len(common_prefixes) == 0:
+                continue
+
+            # Having reached here, we know that we found at least one common
+            # prefix.
+            longest_prefix = common_prefixes.pop()
+            if len(common_prefixes) == 1:  # the other one is good too
+                second_prefix = common_prefixes.pop()
+                break
+
+            # Having reached here, we know that we found exactly one common
+            # prefix, and will look for the best prefix in what remains.
+            for curr_pair in curr_pairs:
+                unique_alleles: set[GeneCoord] = set(curr_pair)
+                if len(unique_alleles) != 1:
+                    # There were two distinct alleles in this pair, one of which
+                    # was longest_prefix, so we retain the other one.
+                    # (If there had only been one, then it must have been a
+                    # homozygous pair "[longest_prefix] - [longest_prefix]",
+                    # so we want to retain one "copy" for the next stage.)
+                    unique_alleles.remove(longest_prefix)
+
+                remaining_alleles.append(unique_alleles.pop())
+            break
+
+        if second_prefix is None:
+            for i in range(len(longest_prefix), 1, -1):
+                curr_prefixes: set[GeneCoord] = {
+                    allele[0:i] for allele in remaining_alleles
+                }
+                if len(curr_prefixes) == 1:
+                    second_prefix = curr_prefixes.pop()
+
+        # Turn the two prefixes we found into strings and strip any trailing
+        # letters.
+        clean_allele_pair: list[str] = [
+            re.sub(r"[A-Z]$", "", ":".join(allele))
+            for allele in (longest_prefix, cast(GeneCoord, second_prefix))
+        ]
+        return (
+            " - ".join(sorted(clean_allele_pair, key=allele_coordinates_sort_key)),
+            set(unambiguous_aps.allele_pairs),
+        )
 
     def stringify(self, sorted=True, max_length: int = 3900) -> str:
         """
@@ -410,7 +458,7 @@ class AllelePairs(BaseModel):
         return summary_str
 
     @classmethod
-    def get_allele_pairs(
+    def combine_allele_pairs(
         cls,
         combined_standards: Iterable[HLACombinedStandard],
     ) -> "AllelePairs":
@@ -458,7 +506,7 @@ class HLAInterpretation(BaseModel):
         }
 
     def best_matching_allele_pairs(self) -> AllelePairs:
-        return AllelePairs.get_allele_pairs(self.best_matches())
+        return AllelePairs.combine_allele_pairs(self.best_matches())
 
     def best_common_allele_pair(
         self,
@@ -475,7 +523,7 @@ class HLAInterpretation(BaseModel):
                 ap_to_cs[ap] = cs
 
         # Get an unambiguous set of allele pairs from the best matches:
-        best_aps: AllelePairs = AllelePairs.get_allele_pairs(best_matches)
+        best_aps: AllelePairs = AllelePairs.combine_allele_pairs(best_matches)
         clean_ap_str: str
         best_unambiguous: set[tuple[str, str]]
         clean_ap_str, best_unambiguous = best_aps.best_common_allele_pair_str(
