@@ -429,15 +429,11 @@ class AllelePairs(BaseModel):
 
         Precondition: that the input must all share at least the same first
         coordinate.  The algorithm may not return cogent values if not.
-
-        Precondition: the specified allele prefixes do not all perfectly match,
-        so we lose nothing by trimming one coordinate off the end of all of
-        them.
         """
         longest_prefix: GeneCoord = ()
         if len(allele_prefixes) > 0:
             max_length: int = max([len(allele) for allele in allele_prefixes])
-            for i in range(max_length - 1, 0, -1):
+            for i in range(max_length, 0, -1):
                 curr_prefixes: set[GeneCoord] = {allele[0:i] for allele in allele_prefixes}
                 if len(curr_prefixes) == 1:
                     longest_prefix = curr_prefixes.pop()

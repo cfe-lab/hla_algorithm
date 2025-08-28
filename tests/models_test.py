@@ -1206,8 +1206,31 @@ class TestAllelePairs:
                 (),
                 id="trivial_case",
             ),
-            # Note: we have no single allele tests because that contradicts one
-            # of our preconditions.
+            pytest.param(
+                [("C*01", "02", "03", "04G")],
+                ("C*01", "02", "03", "04G"),
+                id="single_input_length_4",
+            ),
+            pytest.param(
+                [("C*01", "02", "03")],
+                ("C*01", "02", "03"),
+                id="single_input_length_3",
+            ),
+            pytest.param(
+                [("C*01", "02")],
+                ("C*01", "02"),
+                id="single_input_length_2",
+            ),
+            pytest.param(
+                [("C*01",)],
+                ("C*01",),
+                id="single_input_length_1",
+            ),
+            pytest.param(
+                [("C*01", "02", "03", "04G"), ("C*01", "02", "03", "04G")],
+                ("C*01", "02", "03", "04G"),
+                id="best_match_length_4",
+            ),
             pytest.param(
                 [("C*01", "02", "03", "04G"), ("C*01", "02", "03", "110N")],
                 ("C*01", "02", "03"),
@@ -1247,6 +1270,11 @@ class TestAllelePairs:
                 [("C*01",), ("C*01", "07", "01")],
                 ("C*01",),
                 id="best_match_length_1_different_lengths_one_with_no_excess",
+            ),
+            pytest.param(
+                [("C*01", "07", "88"), ("C*01", "07", "01"), ("C*01", "07", "01", "110N")],
+                ("C*01", "07"),
+                id="typical_case",
             ),
         ],
     )
