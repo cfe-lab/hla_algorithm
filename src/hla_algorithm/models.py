@@ -427,8 +427,9 @@ class AllelePairs(BaseModel):
         """
         Identify the longest gene coordinate "prefix" in the given allele prefixes.
 
-        Precondition: that the input must all share at least the same first
-        coordinate.  The algorithm may not return cogent values if not.
+        Precondition: all allele prefixes in the input must all share at least
+        the same first coordinate.  The algorithm may not return cogent values
+        if not.
         """
         longest_prefix: GeneCoord = ()
         if len(allele_prefixes) > 0:
