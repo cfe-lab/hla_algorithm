@@ -18,6 +18,7 @@ from .utils import (
     check_bases,
     check_length,
     nuc2bin,
+    sort_allele_pairs,
 )
 
 
@@ -143,7 +144,7 @@ class HLAResult(BaseModel):
 
         return HLAResult(
             seqs=seqs,
-            alleles_all=[f"{x[0]} - {x[1]}" for x in aps.sort_pairs()],
+            alleles_all=[f"{x[0]} - {x[1]}" for x in sort_allele_pairs(aps.allele_pairs)],
             alleles_clean=alleles_clean,
             alleles_for_mismatches=f"{rep_ap[0]} - {rep_ap[1]}",
             mismatches=[str(x) for x in match_details.mismatches],

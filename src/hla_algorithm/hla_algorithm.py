@@ -23,8 +23,10 @@ from .utils import (
     BIN2NUC,
     HLA_LOCUS,
     StoredHLAStandards,
+    allele_coordinates_sort_key,
     count_strict_mismatches,
     nuc2bin,
+    sort_allele_pairs,
 )
 
 DATE_FORMAT = "%a %b %d %H:%M:%S %Z %Y"
@@ -277,7 +279,13 @@ class HLAAlgorithm:
                 # that looks like what you get when you sequence HLA.
                 std_bin = np.array(std_b.sequence) | np.array(std_a.sequence)
                 allele_pair: tuple[str, str] = cast(
-                    tuple[str, str], tuple(sorted((std_a.allele, std_b.allele)))
+                    tuple[str, str],
+                    tuple(
+                        sorted(
+                            (std_a.allele, std_b.allele),
+                            key=allele_coordinates_sort_key,
+                        )
+                    ),
                 )
 
                 # There could be more than one combined standard with the
@@ -363,7 +371,7 @@ class HLAAlgorithm:
             if mismatch_count <= cutoff:
                 combined_std: HLACombinedStandard = HLACombinedStandard(
                     standard_bin=combined_std_bin,
-                    possible_allele_pairs=tuple(sorted(pair_list)),
+                    possible_allele_pairs=tuple(sort_allele_pairs(pair_list)),
                 )
                 result[combined_std] = mismatch_count
 
