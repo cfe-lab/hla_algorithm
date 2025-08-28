@@ -738,8 +738,8 @@ class TestAllelePairs:
 
     @pytest.mark.parametrize(
         (
-            "unambiguous_pairs, expected_longest_prefix, "
-            "expected_second_prefix, expected_remaining_alleles"
+            "unambiguous_pairs, expected_common_prefix, "
+            "expected_second_prefix, expected_remaining_prefixes"
         ),
         [
             pytest.param([], (), None, [], id="empty_input"),
@@ -779,6 +779,20 @@ class TestAllelePairs:
                 id="single_pair_both_four_coords",
             ),
             pytest.param(
+                [(("B*01", "01", "03", "04"), ("B*01", "01", "03", "04"))],
+                ("B*01", "01", "03", "04"),
+                None,
+                [("B*01", "01", "03", "04")],
+                id="single_pair_homozygous",
+            ),
+            pytest.param(
+                [(("B*01", "01"), ("B*01", "01"))],
+                ("B*01", "01"),
+                None,
+                [("B*01", "01")],
+                id="single_pair_homozygous_shorter_allele",
+            ),
+            pytest.param(
                 [
                     (("B*01", "01", "03", "04"), ("B*02", "03", "05", "07N")),
                     (("B*01", "01", "03", "04"), ("B*02", "03", "11")),
@@ -808,30 +822,440 @@ class TestAllelePairs:
                 [("B*01", "01", "03", "04"), ("B*01", "04", "11", "110N")],
                 id="two_pairs_best_different_positions_four_coords",
             ),
+            pytest.param(
+                [
+                    (("B*01", "01", "03", "04"), ("B*01", "03", "05", "07N")),
+                    (("B*01", "01", "03", "04"), ("B*01", "03", "05", "07N")),
+                ],
+                ("B*01", "01", "03", "04"),
+                ("B*01", "03", "05", "07N"),
+                [],
+                id="two_exact_full_length_matches",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "01", "03", "04"), ("B*01", "01", "03", "04")),
+                    (("B*01", "01", "03", "04"), ("B*01", "01", "03", "04")),
+                ],
+                ("B*01", "01", "03", "04"),
+                None,
+                [("B*01", "01", "03", "04"), ("B*01", "01", "03", "04")],
+                id="two_exact_full_length_matches_homozygous",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "01", "03"), ("B*01", "01", "03")),
+                    (("B*01", "01", "03"), ("B*01", "01", "03")),
+                ],
+                ("B*01", "01", "03"),
+                None,
+                [("B*01", "01", "03"), ("B*01", "01", "03")],
+                id="two_exact_shorter_matches_homozygous",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "01", "03", "04"), ("B*01", "03")),
+                    (("B*01", "01", "03", "04"), ("B*01", "03")),
+                ],
+                ("B*01", "01", "03", "04"),
+                ("B*01", "03"),
+                [],
+                id="two_exact_matches_second_shorter",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "01", "22"), ("B*01", "03", "05", "07N")),
+                    (("B*01", "01", "22"), ("B*01", "03", "05", "07N")),
+                ],
+                ("B*01", "01", "22"),
+                ("B*01", "03", "05", "07N"),
+                [],
+                id="two_exact_matches_first_shorter",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "01", "03", "04"), ("B*01", "03", "05", "07N")),
+                    (("B*01", "01", "03", "04"), ("B*01", "03", "11", "22")),
+                ],
+                ("B*01", "01", "03", "04"),
+                None,
+                [("B*01", "03", "05", "07N"), ("B*01", "03", "11", "22")],
+                id="one_exact_match_first_element",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "01", "03", "04"), ("B*01", "03", "05", "07N")),
+                    (("B*01", "01", "100", "01"), ("B*01", "03", "05", "07N")),
+                ],
+                ("B*01", "03", "05", "07N"),
+                None,
+                [("B*01", "01", "03", "04"), ("B*01", "01", "100", "01")],
+                id="one_exact_match_second_element",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "01", "03", "04"), ("B*01", "03", "05", "07N")),
+                    (("B*01", "03", "05", "07N"), ("B*01", "03", "05", "07N")),
+                ],
+                ("B*01", "03", "05", "07N"),
+                None,
+                [("B*01", "01", "03", "04"), ("B*01", "03", "05", "07N")],
+                id="one_exact_match_one_entire_side_and_another_appearance",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "01"), ("B*01", "03", "05", "07N")),
+                    (("B*01", "01"), ("B*01", "03", "11", "22")),
+                ],
+                ("B*01", "01"),
+                None,
+                [("B*01", "03", "05", "07N"), ("B*01", "03", "11", "22")],
+                id="one_exact_short_match_first_element",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "01", "03", "04"), ("B*01", "03", "05")),
+                    (("B*01", "01", "100", "01"), ("B*01", "03", "05")),
+                ],
+                ("B*01", "03", "05"),
+                None,
+                [("B*01", "01", "03", "04"), ("B*01", "01", "100", "01")],
+                id="one_exact_short_match_second_element",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "01", "03", "04"), ("B*01", "03", "05")),
+                    (("B*01", "03", "05"), ("B*01", "22", "44", "66G")),
+                ],
+                ("B*01", "03", "05"),
+                None,
+                [("B*01", "01", "03", "04"), ("B*01", "22", "44", "66G")],
+                id="one_exact_short_match_different_positions",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "01"), ("B*01", "01")),
+                    (("B*01", "01"), ("B*01", "03", "44", "66G")),
+                ],
+                ("B*01", "01"),
+                None,
+                [("B*01", "01"), ("B*01", "03", "44", "66G")],
+                id="one_exact_short_match_one_entire_side_and_another_appearance",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "01", "03", "04"), ("B*01", "03", "15", "01")),
+                    (("B*01", "01", "03", "07N"), ("B*01", "03", "10", "02")),
+                ],
+                ("B*01", "01", "03"),
+                None,
+                [("B*01", "03", "15"), ("B*01", "03", "10")],
+                id="nonexact_best_prefix_both_first_position",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "01", "03"), ("B*01", "03", "15", "01")),
+                    (("B*01", "01", "03", "07N"), ("B*01", "03", "10", "02")),
+                ],
+                ("B*01", "01", "03"),
+                None,
+                [("B*01", "03", "15"), ("B*01", "03", "10")],
+                id="nonexact_best_prefix_different_length_pairs_both_first_position",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "01", "03", "04"), ("B*01", "03", "05", "07N")),
+                    (("B*01", "01", "100", "01"), ("B*01", "03", "05", "110")),
+                ],
+                ("B*01", "03", "05"),
+                None,
+                [("B*01", "01", "03"), ("B*01", "01", "100")],
+                id="nonexact_best_prefix_both_second_position",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "01", "03", "04"), ("B*01", "03", "05", "07N")),
+                    (("B*01", "01", "100", "01"), ("B*01", "03", "05")),
+                ],
+                ("B*01", "03", "05"),
+                None,
+                [("B*01", "01", "03"), ("B*01", "01", "100")],
+                id="nonexact_best_prefix_different_length_pairs_both_second_position",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "01", "03", "04"), ("B*01", "03", "05", "07N")),
+                    (("B*01", "03", "05", "01"), ("B*01", "03", "110", "01")),
+                ],
+                ("B*01", "03", "05"),
+                None,
+                [("B*01", "01", "03"), ("B*01", "03", "110")],
+                id="nonexact_best_prefix_match_different_positions",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "01", "03", "04"), ("B*01", "03", "05")),
+                    (("B*01", "03", "05", "01"), ("B*01", "03", "110", "01")),
+                ],
+                ("B*01", "03", "05"),
+                None,
+                [("B*01", "01", "03"), ("B*01", "03", "110")],
+                id="nonexact_best_prefix_match_different_lengths_different_positions",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "03", "05", "04"), ("B*01", "03", "05", "07N")),
+                    (("B*01", "03", "05", "18"), ("B*01", "03", "110", "01")),
+                ],
+                ("B*01", "03", "05"),
+                None,
+                [("B*01", "03", "05"), ("B*01", "03", "110")],
+                id="nonexact_best_prefix_match_entire_side_and_another_appearance",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "03", "05"), ("B*01", "03", "05", "07N")),
+                    (("B*01", "03", "05", "18"), ("B*01", "03", "110", "01")),
+                ],
+                ("B*01", "03", "05"),
+                None,
+                [("B*01", "03", "05"), ("B*01", "03", "110")],
+                id="nonexact_best_prefix_different_lengths_match_entire_side_and_another_appearance",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "03", "05", "04"), ("B*01", "04", "05", "07N")),
+                    (("B*01", "03", "05", "18"), ("B*01", "04", "05", "01")),
+                ],
+                ("B*01", "03", "05"),
+                ("B*01", "04", "05"),
+                [],
+                id="two_nonexact_best_prefixes",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "03", "05", "04"), ("B*01", "04", "05", "07N")),
+                    (("B*01", "03", "05"), ("B*01", "04", "05")),
+                ],
+                ("B*01", "03", "05"),
+                ("B*01", "04", "05"),
+                [],
+                id="two_nonexact_best_prefixes_different_lengths",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "03", "05", "04"), ("B*01", "04", "05", "07N")),
+                    (("B*01", "03", "08", "18"), ("B*01", "04", "08", "01")),
+                ],
+                ("B*01", "03"),
+                ("B*01", "04"),
+                [],
+                id="two_nonexact_shorter_best_prefixes",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "03", "05"), ("B*01", "04", "05", "07N")),
+                    (("B*01", "03", "08", "18"), ("B*01", "04")),
+                ],
+                ("B*01", "03"),
+                ("B*01", "04"),
+                [],
+                id="two_nonexact_shorter_best_prefixes_different_lengths",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "03", "05", "04"), ("B*01", "03", "05", "07N")),
+                    (("B*01", "03", "05", "18"), ("B*01", "03", "05", "20")),
+                ],
+                ("B*01", "03", "05"),
+                None,
+                [("B*01", "03", "05"), ("B*01", "03", "05")],
+                id="one_nonexact_best_prefix_all_places",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "03", "05", "04"), ("B*01", "03", "08", "07N")),
+                    (("B*01", "03", "22", "18"), ("B*01", "03", "100", "20")),
+                ],
+                ("B*01", "03"),
+                None,
+                [("B*01", "03"), ("B*01", "03")],
+                id="one_nonexact_shorter_best_prefix_all_places",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "03"), ("B*01", "03", "08")),
+                    (("B*01", "03", "22"), ("B*01", "03", "100", "20")),
+                ],
+                ("B*01", "03"),
+                None,
+                [("B*01", "03"), ("B*01", "03")],
+                id="one_nonexact_shorter_best_prefix_all_places_different_lengths",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "03", "05", "04"), ("B*02", "08", "08", "07N")),
+                    (("B*01", "15", "22", "18"), ("B*02", "03", "100", "20")),
+                ],
+                ("B*01",),
+                ("B*02",),
+                [],
+                id="only_first_positions_match_different_first_coordinate",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "03", "05", "04"), ("B*02", "08", "08")),
+                    (("B*01", "15"), ("B*02", "03", "100", "20")),
+                ],
+                ("B*01",),
+                ("B*02",),
+                [],
+                id="only_first_positions_match_different_first_coordinate_different_lengths",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "03", "05", "04"), ("B*01", "08", "08", "07N")),
+                    (("B*01", "15", "22", "18"), ("B*01", "30", "100", "20")),
+                ],
+                ("B*01",),
+                None,
+                [("B*01",), ("B*01",)],
+                id="only_first_positions_match_same_first_coordinate",
+            ),
+            pytest.param(
+                [
+                    (("B*01",), ("B*01", "08", "08")),
+                    (("B*01", "15", "22", "18"), ("B*01", "30", "100")),
+                ],
+                ("B*01",),
+                None,
+                [("B*01",), ("B*01",)],
+                id="only_first_positions_match_same_first_coordinate_different_lengths",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "03", "05", "04"), ("B*02", "08")),
+                    (("B*01", "03", "22", "18"), ("B*02", "30", "100")),
+                    (("B*01", "03", "55", "01G"), ("B*02", "30", "100", "20")),
+                ],
+                ("B*01", "03"),
+                None,
+                [("B*02", "08"), ("B*02", "30"), ("B*02", "30")],
+                id="typical_case_no_exact_match_one_prefix_found",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "03", "05", "04"), ("B*02", "30")),
+                    (("B*01", "03", "22", "18"), ("B*02", "30", "100")),
+                    (("B*01", "03", "55", "01G"), ("B*02", "30", "100", "20")),
+                ],
+                ("B*01", "03"),
+                ("B*02", "30"),
+                [],
+                id="typical_case_two_prefixes_found",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "03", "05", "04"), ("B*02", "30")),
+                    (("B*01", "03", "22"), ("B*02", "30")),
+                    (("B*01", "03"), ("B*02", "30")),
+                ],
+                ("B*02", "30"),
+                None,
+                [("B*01", "03", "05", "04"), ("B*01", "03", "22"), ("B*01", "03")],
+                id="typical_case_exact_prefix_found",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "03", "05", "04"), ("B*01", "30")),
+                    (("B*01", "03", "22"), ("B*01", "30")),
+                    (("B*01", "30"), ("B*01", "30")),
+                ],
+                ("B*01", "30"),
+                None,
+                [("B*01", "03", "05", "04"), ("B*01", "03", "22"), ("B*01", "30")],
+                id="typical_case_exact_prefix_found_one_whole_side_and_other_appearance",
+            ),
         ],
     )
     def test_identify_clean_prefix_in_pairs(
         self,
         unambiguous_pairs: list[tuple[GeneCoord, GeneCoord]],
-        expected_longest_prefix: GeneCoord,
+        expected_common_prefix: GeneCoord,
         expected_second_prefix: Optional[GeneCoord],
-        expected_remaining_alleles: list[GeneCoord],
+        expected_remaining_prefixes: list[GeneCoord],
     ):
-        longest_prefix: GeneCoord
-        second_prefix: Optional[GeneCoord]
-        remaining_alleles: list[GeneCoord]
-        longest_prefix, second_prefix, remaining_alleles = (
+        intermediate_result: AllelePairs.CleanPrefixIntermediateResult = (
             AllelePairs._identify_clean_prefix_in_pairs(unambiguous_pairs)
         )
         if expected_second_prefix is not None:
-            assert {longest_prefix, second_prefix} == {
-                expected_longest_prefix,
+            assert {intermediate_result.common_prefix, intermediate_result.second_prefix} == {
+                expected_common_prefix,
                 expected_second_prefix,
             }
         else:
-            assert longest_prefix == expected_longest_prefix
-            assert second_prefix == expected_second_prefix
-        assert remaining_alleles == expected_remaining_alleles
+            assert intermediate_result.common_prefix == expected_common_prefix
+            assert intermediate_result.second_prefix == expected_second_prefix
+        assert intermediate_result.remaining_prefixes == expected_remaining_prefixes
+
+    @pytest.mark.parametrize(
+        "allele_prefixes, expected_result",
+        [
+            pytest.param(
+                [],
+                (),
+                id="trivial_case",
+            ),
+            # Note: we have no single allele tests because that contradicts one
+            # of our preconditions.
+            pytest.param(
+                [("C*01", "02", "03", "04G"), ("C*01", "02", "03", "110N")],
+                ("C*01", "02", "03"),
+                id="best_match_length_3",
+            ),
+            pytest.param(
+                [("C*01", "02", "03"), ("C*01", "02", "03", "110N")],
+                ("C*01", "02", "03"),
+                id="best_match_length_3_different_length_inputs",
+            ),
+            pytest.param(
+                [("C*01", "02", "03", "04G"), ("C*01", "02", "11", "110N")],
+                ("C*01", "02"),
+                id="best_match_length_2",
+            ),
+            pytest.param(
+                [("C*01", "02", "03", "04G"), ("C*01", "02", "11")],
+                ("C*01", "02"),
+                id="best_match_length_2_different_lengths_both_with_excess",
+            ),
+            pytest.param(
+                [("C*01", "02", "03", "04G"), ("C*01", "02")],
+                ("C*01", "02"),
+                id="best_match_length_2_different_lengths_one_with_no_excess",
+            ),
+            pytest.param(
+                [("C*01", "02", "03", "04G"), ("C*01", "07", "01", "110N")],
+                ("C*01",),
+                id="best_match_length_1",
+            ),
+            pytest.param(
+                [("C*01", "02", "03"), ("C*01", "07")],
+                ("C*01",),
+                id="best_match_length_1_different_lengths_both_with_excess",
+            ),
+            pytest.param(
+                [("C*01",), ("C*01", "07", "01")],
+                ("C*01",),
+                id="best_match_length_1_different_lengths_one_with_no_excess",
+            ),
+        ],
+    )
+    def test_identify_longest_prefix(
+        self,
+        allele_prefixes: list[GeneCoord],
+        expected_result: GeneCoord,
+    ):
+        assert AllelePairs._identify_longest_prefix(allele_prefixes) == expected_result
 
     @pytest.mark.parametrize(
         "raw_allele_pairs, frequencies, expected_result, expected_unambiguous_set",
@@ -1133,9 +1557,34 @@ class TestAllelePairs:
                 },
                 id="ambiguous_set_frequencies_dictate_best_allele_choice",
             ),
+            pytest.param(
+                [
+                    ("B*01:33", "B*100:123"),
+                    ("B*04:33", "B*04:123"),  # this is the "best" one
+                    ("B*04:123", "B*04:123:22G"),
+                    ("B*04:123:22", "B*04:133:45:66N"),
+                    ("B*04:123:22", "B*04:152"),
+                ],
+                {
+                    HLAProteinPair(
+                        first_field_1="04",
+                        first_field_2="33",
+                        second_field_1="04",
+                        second_field_2="123",
+                    ): 150,
+                },
+                "B*04 - B*04:123",
+                {
+                    ("B*04:33", "B*04:123"),
+                    ("B*04:123", "B*04:123:22G"),
+                    ("B*04:123:22", "B*04:133:45:66N"),
+                    ("B*04:123:22", "B*04:152"),
+                },
+                id="best_match_identified_on_two_sides",
+            ),
         ],
     )
-    def test_best_common_allele_pair_str_and_helpers(
+    def test_best_common_allele_pair_str(
         self,
         raw_allele_pairs: list[tuple[str, str]],
         frequencies: dict[HLAProteinPair, int],

@@ -1,7 +1,8 @@
 import re
 from collections.abc import Iterable
+from dataclasses import dataclass, field
 from operator import itemgetter
-from typing import Final, Optional, cast
+from typing import Final, Optional
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict
@@ -335,18 +336,24 @@ class AllelePairs(BaseModel):
 
         return reduced_set
 
+    @dataclass
+    class CleanPrefixIntermediateResult:
+        common_prefix: GeneCoord = ()
+        second_prefix: Optional[GeneCoord] = None
+        remaining_prefixes: list[GeneCoord] = field(default_factory=list)
+
     @staticmethod
     def _identify_clean_prefix_in_pairs(
         unambiguous_pairs: list[tuple[GeneCoord, GeneCoord]],
-    ) -> tuple[GeneCoord, Optional[GeneCoord], list[GeneCoord]]:
+    ) -> CleanPrefixIntermediateResult:
         """
         Identify a "clean" gene coordinate "prefix" in the given unambiguous pairs.
 
         This prefix can occur in either element of a given pair.  For example,
         if the pairs are
-        - B*01:01:01 - B*01:01:02
-        - B*01:01:02 - B*01:22
-        then the longest prefix is ("B*01", "01", "02").
+        - B*01:01:01 - B*01:01:02:110G
+        - B*01:01:02:99 - B*01:22
+        then the longest common prefix is ("B*01", "01", "02").
 
         If we happen to find an "exact" allele that occurs in all the pairs, then
         that's a "clean" allele and we report it back, even if it's shorter than
@@ -361,18 +368,23 @@ class AllelePairs(BaseModel):
         second prefix is found, this list will be empty).
         """
         if len(unambiguous_pairs) == 0:
-            return (), None, []
+            return AllelePairs.CleanPrefixIntermediateResult()
 
         common_prefix: GeneCoord = ()
         second_prefix: Optional[GeneCoord] = None
-        remaining_alleles: list[GeneCoord] = []
+        remaining_prefixes: list[GeneCoord] = []
 
         max_length: int = max(
             [max(len(pair[0]), len(pair[1])) for pair in unambiguous_pairs]
         )
         for i in range(max_length, 0, -1):
+            # Note that this may not "cut down" some pairs if they're shorter
+            # than max_length.
             curr_pairs = [(pair[0][0:i], pair[1][0:i]) for pair in unambiguous_pairs]
 
+            # On the first iteration, we might "accidentally" find exact matches
+            # which are shorter (or equal to) than max_length; if so, great
+            # ¯\_(ツ)_/¯
             common_prefixes: set[GeneCoord] = set(curr_pairs[0])
             for curr_pair in curr_pairs[1:]:
                 common_prefixes = common_prefixes & set(curr_pair)
@@ -391,35 +403,47 @@ class AllelePairs(BaseModel):
                 # Having reached here, we know that we found exactly one common
                 # prefix, and will look for the best prefix in what remains.
                 for curr_pair in curr_pairs:
-                    unique_alleles: set[GeneCoord] = set(curr_pair)
-                    if len(unique_alleles) != 1:
+                    curr_unique_prefixes: set[GeneCoord] = set(curr_pair)
+                    if len(curr_unique_prefixes) != 1:
                         # There were two distinct alleles in this pair, one of which
                         # was longest_prefix, so we retain the other one.
                         # (If there had only been one, then it must have been a
                         # homozygous pair "[longest_prefix] - [longest_prefix]",
                         # so we want to retain one "copy" for the next stage.)
-                        unique_alleles.remove(common_prefix)
+                        curr_unique_prefixes.remove(common_prefix)
 
-                    remaining_alleles.append(unique_alleles.pop())
+                    remaining_prefixes.append(curr_unique_prefixes.pop())
             if i > 1:
                 # This is unnecessary but it gets us 100% test coverage
                 # ¯\_(ツ)_/¯
                 break
 
-        return common_prefix, second_prefix, remaining_alleles
+        return AllelePairs.CleanPrefixIntermediateResult(
+            common_prefix, second_prefix, remaining_prefixes
+        )
 
     @staticmethod
-    def _identify_longest_prefix(alleles: list[GeneCoord]) -> GeneCoord:
-        second_prefix: GeneCoord = ()
-        if len(alleles) > 0:
-            max_length: int = max([len(allele) for allele in alleles])
+    def _identify_longest_prefix(allele_prefixes: list[GeneCoord]) -> GeneCoord:
+        """
+        Identify the longest gene coordinate "prefix" in the given allele prefixes.
+
+        Precondition: that the input must all share at least the same first
+        coordinate.  The algorithm may not return cogent values if not.
+
+        Precondition: the specified allele prefixes do not all perfectly match,
+        so we lose nothing by trimming one coordinate off the end of all of
+        them.
+        """
+        longest_prefix: GeneCoord = ()
+        if len(allele_prefixes) > 0:
+            max_length: int = max([len(allele) for allele in allele_prefixes])
             for i in range(max_length - 1, 0, -1):
-                curr_prefixes: set[GeneCoord] = {allele[0:i] for allele in alleles}
+                curr_prefixes: set[GeneCoord] = {allele[0:i] for allele in allele_prefixes}
                 if len(curr_prefixes) == 1:
-                    second_prefix = curr_prefixes.pop()
+                    longest_prefix = curr_prefixes.pop()
                     if i > 1:
                         break
-        return second_prefix
+        return longest_prefix
 
     def best_common_allele_pair_str(
         self,
@@ -457,22 +481,21 @@ class AllelePairs(BaseModel):
             (tuple(pair[0]), tuple(pair[1])) for pair in paired_gene_coordinates
         ]
 
-        longest_prefix: GeneCoord
-        second_prefix: Optional[GeneCoord] = None
-        remaining_alleles: list[GeneCoord] = []
-
-        longest_prefix, second_prefix, remaining_alleles = (
+        intermediate_data: AllelePairs.CleanPrefixIntermediateResult = (
             self._identify_clean_prefix_in_pairs(curr_pairs)
         )
 
-        if second_prefix is None:
-            second_prefix = self._identify_longest_prefix(remaining_alleles)
+        second_prefix: GeneCoord = (
+            intermediate_data.second_prefix or self._identify_longest_prefix(
+                intermediate_data.remaining_prefixes
+            )
+        )
 
         # Turn the two prefixes we found into strings and strip any trailing
         # letters.
         clean_allele_pair: list[str] = [
             re.sub(r"[A-Z]$", "", ":".join(allele))
-            for allele in (longest_prefix, cast(GeneCoord, second_prefix))
+            for allele in (intermediate_data.common_prefix, second_prefix)
         ]
         return (
             " - ".join(sorted(clean_allele_pair, key=allele_coordinates_sort_key)),
