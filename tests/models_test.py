@@ -5,6 +5,7 @@ import pytest
 
 from hla_algorithm.models import (
     AllelePairs,
+    GeneCoord,
     HLACombinedStandard,
     HLAInterpretation,
     HLAMatchDetails,
@@ -732,8 +733,105 @@ class TestAllelePairs:
         exp_result: list[tuple[str, str]],
     ):
         allele_pairs = AllelePairs(allele_pairs=raw_alleles)
-        result = allele_pairs.get_unambiguous_allele_pairs(frequencies)
+        result = allele_pairs._get_unambiguous_allele_pairs(frequencies)
         assert result == exp_result
+
+    @pytest.mark.parametrize(
+        (
+            "unambiguous_pairs, expected_longest_prefix, "
+            "expected_second_prefix, expected_remaining_alleles"
+        ),
+        [
+            pytest.param([], (), None, [], id="empty_input"),
+            pytest.param(
+                [(("B*01", "01", "04"), ("B*02", "03"))],
+                ("B*01", "01", "04"),
+                ("B*02", "03"),
+                [],
+                id="single_pair_different_coord_counts",
+            ),
+            pytest.param(
+                [(("B*01"), ("B*02"))],
+                ("B*01"),
+                ("B*02"),
+                [],
+                id="single_pair_both_one_coord",
+            ),
+            pytest.param(
+                [(("B*01", "02"), ("B*02", "03"))],
+                ("B*01", "02"),
+                ("B*02", "03"),
+                [],
+                id="single_pair_both_one_coord",
+            ),
+            pytest.param(
+                [(("B*01", "01", "04"), ("B*02", "03", "07N"))],
+                ("B*01", "01", "04"),
+                ("B*02", "03", "07N"),
+                [],
+                id="single_pair_both_three_coords",
+            ),
+            pytest.param(
+                [(("B*01", "01", "03", "04"), ("B*02", "03", "05", "07N"))],
+                ("B*01", "01", "03", "04"),
+                ("B*02", "03", "05", "07N"),
+                [],
+                id="single_pair_both_four_coords",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "01", "03", "04"), ("B*02", "03", "05", "07N")),
+                    (("B*01", "01", "03", "04"), ("B*02", "03", "11")),
+                ],
+                ("B*01", "01", "03", "04"),
+                None,
+                [("B*02", "03", "05", "07N"), ("B*02", "03", "11")],
+                id="two_pairs_best_both_first_four_coords",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "01", "03", "04"), ("B*02", "03", "05", "07N")),
+                    (("B*01", "01", "03", "11"), ("B*02", "03", "05", "07N")),
+                ],
+                ("B*02", "03", "05", "07N"),
+                None,
+                [("B*01", "01", "03", "04"), ("B*01", "01", "03", "11")],
+                id="two_pairs_best_both_second_four_coords",
+            ),
+            pytest.param(
+                [
+                    (("B*01", "01", "03", "04"), ("B*01", "03", "05", "07N")),
+                    (("B*01", "03", "05", "07N"), ("B*01", "04", "11", "110N")),
+                ],
+                ("B*01", "03", "05", "07N"),
+                None,
+                [("B*01", "01", "03", "04"), ("B*01", "04", "11", "110N")],
+                id="two_pairs_best_different_positions_four_coords",
+            ),
+        ],
+    )
+    def test_identify_clean_prefix_in_pairs(
+        self,
+        unambiguous_pairs: list[tuple[GeneCoord, GeneCoord]],
+        expected_longest_prefix: GeneCoord,
+        expected_second_prefix: Optional[GeneCoord],
+        expected_remaining_alleles: list[GeneCoord],
+    ):
+        longest_prefix: GeneCoord
+        second_prefix: Optional[GeneCoord]
+        remaining_alleles: list[GeneCoord]
+        longest_prefix, second_prefix, remaining_alleles = (
+            AllelePairs._identify_clean_prefix_in_pairs(unambiguous_pairs)
+        )
+        if expected_second_prefix is not None:
+            assert {longest_prefix, second_prefix} == {
+                expected_longest_prefix,
+                expected_second_prefix,
+            }
+        else:
+            assert longest_prefix == expected_longest_prefix
+            assert second_prefix == expected_second_prefix
+        assert remaining_alleles == expected_remaining_alleles
 
     @pytest.mark.parametrize(
         "raw_allele_pairs, frequencies, expected_result, expected_unambiguous_set",
@@ -1037,7 +1135,7 @@ class TestAllelePairs:
             ),
         ],
     )
-    def test_best_common_allele_pair_str(
+    def test_best_common_allele_pair_str_and_helpers(
         self,
         raw_allele_pairs: list[tuple[str, str]],
         frequencies: dict[HLAProteinPair, int],
