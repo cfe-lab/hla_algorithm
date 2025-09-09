@@ -1,9 +1,9 @@
 import csv
-import os
 from collections.abc import Generator, Iterable, Sequence
 from datetime import datetime
 from io import TextIOBase
 from operator import attrgetter
+from pathlib import Path
 from typing import Final, Optional, TypedDict, cast
 
 import numpy as np
@@ -48,6 +48,8 @@ class HLAAlgorithm:
     ]
 
     COLUMN_IDS: Final[dict[str, int]] = {"A": 0, "B": 2, "C": 4}
+
+    DEFAULT_CONFIG_DIR: Final[Path] = Path(__file__).parent / "default_data"
 
     def __init__(
         self,
@@ -136,12 +138,7 @@ class HLAAlgorithm:
         :return: List of known HLA standards
         :rtype: list[HLAStandard]
         """
-        standards_filename: str = HLAAlgorithm._path_join_shim(
-            os.path.dirname(__file__),
-            "default_data",
-            "hla_standards.yaml",
-        )
-        with open(standards_filename) as standards_file:
+        with open(HLAAlgorithm.DEFAULT_CONFIG_DIR / "hla_standards.yaml") as standards_file:
             return HLAAlgorithm.read_hla_standards(standards_file)
 
     FREQUENCY_LOCUS_COLUMNS: dict[HLA_LOCUS, tuple[str, str]] = {
@@ -195,13 +192,6 @@ class HLAAlgorithm:
         return hla_freqs
 
     @staticmethod
-    def _path_join_shim(*args) -> str:
-        """
-        A shim for os.path.join which allows us to mock out the method easily in testing.
-        """
-        return os.path.join(*args)
-
-    @staticmethod
     def load_default_hla_frequencies() -> dict[HLA_LOCUS, dict[HLAProteinPair, int]]:
         """
         Load HLA frequencies from the default reference file.
@@ -210,12 +200,7 @@ class HLAAlgorithm:
         :rtype: dict[HLA_LOCUS, dict[HLAProteinPair, int]]
         """
         hla_freqs: dict[HLA_LOCUS, dict[HLAProteinPair, int]]
-        default_frequencies_filename: str = HLAAlgorithm._path_join_shim(
-            os.path.dirname(__file__),
-            "default_data",
-            "hla_frequencies.csv",
-        )
-        with open(default_frequencies_filename, "r") as f:
+        with open(HLAAlgorithm.DEFAULT_CONFIG_DIR / "hla_frequencies.csv") as f:
             hla_freqs = HLAAlgorithm.read_hla_frequencies(f)
         return hla_freqs
 
