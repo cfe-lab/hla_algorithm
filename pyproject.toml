@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hla_algorithm"
-description = ''
+description = 'Python implementation of the BC-CfE HLA interpretation algorithm'
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
@@ -12,13 +12,15 @@ keywords = []
 authors = [
   { name = "Rosemary McCloskey", email = "retired@bccfe.ca" },
   { name = "David Rickett", email = "drickett@bccfe.ca" },
+  { name = "Richard Liang", email = "rliang@bccfe.ca" },
 ]
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 5 - Production/Stable",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
@@ -61,6 +63,7 @@ Source = "https://github.com/cfe-lab/hla_algorithm"
 interpret_from_json = "hla_algorithm.interpret_from_json:main"
 update_alleles = "hla_algorithm.update_alleles:main"
 update_frequency_file = "hla_algorithm.update_frequency_file:main"
+reformat_old_alleles = "hla_algorithm.reformat_old_alleles:main"
 
 [tool.hatch.version]
 source = "uv-dynamic-versioning"
@@ -75,6 +78,7 @@ include = [
   "src/hla_algorithm/interpret_from_json.py",
   "src/hla_algorithm/models.py",
   "src/hla_algorithm/py.typed",
+  "src/hla_algorithm/reformat_old_alleles.py",
   "src/hla_algorithm/update_alleles.py",
   "src/hla_algorithm/update_frequency_file_lib.py",
   "src/hla_algorithm/update_frequency_file.py",
@@ -125,6 +129,7 @@ omit = [
   "src/hla_algorithm/__main__.py",
   "tests/__init__.py",
   "src/hla_algorithm/interpret_from_json.py",
+  "src/hla_algorithm/reformat_old_alleles.py",
   "src/hla_algorithm/update_alleles.py",
   "src/hla_algorithm/update_frequency_file.py",
   "src/scripts/*.py",
@@ -148,7 +153,6 @@ select = ["E4", "E7", "E9", "F", "C"]
 # ignore warnings where `== True` occurs, because we're using a lot of pandas
 # https://www.flake8rules.com/rules/E712.html
 ignore = ["E712"]
-
 
 [tool.pydocstyle]
 match = "src/**/*.py"
