@@ -3,12 +3,12 @@
 import argparse
 import csv
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import cast
 
 import yaml
 
-from hla_algorithm.utils import (
+from .utils import (
     GroupedAllele,
     HLA_LOCUS,
     HLARawStandard,
@@ -22,28 +22,45 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 def main():
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
-        "Update the bblab HLA alleles to the new format."
+        "Update HLA alleles in the old (CSV-based) format to the new format.  "
+        "The input allele lists may be reduced or unreduced."
     )
     parser.add_argument(
         "a_standards",
-        help="CSV file containing all unreduced HLA-A alleles",
+        help="CSV file containing all HLA-A alleles",
         type=str,
     )
     parser.add_argument(
         "b_standards",
-        help="CSV file containing all unreduced HLA-B alleles",
+        help="CSV file containing all HLA-B alleles",
         type=str,
     )
     parser.add_argument(
         "c_standards",
-        help="CSV file containing all unreduced HLA-C alleles",
+        help="CSV file containing all HLA-C alleles",
         type=str,
     )
     parser.add_argument(
         "--output",
-        help="filename to store the unreduced standards (YAML format)",
+        help="filename to store the reformatted standards in YAML",
         type=str,
-        default="bblab_hla_standards.yaml",
+        default="reformatted_hla_standards.yaml",
+    )
+    parser.add_argument(
+        "--tag",
+        help="human-readable name for this dataset",
+        type=str,
+        default="reformatted_hla_alleles",
+    )
+    parser.add_argument(
+        "--last_updated",
+        help=(
+            "ISO-formatted datetime of time these alleles were updated "
+            "(if blank, current time will be used.  "
+            'A trailing "Z" denotes UTC.)'
+        ),
+        type=str,
+        default="",
     )
     parser.add_argument(
         "--verbose",
@@ -85,14 +102,17 @@ def main():
             logger=logger,
         )
 
+    last_updated: datetime = datetime.now()
+    if args.last_updated != "":
+        last_updated = datetime.fromisoformat(args.last_updated)
+
     standards_for_saving: StoredHLAStandards = StoredHLAStandards(
-        tag="bblab_alleles",
+        tag=args.tag,
         commit_hash="n/a",
-        last_updated=datetime(2012, 10, 17, 8, 33, tzinfo=timezone.utc),
+        last_updated=last_updated,
         standards=grouped_alleles,
     )
 
-    # First, prepare the unreduced YAML output.
     logger.info(f"Writing HLA standards to {args.output}....")
     with open(args.output, "w") as f:
         yaml.safe_dump(standards_for_saving.model_dump(), f)
