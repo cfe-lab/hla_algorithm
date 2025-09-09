@@ -1781,12 +1781,6 @@ READ_HLA_STANDARDS_TYPICAL_CASE_OUTPUT: dict[HLA_LOCUS, dict[str, HLAStandard]] 
 }
 
 
-def test_path_join_shim():
-    expected_result: str = "/foo/bar/baz"
-    result: str = HLAAlgorithm._path_join_shim("/foo/bar", "baz")
-    assert expected_result == result
-
-
 @pytest.mark.parametrize(
     "raw_standards, raw_expected_result",
     [
@@ -1900,7 +1894,7 @@ def test_read_hla_standards(
     # Also try reading it from a file.
     p = tmp_path / "hla_standards.yaml"
     p.write_text(standards_file_str)
-    mocker.patch.object(HLAAlgorithm, "_path_join_shim", return_value=str(p))
+    mocker.patch.object(HLAAlgorithm, "DEFAULT_CONFIG_DIR", tmp_path)
     load_result: LoadedStandards = HLAAlgorithm.load_default_hla_standards()
     assert load_result == expected_result
 
@@ -2233,7 +2227,7 @@ def test_read_hla_frequencies(
     # Now try loading these from a file.
     p = tmp_path / "hla_frequencies.csv"
     p.write_text(frequencies_str)
-    mocker.patch.object(HLAAlgorithm, "_path_join_shim", return_value=str(p))
+    mocker.patch.object(HLAAlgorithm, "DEFAULT_CONFIG_DIR", tmp_path)
     load_result: dict[HLA_LOCUS, dict[HLAProteinPair, int]] = (
         HLAAlgorithm.load_default_hla_frequencies()
     )
@@ -2328,11 +2322,7 @@ def test_use_config_all_defaults(
     freq_path: Path = tmp_path / "hla_frequencies.csv"
     freq_path.write_text(fake_frequencies_str)
 
-    mocker.patch.object(
-        HLAAlgorithm,
-        "_path_join_shim",
-        side_effect=[os.fspath(standards_path), os.fspath(freq_path)],
-    )
+    mocker.patch.object(HLAAlgorithm, "DEFAULT_CONFIG_DIR", tmp_path)
 
     hla_algorithm: HLAAlgorithm = HLAAlgorithm.use_config()
 
