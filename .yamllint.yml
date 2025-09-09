@@ -1,9 +1,10 @@
+extends: default
+
 ignore:
   - .git/*
   - .venv/*
   - src/hla_algorithm/default_data/hla_standards.yaml
-
-extends: default
+  - src/hla_algorithm/default_data/bblab_config/bblab_hla_standards.yaml
 
 rules:
   truthy:
