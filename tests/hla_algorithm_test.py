@@ -21,6 +21,7 @@ from hla_algorithm.models import (
     HLASequence,
     HLAStandard,
     HLAStandardMatch,
+    MatchingAllelePair,
 )
 from hla_algorithm.utils import GroupedAllele, HLARawStandard, StoredHLAStandards
 
@@ -125,7 +126,7 @@ def hla_algorithm():
 
 
 @pytest.mark.parametrize(
-    "sequence, matching_standards, thresholds, exp_result",
+    "sequence, matching_standards, thresholds, raw_exp_result",
     [
         pytest.param(
             (1, 2, 4, 8),
@@ -591,16 +592,25 @@ def test_combine_standards_stepper(
     sequence: Sequence[int],
     matching_standards: list[HLAStandardMatch],
     thresholds: list[int],
-    exp_result: list[tuple[tuple[int, ...], int, tuple[str, str]]],
+    raw_exp_result: list[tuple[tuple[int, ...], int, tuple[str, str]]],
 ):
     for threshold in thresholds:
-        result: list[tuple[tuple[int, ...], int, tuple[str, str]]] = list(
+        result: list[MatchingAllelePair] = list(
             HLAAlgorithm.combine_standards_stepper(
                 matching_stds=matching_standards,
                 seq=sequence,
                 mismatch_threshold=threshold,
             )
         )
+        exp_result: list[MatchingAllelePair] = [
+            MatchingAllelePair(
+                standard_bin=raw_map[0],
+                mismatch_count=raw_map[1],
+                allele_1=raw_map[2][0],
+                allele_2=raw_map[2][1],
+            )
+            for raw_map in raw_exp_result
+        ]
         assert result == exp_result
 
 

@@ -2,6 +2,7 @@ from typing import Optional
 
 import numpy as np
 import pytest
+from pydantic import ValidationError
 
 from hla_algorithm.models import (
     AllelePairs,
@@ -13,6 +14,7 @@ from hla_algorithm.models import (
     HLAProteinPair,
     HLASequence,
     HLAStandard,
+    MatchingAllelePair,
 )
 
 
@@ -111,6 +113,61 @@ class TestHLAStandard:
         )
         assert hla_standard.sequence == expected_tuple
         assert np.array_equal(hla_standard.sequence_np, expected_array)
+
+
+class TestMatchingAllelePair:
+    def test_validation_passes_alleles_strictly_different(self):
+        MatchingAllelePair(
+            standard_bin=(1,) * 546,
+            mismatch_count=2,
+            allele_1="B*57:01:01",
+            allele_2="B*57:01:04",
+        )
+
+    def test_validation_passes_alleles_equal(self):
+        MatchingAllelePair(
+            standard_bin=(1,) * 546,
+            mismatch_count=2,
+            allele_1="B*57:01:01",
+            allele_2="B*57:01:01",
+        )
+
+    def test_validation_failure(self):
+        with pytest.raises(ValidationError) as excinfo:
+            MatchingAllelePair(
+                standard_bin=(1,) * 546,
+                mismatch_count=2,
+                allele_1="B*57:01:11",
+                allele_2="B*57:01:01",
+            )
+        assert "allele_1 should be less than or equal to allele_2" in str(excinfo.value)
+
+    def test_create_from_unsorted_alleles_trivial_case(self):
+        map: MatchingAllelePair = MatchingAllelePair.create_from_unsorted_alleles(
+            standard_bin=(1,) * 546,
+            mismatch_count=3,
+            allele_names=("B*15:02:04", "B*17:01:33N"),
+        )
+        assert "B*15:02:04" == map.allele_1
+        assert "B*17:01:33N" == map.allele_2
+
+    def test_create_from_unsorted_alleles_trivial_case_equal_allele_names(self):
+        map: MatchingAllelePair = MatchingAllelePair.create_from_unsorted_alleles(
+            standard_bin=(1,) * 546,
+            mismatch_count=3,
+            allele_names=("B*15:02:04", "B*15:02:04"),
+        )
+        assert "B*15:02:04" == map.allele_1
+        assert "B*15:02:04" == map.allele_2
+
+    def test_create_from_unsorted_alleles_allele_order_corrected(self):
+        map: MatchingAllelePair = MatchingAllelePair.create_from_unsorted_alleles(
+            standard_bin=(1,) * 546,
+            mismatch_count=3,
+            allele_names=("B*17:01:33N", "B*15:02:04"),
+        )
+        assert "B*15:02:04" == map.allele_1
+        assert "B*17:01:33N" == map.allele_2
 
 
 class TestHLACombinedStandard:
@@ -1189,7 +1246,10 @@ class TestAllelePairs:
             AllelePairs._identify_clean_prefix_in_pairs(unambiguous_pairs)
         )
         if expected_second_prefix is not None:
-            assert {intermediate_result.common_prefix, intermediate_result.second_prefix} == {
+            assert {
+                intermediate_result.common_prefix,
+                intermediate_result.second_prefix,
+            } == {
                 expected_common_prefix,
                 expected_second_prefix,
             }
@@ -1272,7 +1332,11 @@ class TestAllelePairs:
                 id="best_match_length_1_different_lengths_one_with_no_excess",
             ),
             pytest.param(
-                [("C*01", "07", "88"), ("C*01", "07", "01"), ("C*01", "07", "01", "110N")],
+                [
+                    ("C*01", "07", "88"),
+                    ("C*01", "07", "01"),
+                    ("C*01", "07", "01", "110N"),
+                ],
                 ("C*01", "07"),
                 id="typical_case",
             ),
