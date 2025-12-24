@@ -236,8 +236,20 @@ class HLAAlgorithm:
         """
         Identifies "good" combined standards for the specified sequence.
 
+        Humans have two copies of their HLA genes, so when we use Sanger
+        sequencing to sequence a person's HLA, we get a single sequence with
+        potentially many mixtures.  That is, at any position that the two genes
+        don't match, we see a nucleotide mixture consisting of the two
+        corresponding bases.
+
+        In order to find matches, we take allele sequences (reduced to ones that
+        are already "decent" matches for our sequence, to reduce running time)
+        and "mush" them together to produce potential matches for our sequence.
+
         On each iteration, it continues checking combined standards until it
         finds a "match", and yields a MatchingAllelePair containing its details.
+
+        PRECONDITION: matching_stds should contain no duplicates.
 
         A "match" is defined by the number of mismatches between the combined
         standard and the sequence:
@@ -287,25 +299,12 @@ class HLAAlgorithm:
                 )
 
     @staticmethod
-    def combine_standards(
-        matching_stds: Sequence[HLAStandardMatch],
-        seq: Sequence[int],
+    def collate_matching_allele_pairs(
+        matching_allele_pairs: Iterable[MatchingAllelePair],
         mismatch_threshold: Optional[int] = None,
     ) -> dict[HLACombinedStandard, int]:
         """
-        Find the combinations of standards that match the given sequence.
-
-        Humans have two copies of their HLA genes, so when we use Sanger
-        sequencing to sequence a person's HLA, we get a single sequence with
-        potentially many mixtures.  That is, at any position that the two genes
-        don't match, we see a nucleotide mixture consisting of the two
-        corresponding bases.
-
-        In order to find matches, we take allele sequences (reduced to ones that
-        are already "decent" matches for our sequence, to reduce running time)
-        and "mush" them together to produce potential matches for our sequence.
-
-        PRECONDITION: matching_stds should contain no duplicates.
+        Collate the given MatchingAllelePairs into HLACombinedStandards.
 
         Returns a dictionary mapping HLACombinedStandards to their mismatch
         counts.  If mismatch_threshold is None or 0, then the result contains
@@ -323,9 +322,7 @@ class HLAAlgorithm:
         combos: dict[tuple[int, ...], tuple[int, list[tuple[str, str]]]] = {}
 
         fewest_mismatches: int | float = float("inf")
-        for matching_allele_pair in HLAAlgorithm.combine_standards_stepper(
-            matching_stds, seq, mismatch_threshold
-        ):
+        for matching_allele_pair in matching_allele_pairs:
             combined_std_bin: tuple[int, ...] = matching_allele_pair.standard_bin
             mismatches: int = matching_allele_pair.mismatch_count
             allele_pair: tuple[str, str] = (
@@ -356,6 +353,32 @@ class HLAAlgorithm:
                 result[combined_std] = mismatch_count
 
         return result
+
+    @staticmethod
+    def combine_standards(
+        matching_stds: Sequence[HLAStandardMatch],
+        seq: Sequence[int],
+        mismatch_threshold: Optional[int] = None,
+    ) -> dict[HLACombinedStandard, int]:
+        """
+        Find the combinations of standards that match the given sequence.
+
+        This uses combine_standards_stepper to find any putative matches, and
+        then uses collate_matching_allele_pairs to compile the information into
+        a dictionary mapping HLACombinedStandards to their mismatch counts.
+
+        The parameters are as for combine_standards_stepper; mismatch_threshold
+        is also fed directly into collate_matching_allele_pairs and affects the
+        results accordingly.
+        """
+        return HLAAlgorithm.collate_matching_allele_pairs(
+            HLAAlgorithm.combine_standards_stepper(
+                matching_stds,
+                seq,
+                mismatch_threshold if mismatch_threshold is not None else 0,
+            ),
+            mismatch_threshold,
+        )
 
     @staticmethod
     def get_mismatches(
