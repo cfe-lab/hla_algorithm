@@ -2,10 +2,10 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from operator import itemgetter
-from typing import Final, Optional
+from typing import Final, Optional, Self
 
 import numpy as np
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from .utils import (
     HLA_LOCUS,
@@ -73,6 +73,45 @@ class HLAStandard(BaseModel):
 
 class HLAStandardMatch(HLAStandard):
     mismatch: int
+
+
+class MatchingAllelePair(BaseModel):
+    """
+    Represents an allele pair that matches an observed sequence.
+
+    This contains:
+    - the combined standard, as a tuple of integers 0-15;
+    - the number of mismatches identified; and
+    - the allele pair (i.e. names of the two alleles in the combination).
+    """
+    standard_bin: tuple[int, ...]
+    mismatch_count: int
+    allele_1: str
+    allele_2: str
+
+    @model_validator(mode="after")
+    def check_alleles_ordered(self) -> Self:
+        if allele_coordinates_sort_key(self.allele_1) > allele_coordinates_sort_key(self.allele_2):
+            raise ValueError("allele_1 should be less than or equal to allele_2")
+        return self
+
+    @classmethod
+    def create_from_unsorted_alleles(
+        cls,
+        standard_bin: tuple[int, ...],
+        mismatch_count: int,
+        allele_names: tuple[str, str],
+    ) -> Self:
+        sorted_allele_names: list[str] = sorted(
+            allele_names,
+            key=allele_coordinates_sort_key,
+        )
+        return cls(
+            standard_bin=standard_bin,
+            mismatch_count=mismatch_count,
+            allele_1=sorted_allele_names[0],
+            allele_2=sorted_allele_names[1],
+        )
 
 
 class HLACombinedStandard(BaseModel):

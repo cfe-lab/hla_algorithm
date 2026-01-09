@@ -21,6 +21,7 @@ from hla_algorithm.models import (
     HLASequence,
     HLAStandard,
     HLAStandardMatch,
+    MatchingAllelePair,
 )
 from hla_algorithm.utils import GroupedAllele, HLARawStandard, StoredHLAStandards
 
@@ -125,7 +126,7 @@ def hla_algorithm():
 
 
 @pytest.mark.parametrize(
-    "sequence, matching_standards, thresholds, exp_result",
+    "sequence, matching_standards, thresholds, raw_exp_result",
     [
         pytest.param(
             (1, 2, 4, 8),
@@ -591,19 +592,301 @@ def test_combine_standards_stepper(
     sequence: Sequence[int],
     matching_standards: list[HLAStandardMatch],
     thresholds: list[int],
-    exp_result: list[tuple[tuple[int, ...], int, tuple[str, str]]],
+    raw_exp_result: list[tuple[tuple[int, ...], int, tuple[str, str]]],
 ):
     for threshold in thresholds:
-        result: list[tuple[tuple[int, ...], int, tuple[str, str]]] = list(
+        result: list[MatchingAllelePair] = list(
             HLAAlgorithm.combine_standards_stepper(
                 matching_stds=matching_standards,
                 seq=sequence,
                 mismatch_threshold=threshold,
             )
         )
+        exp_result: list[MatchingAllelePair] = [
+            MatchingAllelePair(
+                standard_bin=raw_map[0],
+                mismatch_count=raw_map[1],
+                allele_1=raw_map[2][0],
+                allele_2=raw_map[2][1],
+            )
+            for raw_map in raw_exp_result
+        ]
         assert result == exp_result
 
 
+@pytest.mark.parametrize(
+    "raw_matching_allele_pairs, thresholds, exp_result",
+    [
+        pytest.param(
+            [],
+            [None, 0, 1, 5],
+            {},
+            id="trivial_case",
+        ),
+        pytest.param(
+            [((1, 2, 4, 8), 0, ("A*07:08:09G", "A*07:08:09G"))],
+            [0, 1, 5],
+            {
+                HLACombinedStandard(
+                    standard_bin=(1, 2, 4, 8),
+                    possible_allele_pairs=(("A*07:08:09G", "A*07:08:09G"),),
+                ): 0,
+            },
+            id="one_combo_all_matches",
+        ),
+        pytest.param(
+            [((1, 2, 4, 4), 1, ("B*57:01:02", "B*57:01:02"))],
+            [None, 0, 1, 5],
+            {
+                HLACombinedStandard(
+                    standard_bin=(1, 2, 4, 4),
+                    possible_allele_pairs=(("B*57:01:02", "B*57:01:02"),),
+                ): 1,
+            },
+            id="one_combo_retained_regardless_of_threshold",
+        ),
+        pytest.param(
+            [((1, 4, 2, 8), 2, ("A*55:01", "A*55:01"))],
+            [None, 0, 1, 2, 3, 5],
+            {
+                HLACombinedStandard(
+                    standard_bin=(1, 4, 2, 8),
+                    possible_allele_pairs=(("A*55:01", "A*55:01"),),
+                ): 2
+            },
+            id="only_combo_retained_regardless_of_threshold_two_mismatches",
+        ),
+        pytest.param(
+            [((8, 4, 2, 1), 4, ("A*11:01:01:01", "A*11:01:01:01"))],
+            [None, 0, 1, 3, 4, 5, 10],
+            {
+                HLACombinedStandard(
+                    standard_bin=(8, 4, 2, 1),
+                    possible_allele_pairs=(("A*11:01:01:01", "A*11:01:01:01"),),
+                ): 4,
+            },
+            id="only_combo_retained_regardless_of_threshold_more_mismatches",
+        ),
+        pytest.param(
+            [((1, 4, 2, 8), 2, ("A*55:01", "A*55:01"))],
+            [None, 0, 1, 2, 3, 5],
+            {
+                HLACombinedStandard(
+                    standard_bin=(1, 4, 2, 8),
+                    possible_allele_pairs=(("A*55:01", "A*55:01"),),
+                ): 2
+            },
+            id="only_combo_retained_regardless_of_threshold_two_mismatches",
+        ),
+        pytest.param(
+            [
+                ((1, 4, 4, 8), 1, ("A*30:08:01", "A*30:08:01")),
+                ((1, 6, 4, 8), 1, ("A*07:08:09G", "A*30:08:01")),
+                ((1, 2, 4, 8), 0, ("A*07:08:09G", "A*07:08:09G")),
+            ],
+            [None, 0],
+            {
+                HLACombinedStandard(
+                    standard_bin=(1, 2, 4, 8),
+                    possible_allele_pairs=(("A*07:08:09G", "A*07:08:09G"),),
+                ): 0
+            },
+            id="exact_match_retained_rest_rejected_when_threshold_is_zero_last_in_inputs",
+        ),
+        pytest.param(
+            [
+                ((1, 2, 4, 8), 0, ("A*07:08:09G", "A*07:08:09G")),
+                ((1, 4, 4, 8), 1, ("A*30:08:01", "A*30:08:01")),
+                ((1, 6, 4, 8), 1, ("A*07:08:09G", "A*30:08:01")),
+            ],
+            [None, 0],
+            {
+                HLACombinedStandard(
+                    standard_bin=(1, 2, 4, 8),
+                    possible_allele_pairs=(("A*07:08:09G", "A*07:08:09G"),),
+                ): 0
+            },
+            id="exact_match_retained_rest_rejected_when_threshold_is_zero_first_in_inputs",
+        ),
+        pytest.param(
+            [
+                ((1, 4, 4, 8), 1, ("A*30:08:01", "A*30:08:01")),
+                ((1, 2, 4, 8), 0, ("A*07:08:09G", "A*07:08:09G")),
+                ((1, 6, 4, 8), 1, ("A*07:08:09G", "A*30:08:01")),
+            ],
+            [None, 0],
+            {
+                HLACombinedStandard(
+                    standard_bin=(1, 2, 4, 8),
+                    possible_allele_pairs=(("A*07:08:09G", "A*07:08:09G"),),
+                ): 0
+            },
+            id="exact_match_retained_rest_rejected_when_threshold_is_zero_middle_of_inputs",
+        ),
+        pytest.param(
+            [
+                ((1, 2, 4, 8), 0, ("A*07:08:09G", "A*07:08:09G")),
+                ((1, 6, 4, 8), 1, ("A*07:08:09G", "A*30:08:01")),
+                ((1, 4, 4, 8), 1, ("A*30:08:01", "A*30:08:01")),
+            ],
+            [1, 2, 5],
+            {
+                HLACombinedStandard(
+                    standard_bin=(1, 2, 4, 8),
+                    possible_allele_pairs=(("A*07:08:09G", "A*07:08:09G"),),
+                ): 0,
+                HLACombinedStandard(
+                    standard_bin=(1, 6, 4, 8),
+                    possible_allele_pairs=(("A*07:08:09G", "A*30:08:01"),),
+                ): 1,
+                HLACombinedStandard(
+                    standard_bin=(1, 4, 4, 8),
+                    possible_allele_pairs=(("A*30:08:01", "A*30:08:01"),),
+                ): 1,
+            },
+            id="several_combos_all_below_threshold",
+        ),
+        pytest.param(
+            [
+                ((1, 2, 4, 4), 3, ("B*57:01:02", "B*57:01:02")),
+                ((9, 6, 4, 12), 1, ("B*57:01:02", "B*58:22:33G")),
+            ],
+            [None, 0, 1, 2],
+            {
+                HLACombinedStandard(
+                    standard_bin=(9, 6, 4, 12),
+                    possible_allele_pairs=(("B*57:01:02", "B*58:22:33G"),),
+                ): 1,
+            },
+            id="combo_above_threshold_is_rejected",
+        ),
+        pytest.param(
+            [
+                ((1, 2, 4, 4), 3, ("B*57:01:02", "B*57:01:02")),
+                ((9, 6, 4, 12), 1, ("B*57:01:02", "B*58:22:33G")),
+                ((8, 4, 4, 8), 3, ("B*58:22:33G", "B*58:22:33G")),
+            ],
+            [3, 4, 5],
+            {
+                HLACombinedStandard(
+                    standard_bin=(1, 2, 4, 4),
+                    possible_allele_pairs=(("B*57:01:02", "B*57:01:02"),),
+                ): 3,
+                HLACombinedStandard(
+                    standard_bin=(9, 6, 4, 12),
+                    possible_allele_pairs=(("B*57:01:02", "B*58:22:33G"),),
+                ): 1,
+                HLACombinedStandard(
+                    standard_bin=(8, 4, 4, 8),
+                    possible_allele_pairs=(("B*58:22:33G", "B*58:22:33G"),),
+                ): 3,
+            },
+            id="all_combos_below_threshold",
+        ),
+        pytest.param(
+            [
+                ((2, 2, 4, 12), 2, ("B*01:02:03", "B*01:02:04")),
+                ((2, 2, 4, 12), 2, ("B*11:22:33", "B*11:22:44")),
+            ],
+            [None, 0, 1, 2, 3, 10],
+            {
+                HLACombinedStandard(
+                    standard_bin=(2, 2, 4, 12),
+                    possible_allele_pairs=(
+                        ("B*01:02:03", "B*01:02:04"),
+                        ("B*11:22:33", "B*11:22:44"),
+                    ),
+                ): 2
+            },
+            id="two_pairs_collapse_into_one_combined_standard",
+        ),
+        pytest.param(
+            [
+                ((2, 2, 4, 12), 2, ("B*110:01:01:01N", "B*220:22:02")),
+                ((2, 2, 4, 12), 2, ("B*57:01:02", "B*220:100:01")),
+                ((2, 2, 4, 12), 2, ("B*110:01:01:01N", "B*220:15:01")),
+                ((2, 2, 4, 12), 2, ("B*57:03:01", "B*220:100:01")),
+            ],
+            [None, 0, 1, 2, 3, 10],
+            {
+                HLACombinedStandard(
+                    standard_bin=(2, 2, 4, 12),
+                    possible_allele_pairs=(
+                        ("B*57:01:02", "B*220:100:01"),
+                        ("B*57:03:01", "B*220:100:01"),
+                        ("B*110:01:01:01N", "B*220:15:01"),
+                        ("B*110:01:01:01N", "B*220:22:02"),
+                    ),
+                ): 2,
+            },
+            id="collapsed_pairs_sorted_by_coordinate",
+        ),
+        pytest.param(
+            [
+                ((2, 2, 4, 12), 2, ("B*110:01:01:01N", "B*220:22:02")),
+                ((1, 2, 8, 4), 3, ("B*15:01", "B*22:33")),
+                ((2, 2, 4, 12), 2, ("B*57:01:02", "B*220:100:01")),
+                ((2, 2, 4, 12), 2, ("B*110:01:01:01N", "B*220:15:01")),
+                ((3, 2, 4, 6), 1, ("B*01:02:03", "B*100:100")),
+                ((2, 2, 4, 12), 2, ("B*57:03:01", "B*220:100:01")),
+                ((1, 2, 4, 6), 0, ("B*88:01", "B*99:01")),
+                ((1, 2, 4, 6), 0, ("B*88:11", "B*99:11")),
+                ((4, 4, 1, 1), 4, ("B*67:67", "B*69:420")),
+            ],
+            [2],
+            {
+                HLACombinedStandard(
+                    standard_bin=(2, 2, 4, 12),
+                    possible_allele_pairs=(
+                        ("B*57:01:02", "B*220:100:01"),
+                        ("B*57:03:01", "B*220:100:01"),
+                        ("B*110:01:01:01N", "B*220:15:01"),
+                        ("B*110:01:01:01N", "B*220:22:02"),
+                    ),
+                ): 2,
+                HLACombinedStandard(
+                    standard_bin=(1, 2, 4, 6),
+                    possible_allele_pairs=(
+                        ("B*88:01", "B*99:01"),
+                        ("B*88:11", "B*99:11"),
+                    ),
+                ): 0,
+                HLACombinedStandard(
+                    standard_bin=(3, 2, 4, 6),
+                    possible_allele_pairs=(("B*01:02:03", "B*100:100"),),
+                ): 1,
+            },
+            id="typical_case",
+        ),
+    ],
+)
+def test_collate_matching_allele_pairs(
+    raw_matching_allele_pairs: list[tuple[tuple[int, ...], int, tuple[str, str]]],
+    thresholds: Iterable[int],
+    exp_result: dict[HLACombinedStandard, int],
+):
+    for threshold in thresholds:
+        matching_allele_pairs: list[MatchingAllelePair] = [
+            MatchingAllelePair(
+                standard_bin=raw_map[0],
+                mismatch_count=raw_map[1],
+                allele_1=raw_map[2][0],
+                allele_2=raw_map[2][1],
+            )
+            for raw_map in raw_matching_allele_pairs
+        ]
+        result: dict[HLACombinedStandard, int] = (
+            HLAAlgorithm.collate_matching_allele_pairs(
+                matching_allele_pairs,
+                threshold,
+            )
+        )
+        assert result == exp_result
+
+
+# Note: some of this testing can likely be eliminated.  These tests were written
+# before some of the logic was moved into collate_matching_allele_pairs, and
+# so some of this testing may be redundant now.
 @pytest.mark.parametrize(
     "sequence, matching_standards, thresholds, exp_result",
     [

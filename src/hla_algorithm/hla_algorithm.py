@@ -4,7 +4,7 @@ from datetime import datetime
 from io import TextIOBase
 from operator import attrgetter
 from pathlib import Path
-from typing import Final, Optional, TypedDict, cast
+from typing import Final, Optional, TypedDict
 
 import numpy as np
 import yaml
@@ -18,12 +18,12 @@ from .models import (
     HLASequence,
     HLAStandard,
     HLAStandardMatch,
+    MatchingAllelePair,
 )
 from .utils import (
     BIN2NUC,
     HLA_LOCUS,
     StoredHLAStandards,
-    allele_coordinates_sort_key,
     count_strict_mismatches,
     nuc2bin,
     sort_allele_pairs,
@@ -138,7 +138,9 @@ class HLAAlgorithm:
         :return: List of known HLA standards
         :rtype: list[HLAStandard]
         """
-        with open(HLAAlgorithm.DEFAULT_CONFIG_DIR / "hla_standards.yaml") as standards_file:
+        with open(
+            HLAAlgorithm.DEFAULT_CONFIG_DIR / "hla_standards.yaml"
+        ) as standards_file:
             return HLAAlgorithm.read_hla_standards(standards_file)
 
     FREQUENCY_LOCUS_COLUMNS: dict[HLA_LOCUS, tuple[str, str]] = {
@@ -230,16 +232,24 @@ class HLAAlgorithm:
         matching_stds: Sequence[HLAStandardMatch],
         seq: Sequence[int],
         mismatch_threshold: int = 0,
-    ) -> Generator[tuple[tuple[int, ...], int, tuple[str, str]], None, None]:
+    ) -> Generator[MatchingAllelePair, None, None]:
         """
         Identifies "good" combined standards for the specified sequence.
 
+        Humans have two copies of their HLA genes, so when we use Sanger
+        sequencing to sequence a person's HLA, we get a single sequence with
+        potentially many mixtures.  That is, at any position that the two genes
+        don't match, we see a nucleotide mixture consisting of the two
+        corresponding bases.
+
+        In order to find matches, we take allele sequences (reduced to ones that
+        are already "decent" matches for our sequence, to reduce running time)
+        and "mush" them together to produce potential matches for our sequence.
+
         On each iteration, it continues checking combined standards until it
-        finds a "match", and yields a tuple containing the details of that
-        match:
-        - the combined standard, as a tuple of integers 0-15;
-        - the number of mismatches identified; and
-        - the allele pair (i.e. names of the two alleles in the combination).
+        finds a "match", and yields a MatchingAllelePair containing its details.
+
+        PRECONDITION: matching_stds should contain no duplicates.
 
         A "match" is defined by the number of mismatches between the combined
         standard and the sequence:
@@ -263,15 +273,6 @@ class HLAAlgorithm:
                 # "Mush" the two standards together to produce something
                 # that looks like what you get when you sequence HLA.
                 std_bin = np.array(std_b.sequence) | np.array(std_a.sequence)
-                allele_pair: tuple[str, str] = cast(
-                    tuple[str, str],
-                    tuple(
-                        sorted(
-                            (std_a.allele, std_b.allele),
-                            key=allele_coordinates_sort_key,
-                        )
-                    ),
-                )
 
                 # There could be more than one combined standard with the
                 # same sequence, so check if this one's already been found.
@@ -291,28 +292,19 @@ class HLAAlgorithm:
                 elif mismatches < current_rejection_threshold:
                     current_rejection_threshold = max(mismatches, mismatch_threshold)
 
-                yield (combined_std_bin, mismatches, allele_pair)
+                yield MatchingAllelePair.create_from_unsorted_alleles(
+                    standard_bin=combined_std_bin,
+                    mismatch_count=mismatches,
+                    allele_names=(std_a.allele, std_b.allele),
+                )
 
     @staticmethod
-    def combine_standards(
-        matching_stds: Sequence[HLAStandardMatch],
-        seq: Sequence[int],
+    def collate_matching_allele_pairs(
+        matching_allele_pairs: Iterable[MatchingAllelePair],
         mismatch_threshold: Optional[int] = None,
     ) -> dict[HLACombinedStandard, int]:
         """
-        Find the combinations of standards that match the given sequence.
-
-        Humans have two copies of their HLA genes, so when we use Sanger
-        sequencing to sequence a person's HLA, we get a single sequence with
-        potentially many mixtures.  That is, at any position that the two genes
-        don't match, we see a nucleotide mixture consisting of the two
-        corresponding bases.
-
-        In order to find matches, we take allele sequences (reduced to ones that
-        are already "decent" matches for our sequence, to reduce running time)
-        and "mush" them together to produce potential matches for our sequence.
-
-        PRECONDITION: matching_stds should contain no duplicates.
+        Collate the given MatchingAllelePairs into HLACombinedStandards.
 
         Returns a dictionary mapping HLACombinedStandards to their mismatch
         counts.  If mismatch_threshold is None or 0, then the result contains
@@ -330,13 +322,13 @@ class HLAAlgorithm:
         combos: dict[tuple[int, ...], tuple[int, list[tuple[str, str]]]] = {}
 
         fewest_mismatches: int | float = float("inf")
-        for (
-            combined_std_bin,
-            mismatches,
-            allele_pair,
-        ) in HLAAlgorithm.combine_standards_stepper(
-            matching_stds, seq, mismatch_threshold
-        ):
+        for matching_allele_pair in matching_allele_pairs:
+            combined_std_bin: tuple[int, ...] = matching_allele_pair.standard_bin
+            mismatches: int = matching_allele_pair.mismatch_count
+            allele_pair: tuple[str, str] = (
+                matching_allele_pair.allele_1,
+                matching_allele_pair.allele_2,
+            )
             if combined_std_bin not in combos:
                 combos[combined_std_bin] = (mismatches, [])
             combos[combined_std_bin][1].append(allele_pair)
@@ -361,6 +353,32 @@ class HLAAlgorithm:
                 result[combined_std] = mismatch_count
 
         return result
+
+    @staticmethod
+    def combine_standards(
+        matching_stds: Sequence[HLAStandardMatch],
+        seq: Sequence[int],
+        mismatch_threshold: Optional[int] = None,
+    ) -> dict[HLACombinedStandard, int]:
+        """
+        Find the combinations of standards that match the given sequence.
+
+        This uses combine_standards_stepper to find any putative matches, and
+        then uses collate_matching_allele_pairs to compile the information into
+        a dictionary mapping HLACombinedStandards to their mismatch counts.
+
+        The parameters are as for combine_standards_stepper; mismatch_threshold
+        is also fed directly into collate_matching_allele_pairs and affects the
+        results accordingly.
+        """
+        return HLAAlgorithm.collate_matching_allele_pairs(
+            HLAAlgorithm.combine_standards_stepper(
+                matching_stds,
+                seq,
+                mismatch_threshold if mismatch_threshold is not None else 0,
+            ),
+            mismatch_threshold,
+        )
 
     @staticmethod
     def get_mismatches(
