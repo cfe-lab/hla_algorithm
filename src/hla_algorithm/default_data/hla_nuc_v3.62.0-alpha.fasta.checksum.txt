@@ -1,0 +1,1 @@
+046619718afc58964e1223f149ddeb8b hla_nuc.fasta
