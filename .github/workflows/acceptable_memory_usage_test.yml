@@ -3,8 +3,8 @@ name: performance_test
 on:
   schedule:
     - cron: "0 0 * * *"
-    - timezone: "America/Vancouver"
-  workflow-dispatch:
+      timezone: "America/Vancouver"
+  workflow_dispatch:
 
 concurrency:
   group: test-${{ github.head_ref }}
