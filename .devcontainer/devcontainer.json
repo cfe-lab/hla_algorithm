@@ -41,7 +41,8 @@
 			"openssh-client",
 			"libaio-dev",
 			"unzip",
-			"yamllint"
+			"yamllint",
+			"time"
 		],
 		"install Ruby": [
 			"/usr/bin/apt",

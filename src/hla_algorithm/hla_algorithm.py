@@ -259,9 +259,6 @@ class HLAAlgorithm:
         - this is below our mismatch threshold.
         If the mismatch threshold is 0, then we will only ever get the former.
         """
-        # Keep track of matches we've already found:
-        combos: dict[tuple[int, ...], int] = {}
-
         current_rejection_threshold: int | float = float("inf")
         for std_ai, std_a in enumerate(matching_stds):
             if std_a.mismatch > current_rejection_threshold:
@@ -278,14 +275,7 @@ class HLAAlgorithm:
                 # same sequence, so check if this one's already been found.
                 combined_std_bin: tuple[int, ...] = tuple(int(s) for s in std_bin)
 
-                mismatches: int = -1
-                if combined_std_bin in combos:
-                    mismatches = combos[combined_std_bin]
-
-                else:
-                    # Note that seq is implicitly cast to a NumPy array:
-                    mismatches = np.count_nonzero(std_bin ^ seq != 0)
-                    combos[combined_std_bin] = mismatches  # cache this value
+                mismatches: int = np.count_nonzero(std_bin ^ seq != 0)
 
                 if mismatches > current_rejection_threshold:
                     continue
