@@ -10,20 +10,20 @@ import subprocess
 from typing import TypedDict
 
 
-def get_wall_clock_time(time_output: str) -> str:
-    time_regex = re.compile(
-        r"^\s*Elapsed \(wall clock\) time \(h:mm:ss or m:ss\): (.*)$",
-        flags=re.MULTILINE,
-    )
-    return time_regex.search(time_output).group(1)
+TIME_REGEX = re.compile(
+    r"^\s*Elapsed \(wall clock\) time \(h:mm:ss or m:ss\): (.*)$",
+    flags=re.MULTILINE,
+)
+MEMORY_REGEX = re.compile(
+    r"^\s*Maximum resident set size \(kbytes\): (.*)$",
+    flags=re.MULTILINE,
+)
 
+def get_wall_clock_time(time_output: str) -> str:
+    return TIME_REGEX.search(time_output).group(1)
 
 def get_max_memory_usage(time_output: str) -> str:
-    memory_regex = re.compile(
-        r"^\s*Maximum resident set size \(kbytes\): (.*)$",
-        flags=re.MULTILINE,
-    )
-    return memory_regex.search(time_output).group(1)
+    return MEMORY_REGEX.search(time_output).group(1)
 
 
 class ResourceSummary(TypedDict):
