@@ -17,9 +17,11 @@ def test_acceptable_memory_usage():
     allele_2: HLAStandard = hla_alg.hla_standards["B"]["B*45:01:01G"]
 
     expensive_sequence = HLASequence(
-        two=(int(s) for s in np.array(allele_1.two) | np.array(allele_2.two)),
+        two=tuple(int(s) for s in np.array(allele_1.two) | np.array(allele_2.two)),
         intron=(),
-        three=(int(s) for s in np.array(allele_1.three) | np.array(allele_2.three)),
+        three=tuple(
+            int(s) for s in np.array(allele_1.three) | np.array(allele_2.three)
+        ),
         name="expensive_sequence",
         locus="B",
     )
