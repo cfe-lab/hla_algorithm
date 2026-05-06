@@ -2,13 +2,11 @@
 
 import argparse
 import csv
-import glob
 import json
-import os.path
 import re
 import subprocess
+from pathlib import Path
 from typing import TypedDict
-
 
 TIME_REGEX = re.compile(
     r"^\s*Elapsed \(wall clock\) time \(h:mm:ss or m:ss\): (.*)$",
@@ -18,9 +16,12 @@ MEMORY_REGEX = re.compile(
     r"^\s*Maximum resident set size \(kbytes\): (.*)$",
     flags=re.MULTILINE,
 )
+SAMPLE_REGEX = re.compile(r"^(.*)\.BA\.txt$")
+
 
 def get_wall_clock_time(time_output: str) -> str:
     return TIME_REGEX.search(time_output).group(1)
+
 
 def get_max_memory_usage(time_output: str) -> str:
     return MEMORY_REGEX.search(time_output).group(1)
@@ -36,28 +37,34 @@ def main():
     parser = argparse.ArgumentParser(
         "Process HLA sequences and report the resource usage."
     )
-    parser.add_argument("input_dir", help="Directory to scan for HLA sequences")
-    parser.add_argument("--output_csv", help="CSV file summary", default="out.csv")
+    parser.add_argument(
+        "input_dir",
+        help="Directory to scan for HLA sequences",
+        type=Path,
+    )
+    parser.add_argument(
+        "--output_csv",
+        help="CSV file summary",
+        type=Path,
+        default=Path("out.csv"),
+    )
     args = parser.parse_args()
 
     resource_summaries: list[ResourceSummary] = []
-    sample_regex = re.compile(r"^.*/(.*)\.BA\.txt$")
-    for exon1_filename in glob.glob(f"{args.input_dir}/*.BA.txt"):
-        sample_name: str = sample_regex.match(exon1_filename).group(1)
-        exon2_filename: str = os.path.join(args.input_dir, f"{sample_name}.BB.txt")
-        with open(exon1_filename) as f:
-            exon1: str = f.read().strip()
-        with open(exon2_filename) as f:
-            exon2: str = f.read().strip()
+
+    for exon1_filepath in args.input_dir.glob("*.BA.txt"):
+        sample_name: str = SAMPLE_REGEX.match(exon1_filepath.name).group(1)
+        exon2_filepath: Path = args.input_dir / f"{sample_name}.BB.txt"
+        exon1: str = exon1_filepath.read_text().strip()
+        exon2: str = exon2_filepath.read_text().strip()
 
         json_input = {
             "seq1": exon1,
             "seq2": exon2,
             "locus": "B",
         }
-        json_filename: str = os.path.join(args.input_dir, f"{sample_name}.json")
-        with open(json_filename, "w") as f:
-            json.dump(json_input, f)
+        json_filepath: Path = args.input_dir / f"{sample_name}.json"
+        json_filepath.write_text(json.dumps(json_input))
 
         print(f"----\nSample {sample_name}:")
         result = subprocess.run(
@@ -65,7 +72,7 @@ def main():
                 "/usr/bin/time",
                 "-v",
                 "interpret_from_json",
-                json_filename,
+                json_filepath.as_posix(),
             ],
             capture_output=True,
             text=True,
