@@ -39,6 +39,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+  "gprof2dot>=2025.4.14",
   "mypy>=1.15.0",
   "mypy-extensions>=1.0.0",
   "pandas>=2.2.3",
@@ -47,6 +48,7 @@ dev = [
   "pytest>=8.3.5",
   "pytest-cov>=6.0.0",
   "pytest-html>=4.1.1",
+  "pytest-memray>=1.8.0",
   "pytest-mock>=3.14.0",
   "pytest-xdist>=3.6.1",
   "ruff>=0.9.9",
