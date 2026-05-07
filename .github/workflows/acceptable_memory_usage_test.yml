@@ -15,9 +15,28 @@ env:
   FORCE_COLOR: "1"
 
 jobs:
+  # This logic is based on the discussion here (and the links within):
+  # https://github.com/orgs/community/discussions/27128
+  #
+  check_for_new_commits:
+    name: Check for commits in the last 24 hours
+    runs-on: ubuntu-latest
+    outputs:
+      num_new_commits: ${{ steps.count_new_commits.outputs.num_new_commits }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - id: count_new_commits
+        run: echo "num_new_commits=$(git log --oneline --since '24 hours ago' | wc -l)" >> "$GITHUB_OUTPUT"
+
+
   run:
     name: Python ${{ matrix.python-version }} Performance Tests
     runs-on: ${{ matrix.os }}
+
+    needs: check_for_new_commits
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.check_for_new_commits.outputs.num_new_commits > 0 }}
+
     strategy:
       fail-fast: false
       matrix:
