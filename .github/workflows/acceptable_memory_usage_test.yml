@@ -27,15 +27,18 @@ jobs:
       - uses: actions/checkout@v6
 
       - id: count_new_commits
-        run: echo "num_new_commits=$(git log --oneline --since '24 hours ago' | wc -l)" >> "$GITHUB_OUTPUT"
-
+        run: >-
+          echo "num_new_commits=$(git log --oneline --since '24 hours ago' |
+          wc -l)" >> "$GITHUB_OUTPUT"
 
   run:
     name: Python ${{ matrix.python-version }} Performance Tests
     runs-on: ${{ matrix.os }}
 
     needs: check_for_new_commits
-    if: ${{ github.event_name == 'workflow_dispatch' || needs.check_for_new_commits.outputs.num_new_commits > 0 }}
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+      needs.check_for_new_commits.outputs.num_new_commits > 0 }}
 
     strategy:
       fail-fast: false
