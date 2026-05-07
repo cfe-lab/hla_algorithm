@@ -16,12 +16,15 @@ def test_acceptable_memory_usage():
     allele_1: HLAStandard = hla_alg.hla_standards["B"]["B*07:02:01G"]
     allele_2: HLAStandard = hla_alg.hla_standards["B"]["B*45:01:01G"]
 
+    # "Mush" together the two sequences by doing a bitwise or of the binary
+    # sequences.
+    exon2_bin: np.ndarray = np.array(allele_1.two) | np.array(allele_2.two)
+    exon3_bin: np.ndarray = np.array(allele_1.three) | np.array(allele_2.three)
+
     expensive_sequence = HLASequence(
-        two=tuple(int(s) for s in np.array(allele_1.two) | np.array(allele_2.two)),
+        two=tuple(int(s) for s in exon2_bin),
         intron=(),
-        three=tuple(
-            int(s) for s in np.array(allele_1.three) | np.array(allele_2.three)
-        ),
+        three=tuple(int(s) for s in exon3_bin),
         name="expensive_sequence",
         locus="B",
     )
