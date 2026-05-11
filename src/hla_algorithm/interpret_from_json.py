@@ -3,6 +3,8 @@
 import argparse
 import json
 import logging
+import sys
+from pathlib import Path
 
 from .hla_algorithm import HLAAlgorithm
 from .interpret_from_json_lib import HLAInput, HLAResult
@@ -17,14 +19,18 @@ def main():
     )
     parser.add_argument(
         "infile",
-        type=argparse.FileType("r"),
+        type=str,
         help='Input file containing the JSON input (use "-" to read from stdin)',
     )
     args: argparse.Namespace = parser.parse_args()
 
     hla_input_str: str = ""
-    with args.infile:
-        for line in args.infile:
+    if args.infile == "-":
+        input_file = sys.stdin
+    else:
+        input_file = Path(args.infile).open()
+    with input_file:
+        for line in input_file:
             hla_input_str += f"{line}\n"
 
     hla_input: HLAInput = HLAInput(**json.loads(hla_input_str))

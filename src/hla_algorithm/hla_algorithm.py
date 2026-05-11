@@ -80,8 +80,8 @@ class HLAAlgorithm:
     @classmethod
     def use_config(
         cls,
-        standards_path: Optional[str] = None,
-        frequencies_path: Optional[str] = None,
+        standards_path: str | Path | None = None,
+        frequencies_path: str | Path | None = None,
     ) -> "HLAAlgorithm":
         """
         An alternate constructor that accepts file paths for the configuration.

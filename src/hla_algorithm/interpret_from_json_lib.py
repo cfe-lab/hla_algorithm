@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from pathlib import Path
 
 from pydantic import BaseModel, Field
 
@@ -24,11 +24,11 @@ from .utils import (
 
 class HLAInput(BaseModel):
     seq1: str
-    seq2: Optional[str]
+    seq2: str | None
     locus: HLA_LOCUS
-    threshold: Optional[int] = None
-    hla_std_path: Optional[str] = None
-    hla_freq_path: Optional[str] = None
+    threshold: int | None = None
+    hla_std_path: str | Path | None = None
+    hla_freq_path: str | Path | None = None
 
     def check_sequences(self) -> list[str]:
         errors: list[str] = []
@@ -113,7 +113,7 @@ class HLAResult(BaseModel):
     alleles_version: str = ""
     alleles_last_updated: datetime = Field(default_factory=datetime.now)
     b5701: bool = False
-    dist_b5701: Optional[int] = None
+    dist_b5701: int | None = None
     errors: list[str] = Field(default_factory=list)
     all_mismatches: dict[str, HLAMatchAdaptor] = Field(default_factory=dict)
 
@@ -144,7 +144,9 @@ class HLAResult(BaseModel):
 
         return HLAResult(
             seqs=seqs,
-            alleles_all=[f"{x[0]} - {x[1]}" for x in sort_allele_pairs(aps.allele_pairs)],
+            alleles_all=[
+                f"{x[0]} - {x[1]}" for x in sort_allele_pairs(aps.allele_pairs)
+            ],
             alleles_clean=alleles_clean,
             alleles_for_mismatches=f"{rep_ap[0]} - {rep_ap[1]}",
             mismatches=[str(x) for x in match_details.mismatches],
