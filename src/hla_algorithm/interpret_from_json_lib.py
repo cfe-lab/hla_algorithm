@@ -27,8 +27,8 @@ class HLAInput(BaseModel):
     seq2: str | None
     locus: HLA_LOCUS
     threshold: int | None = None
-    hla_std_path: str | Path | None = None
-    hla_freq_path: str | Path | None = None
+    hla_std_path: Path | None = None
+    hla_freq_path: Path | None = None
 
     def check_sequences(self) -> list[str]:
         errors: list[str] = []

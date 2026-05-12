@@ -4,13 +4,14 @@ import argparse
 import csv
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import cast
 
 import yaml
 
 from .utils import (
-    GroupedAllele,
     HLA_LOCUS,
+    GroupedAllele,
     HLARawStandard,
     StoredHLAStandards,
     group_identical_alleles,
@@ -28,22 +29,22 @@ def main():
     parser.add_argument(
         "a_standards",
         help="CSV file containing all HLA-A alleles",
-        type=str,
+        type=Path,
     )
     parser.add_argument(
         "b_standards",
         help="CSV file containing all HLA-B alleles",
-        type=str,
+        type=Path,
     )
     parser.add_argument(
         "c_standards",
         help="CSV file containing all HLA-C alleles",
-        type=str,
+        type=Path,
     )
     parser.add_argument(
         "--output",
         help="filename to store the reformatted standards in YAML",
-        type=str,
+        type=Path,
         default="reformatted_hla_standards.yaml",
     )
     parser.add_argument(
@@ -84,7 +85,7 @@ def main():
     grouped_alleles: dict[HLA_LOCUS, list[GroupedAllele]] = {"A": [], "B": [], "C": []}
     for locus in ("A", "B", "C"):
         logger.info(f"Grouping HLA-{locus} alleles....")
-        with open(input_filenames_by_locus[locus]) as f:
+        with input_filenames_by_locus[locus].open() as f:
             standards_csv: csv.DictReader = csv.DictReader(
                 f,
                 fieldnames=("allele", "exon2", "exon3"),
@@ -114,7 +115,7 @@ def main():
     )
 
     logger.info(f"Writing HLA standards to {args.output}....")
-    with open(args.output, "w") as f:
+    with args.output.open("w") as f:
         yaml.safe_dump(standards_for_saving.model_dump(), f)
 
     logger.info("Done.")
