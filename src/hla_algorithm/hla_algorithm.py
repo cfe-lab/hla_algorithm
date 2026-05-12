@@ -80,8 +80,8 @@ class HLAAlgorithm:
     @classmethod
     def use_config(
         cls,
-        standards_path: Optional[str] = None,
-        frequencies_path: Optional[str] = None,
+        standards_path: str | Path | None = None,
+        frequencies_path: str | Path | None = None,
     ) -> "HLAAlgorithm":
         """
         An alternate constructor that accepts file paths for the configuration.
@@ -90,11 +90,11 @@ class HLAAlgorithm:
         frequencies: Optional[dict[HLA_LOCUS, dict[HLAProteinPair, int]]] = None
 
         if standards_path is not None:
-            with open(standards_path) as f:
+            with Path(standards_path).open() as f:
                 processed_stds = cls.read_hla_standards(f)
 
         if frequencies_path is not None:
-            with open(frequencies_path) as f:
+            with Path(frequencies_path).open() as f:
                 frequencies = cls.read_hla_frequencies(f)
 
         return cls(processed_stds, frequencies)
@@ -138,9 +138,9 @@ class HLAAlgorithm:
         :return: List of known HLA standards
         :rtype: list[HLAStandard]
         """
-        with open(
+        with (
             HLAAlgorithm.DEFAULT_CONFIG_DIR / "hla_standards.yaml"
-        ) as standards_file:
+        ).open() as standards_file:
             return HLAAlgorithm.read_hla_standards(standards_file)
 
     FREQUENCY_LOCUS_COLUMNS: dict[HLA_LOCUS, tuple[str, str]] = {
@@ -202,7 +202,7 @@ class HLAAlgorithm:
         :rtype: dict[HLA_LOCUS, dict[HLAProteinPair, int]]
         """
         hla_freqs: dict[HLA_LOCUS, dict[HLAProteinPair, int]]
-        with open(HLAAlgorithm.DEFAULT_CONFIG_DIR / "hla_frequencies.csv") as f:
+        with (HLAAlgorithm.DEFAULT_CONFIG_DIR / "hla_frequencies.csv").open() as f:
             hla_freqs = HLAAlgorithm.read_hla_frequencies(f)
         return hla_freqs
 

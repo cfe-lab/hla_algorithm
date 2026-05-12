@@ -8,6 +8,7 @@ import os
 import time
 from datetime import datetime
 from io import StringIO
+from pathlib import Path
 from typing import Final, Optional, TypedDict, cast
 
 import Bio
@@ -215,13 +216,13 @@ def main():
     parser.add_argument(
         "--output",
         help="filename to store the unreduced standards (YAML format)",
-        type=str,
+        type=Path,
         default="hla_standards.yaml",
     )
     parser.add_argument(
         "--checksum",
         help="filename to store the MD5 checksum of the retrieved data in",
-        type=str,
+        type=Path,
         default="hla_nuc.fasta.checksum.txt",
     )
     parser.add_argument(
@@ -242,8 +243,7 @@ def main():
     parser.add_argument(
         "--dump_full_fasta_to",
         help="if specified, the full original FASTA file is dumped to the specified path",
-        type=str,
-        default="",
+        type=Path,
     )
     parser.add_argument(
         "--standard_report_interval",
@@ -278,16 +278,14 @@ def main():
         f"{retrieval_datetime}."
     )
 
-    if args.dump_full_fasta_to != "":
+    if args.dump_full_fasta_to is not None:
         logger.info(f"Dumping the full FASTA file to {args.dump_full_fasta_to}.")
-        with open(args.dump_full_fasta_to, "w") as f:
-            f.write(alleles_str)
+        args.dump_full_fasta_to.write_text(alleles_str)
 
     # Compute the checksum.
     md5_calc = hashlib.md5()
     md5_calc.update(alleles_str.encode())
-    with open(args.checksum, "w") as f:
-        f.write(f"{md5_calc.hexdigest()} {HLA_ALLELES_FILENAME}\n")
+    args.checksum.write_text(f"{md5_calc.hexdigest()} {HLA_ALLELES_FILENAME}\n")
 
     raw_standards: dict[HLA_LOCUS, list[HLARawStandard]] = collate_standards(
         list(Bio.SeqIO.parse(StringIO(alleles_str), "fasta")),
@@ -313,7 +311,7 @@ def main():
 
     # First, prepare the unreduced YAML output.
     logger.info(f"Writing HLA standards to {args.output}....")
-    with open(args.output, "w") as f:
+    with args.output.open("w") as f:
         yaml.safe_dump(standards_for_saving.model_dump(), f)
 
     logger.info("Done.")

@@ -90,7 +90,7 @@ def main():
             }
         )
 
-    with open(args.output_csv, "w") as f:
+    with args.output_csv.open("w") as f:
         resource_summary_writer = csv.DictWriter(
             f,
             fieldnames=("sample_name", "wall_clock_time", "max_memory_usage_kb"),
