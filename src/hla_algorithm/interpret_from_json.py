@@ -44,9 +44,12 @@ def main():
             hla_input.hla_std_path,
             hla_input.hla_freq_path,
         )
-        interp: HLAInterpretation = hla_alg.interpret(
-            hla_input.hla_sequence(), hla_input.threshold
-        )
+        try:
+            interp: HLAInterpretation = hla_alg.interpret(
+                hla_input.hla_sequence(), hla_input.threshold
+            )
+        except HLAAlgorithm.NoMatchingStandards:
+            print({"exception": "no matching standards"})
         print(
             HLAResult.build_from_interpretation(
                 interp, hla_alg.tag, hla_alg.last_updated
