@@ -46,6 +46,12 @@ end
 
 
 class HLAAlgorithm
+  class Error < RuntimeError
+  end
+
+  class NoMatchingStandards < Error
+  end
+
   def initialize(
     hla_std_path=nil,
     hla_freq_path=nil
@@ -81,6 +87,11 @@ class HLAAlgorithm
         "#{wait_thread.value}.  Error output:\n"\
         "#{python_stderr}"
       raise error_msg
+    end
+
+    result = JSON.parse(python_stdout)
+    if result.key?('exception') && result['exception'] == 'no matching standards'
+      raise(NoMatchingStandards)
     end
 
     return HLAResult.new(JSON.parse(python_stdout))
