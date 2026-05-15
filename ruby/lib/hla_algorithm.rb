@@ -91,7 +91,7 @@ class HLAAlgorithm
 
     result = JSON.parse(python_stdout)
     if result.key?('exception') && result['exception'] == 'no matching standards'
-      raise NoMatchingStandards.new()
+      raise(NoMatchingStandards)
     end
 
     return HLAResult.new(JSON.parse(python_stdout))
