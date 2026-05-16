@@ -84,6 +84,7 @@ class MatchingAllelePair(BaseModel):
     - the number of mismatches identified; and
     - the allele pair (i.e. names of the two alleles in the combination).
     """
+
     standard_bin: tuple[int, ...]
     mismatch_count: int
     allele_1: str
@@ -91,7 +92,9 @@ class MatchingAllelePair(BaseModel):
 
     @model_validator(mode="after")
     def check_alleles_ordered(self) -> Self:
-        if allele_coordinates_sort_key(self.allele_1) > allele_coordinates_sort_key(self.allele_2):
+        if allele_coordinates_sort_key(self.allele_1) > allele_coordinates_sort_key(
+            self.allele_2
+        ):
             raise ValueError("allele_1 should be less than or equal to allele_2")
         return self
 
@@ -474,7 +477,9 @@ class AllelePairs(BaseModel):
         if len(allele_prefixes) > 0:
             max_length: int = max([len(allele) for allele in allele_prefixes])
             for i in range(max_length, 0, -1):
-                curr_prefixes: set[GeneCoord] = {allele[0:i] for allele in allele_prefixes}
+                curr_prefixes: set[GeneCoord] = {
+                    allele[0:i] for allele in allele_prefixes
+                }
                 if len(curr_prefixes) == 1:
                     longest_prefix = curr_prefixes.pop()
                     if i > 1:
@@ -522,9 +527,8 @@ class AllelePairs(BaseModel):
         )
 
         second_prefix: GeneCoord = (
-            intermediate_data.second_prefix or self._identify_longest_prefix(
-                intermediate_data.remaining_prefixes
-            )
+            intermediate_data.second_prefix
+            or self._identify_longest_prefix(intermediate_data.remaining_prefixes)
         )
 
         # Turn the two prefixes we found into strings and strip any trailing
@@ -640,7 +644,7 @@ class HLAInterpretation(BaseModel):
             ap_to_cs[best_representative],
         )
 
-    def distance_from_b7501(self) -> Optional[int]:
+    def distance_from_b5701(self) -> Optional[int]:
         """
         Return the Hamming distance from this sequence to B*57:01.
 
