@@ -156,7 +156,7 @@ class HLAResult(BaseModel):
             alleles_version=alleles_version,
             alleles_last_updated=alleles_last_updated,
             b5701=interp.is_b5701(),
-            dist_b5701=interp.distance_from_b7501(),
+            dist_b5701=interp.distance_from_b5701(),
             all_mismatches={
                 cs.get_allele_pair_str(): HLAMatchAdaptor.from_match_details(match)
                 for cs, match in interp.matches.items()

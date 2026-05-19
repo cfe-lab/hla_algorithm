@@ -2529,7 +2529,7 @@ class TestHLAInterpretation:
             allele_frequencies={},
             b5701_standards=b5701_standards,
         )
-        assert interp.distance_from_b7501() == expected_result
+        assert interp.distance_from_b5701() == expected_result
 
     @pytest.mark.parametrize(
         "raw_matches, expected_result",
