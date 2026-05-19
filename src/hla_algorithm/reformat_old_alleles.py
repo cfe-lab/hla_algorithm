@@ -77,7 +77,7 @@ def main():
     elif args.verbose > 1:
         logger.setLevel(logging.DEBUG)
 
-    input_filenames_by_locus: dict[HLA_LOCUS, str] = {
+    input_filenames_by_locus: dict[HLA_LOCUS, Path] = {
         "A": args.a_standards,
         "B": args.b_standards,
         "C": args.c_standards,
