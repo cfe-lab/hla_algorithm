@@ -133,7 +133,7 @@ def count_forgiving_mismatches(
 
     overlaps: np.ndarray = seq1_np & seq2_np
     matches: np.ndarray = (overlaps == seq1_np) | (overlaps == seq2_np)
-    return np.count_nonzero(matches == False)
+    return int(np.count_nonzero(matches == False))
 
 
 class InvalidBaseException(Exception):
@@ -368,19 +368,16 @@ def allele_coordinates_sort_key(allele: str) -> tuple[tuple[int, ...], str]:
     return (integer_part, letters_at_end)
 
 
-def allele_pair_sort_key(pair: tuple[str, str]) -> tuple[
-    tuple[int, ...], str, tuple[int, ...], str
-]:
+def allele_pair_sort_key(
+    pair: tuple[str, str],
+) -> tuple[tuple[int, ...], str, tuple[int, ...], str]:
     """
     Produce a sortable key for an allele pair.
 
     Pairs should be sorted according to "coordinate order".
     If there's a tie, a last letter is used to attempt to break the tie.
     """
-    return (
-        allele_coordinates_sort_key(pair[0])
-        + allele_coordinates_sort_key(pair[1])
-    )
+    return allele_coordinates_sort_key(pair[0]) + allele_coordinates_sort_key(pair[1])
 
 
 def sort_allele_pairs(allele_pairs: Iterable[tuple[str, str]]) -> list[tuple[str, str]]:
