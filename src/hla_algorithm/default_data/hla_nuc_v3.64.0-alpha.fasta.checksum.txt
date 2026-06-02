@@ -1,0 +1,1 @@
+54a75264f6c7e2d5a33ca285e14d72e0 hla_nuc.fasta
